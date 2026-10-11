@@ -1,0 +1,430 @@
+{% extends "core/base.html" %}
+
+{% block title %}Dashboard - HealthManager{% endblock %}
+
+{% block extra_css %}
+<style>
+  .text-success { color: var(--success) !important; }
+  .text-warning { color: var(--warning) !important; }
+  .text-error { color: var(--error) !important; }
+  .text-info { color: var(--info) !important; }
+  .text-muted { color: var(--gray-500) !important; }
+
+  .card { border-radius: 16px; }
+
+  /* ---------- Header ---------- */
+  .dash-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px; margin-bottom: 18px; }
+  .dash-title { font-size: 1.7em; font-weight: 800; color: var(--gray-900); margin: 0; letter-spacing: -0.01em; }
+  .dash-subtitle { font-size: 0.85em; color: var(--gray-500); margin-top: 2px; }
+
+  /* ---------- Week navigator ---------- */
+  .week-nav2 { display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 12px; padding: 8px 10px; margin-bottom: 20px; }
+  .week-nav2 .nav-arrow { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--bg-hover); color: var(--gray-700); text-decoration: none; transition: background 0.15s, color 0.15s; flex-shrink: 0; }
+  .week-nav2 .nav-arrow:hover { background: var(--border-light); color: var(--gray-900); }
+  .week-nav2 .nav-arrow.disabled { opacity: 0.3; pointer-events: none; }
+  .week-range { font-weight: 700; font-size: 0.95em; text-align: center; color: var(--gray-800); }
+  .week-range .badge-current { margin-left: 8px; font-weight: 600; font-size: 0.85em; color: var(--success); }
+  .week-range .badge-past { margin-left: 8px; font-weight: 500; font-size: 0.85em; color: var(--gray-500); }
+
+  /* ---------- Hero ---------- */
+  .hero-card {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 18px;
+    padding: clamp(18px, 3vw, 28px);
+    margin-bottom: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .hero-card::before {
+    content: "";
+    position: absolute;
+    top: -70%; right: -10%;
+    width: 360px; height: 360px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--hero-glow, var(--primary)) 0%, transparent 72%);
+    opacity: 0.30;
+    pointer-events: none;
+  }
+  .hero-card.hero-status-good { --hero-glow: var(--success); border-color: rgba(52,211,153,0.35); }
+  .hero-card.hero-status-moderate { --hero-glow: var(--warning); border-color: rgba(251,191,36,0.35); }
+  .hero-card.hero-status-aggressive { --hero-glow: var(--error); border-color: rgba(248,113,113,0.35); }
+  .hero-card.hero-status-surplus { --hero-glow: var(--info); border-color: rgba(96,165,250,0.35); }
+  .hero-main { position: relative; z-index: 1; min-width: 220px; }
+  .hero-eyebrow { display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.72em; font-weight: 700; color: var(--gray-500); margin-bottom: 8px; }
+  .hero-value { font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800; line-height: 1; color: var(--gray-900); }
+  .hero-value .unit { font-size: 0.35em; font-weight: 600; color: var(--gray-500); margin-left: 6px; }
+  .hero-goal { font-size: 0.85em; color: var(--gray-500); margin-top: 8px; }
+  .hero-side { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; }
+  .hero-badge { padding: 6px 14px; border-radius: 999px; font-size: 0.8em; font-weight: 700; background: rgba(255,255,255,0.06); border: 1px solid var(--border-light); }
+  .hero-status-good .hero-badge { color: var(--success); }
+  .hero-status-moderate .hero-badge { color: var(--warning); }
+  .hero-status-aggressive .hero-badge { color: var(--error); }
+  .hero-status-surplus .hero-badge { color: var(--info); }
+  .hero-trend { font-size: 0.78em; color: var(--gray-500); display: flex; align-items: center; gap: 5px; }
+  .hero-clickable { cursor: pointer; transition: border-color 0.15s, transform 0.1s; }
+  .hero-clickable:hover { border-color: var(--border-medium); }
+  .hero-clickable:active { transform: scale(0.995); }
+  .hero-tap-hint { font-size: 0.72em; color: var(--gray-500); display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+  .hero-tap-hint .chev { transition: transform 0.2s; }
+  .hero-clickable[aria-expanded="true"] .hero-tap-hint .chev { transform: rotate(180deg); }
+
+  /* ---------- 7-day average comparison panel ---------- */
+  .comparison-panel { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 14px; padding: 10px 16px 14px; margin: -10px 0 18px; }
+  .cmp-highlight, .cmp-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border-light); font-size: 0.88em; color: var(--gray-700); }
+  .cmp-highlight { font-weight: 700; color: var(--gray-900); }
+  .cmp-row:last-child { border-bottom: none; }
+  .cmp-row-today { color: var(--gray-900); font-weight: 600; }
+  .cmp-days-title { font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-500); margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-light); }
+  .mini-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+
+  /* ---------- Icon badges ---------- */
+  .icon-badge { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+  .icon-badge.soft-primary { background: rgba(59,130,246,0.15); color: var(--primary-light); }
+  .icon-badge.soft-success { background: var(--success-bg); color: var(--success); }
+  .icon-badge.soft-warning { background: var(--warning-bg); color: var(--warning); }
+  .icon-badge.soft-danger { background: var(--error-bg); color: var(--error); }
+  .icon-badge.soft-info { background: var(--info-bg); color: var(--info); }
+  .icon-badge.sm { width: 32px; height: 32px; font-size: 0.95rem; border-radius: 10px; }
+
+  /* ---------- Stat cards ---------- */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .stat-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px; transition: transform 0.15s ease, border-color 0.15s ease; }
+  .stat-card:hover { transform: translateY(-2px); border-color: var(--border-medium); }
+  .stat-card-head { display: flex; align-items: center; gap: 10px; }
+  .stat-card-title { font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: var(--gray-500); }
+  .stat-metric { font-size: clamp(1.5rem, 2.2vw, 2.1rem); font-weight: 800; color: var(--gray-900); line-height: 1; }
+  .stat-metric .unit { font-size: 0.42em; font-weight: 600; color: var(--gray-500); margin-left: 3px; }
+  .stat-caption { font-size: 0.8em; color: var(--gray-500); margin-top: -6px; }
+  .stat-pill { align-self: flex-start; padding: 3px 11px; border-radius: 999px; font-size: 0.72em; font-weight: 700; }
+  .stat-pill.ok { background: var(--success-bg); color: var(--success); }
+  .stat-pill.monitor { background: var(--warning-bg); color: var(--warning); }
+  .stat-pill.reduce { background: var(--error-bg); color: var(--error); }
+  .stat-foot { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 2px; padding-top: 12px; border-top: 1px solid var(--border-light); }
+  .stat-foot-item { text-align: center; }
+  .stat-foot-value { font-weight: 700; font-size: 0.95em; color: var(--gray-800); }
+  .stat-foot-label { font-size: 0.66em; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.03em; }
+
+  /* ---------- Generic section card ---------- */
+  .section-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 18px 20px; margin-bottom: 18px; }
+  .section-title { display: flex; align-items: center; gap: 10px; font-size: 1em; font-weight: 700; color: var(--gray-800); margin-bottom: 14px; }
+  .section-title .muted-sm { font-weight: 500; font-size: 0.75em; color: var(--gray-500); margin-left: auto; }
+
+  /* ---------- Macro target bars ---------- */
+  .macro-row { margin-bottom: 16px; }
+  .macro-row:last-child { margin-bottom: 0; }
+  .macro-row-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; font-size: 0.85em; }
+  .macro-row-head .name { font-weight: 700; color: var(--gray-800); }
+  .macro-row-head .value { color: var(--gray-500); }
+  .macro-track { height: 10px; background: var(--gray-100); border-radius: 999px; overflow: hidden; }
+  .macro-track-fill { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
+  .macro-track-fill.protein { background: linear-gradient(90deg, #10b981, #34d399); }
+  .macro-track-fill.carbs { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .macro-track-fill.fat { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+  .macro-track-fill.low { filter: saturate(0.6) brightness(0.85); }
+
+  .macros-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 4px 0; color: var(--gray-500); font-size: 0.8em; margin-top: 10px; user-select: none; }
+  .macros-toggle:hover { color: var(--primary-light); }
+  .macros-toggle .chev { transition: transform 0.2s; }
+  .macros-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  #macrosDetail { margin-top: 12px; }
+
+  /* ---------- Segmented macro-energy bar ---------- */
+  .segbar { display: flex; height: 16px; border-radius: 999px; overflow: hidden; background: var(--gray-100); margin-bottom: 10px; }
+  .segbar span { height: 100%; }
+  .seg-protein { background: linear-gradient(90deg, #10b981, #34d399); }
+  .seg-carbs { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .seg-fat { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+  .seg-legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.8em; color: var(--gray-600); margin-bottom: 16px; }
+  .seg-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+  .seg-legend .val { color: var(--gray-500); margin-left: 4px; }
+
+  .stat-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+  .stat-strip-item { text-align: center; }
+  .stat-strip-value { font-weight: 800; font-size: 1.15em; color: var(--gray-900); }
+  .stat-strip-label { font-size: 0.7em; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; }
+
+  /* ---------- Day chips ---------- */
+  .day-chip-row { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+  .day-chip { flex: 1; min-width: 180px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+  .day-chip.best { border-color: rgba(52,211,153,0.3); }
+  .day-chip.worst { border-color: rgba(248,113,113,0.3); }
+  .day-chip-label { font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-500); }
+  .day-chip-date { font-weight: 700; font-size: 0.9em; color: var(--gray-800); margin: 2px 0; }
+  .day-chip-value { font-weight: 800; font-size: 1.05em; }
+
+  /* ---------- Collapsible daily breakdown ---------- */
+  .collapse-toggle.btn-outline-light {
+    --bs-btn-color: var(--gray-700);
+    --bs-btn-border-color: var(--border-light);
+    --bs-btn-hover-bg: var(--bg-hover);
+    --bs-btn-hover-border-color: var(--border-medium);
+    --bs-btn-hover-color: var(--gray-900);
+    --bs-btn-active-bg: var(--bg-hover);
+    --bs-btn-active-border-color: var(--border-medium);
+    --bs-btn-active-color: var(--gray-900);
+    font-weight: 600;
+  }
+  .collapse-toggle .chev { transition: transform 0.25s; }
+  .collapse-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .empty-row { text-align: center; padding: 15px; color: var(--gray-400); }
+
+  /* ---------- Activities ---------- */
+  .activity-list { list-style: none; padding: 0; margin: 0; }
+  .activity-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-light); }
+  .activity-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .activity-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .activity-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .activity-name { font-weight: 600; color: var(--gray-800); font-size: 0.88em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .activity-meta { font-size: 0.72em; color: var(--gray-500); }
+  .activity-stats { display: flex; gap: 12px; font-size: 0.78em; color: var(--gray-600); white-space: nowrap; }
+  .activity-type-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.62em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+  .type-running { background: var(--success-bg); color: var(--success); }
+  .type-walking { background: var(--info-bg); color: var(--info); }
+  .type-strength { background: var(--warning-bg); color: var(--warning); }
+  .type-dancing { background: var(--error-bg); color: var(--accent-violet); }
+
+  @media (max-width: 480px) {
+    /* Fixed 4-up grid is too cramped at phone widths; 2-up keeps every
+       value legible without shrinking text or breaking out of the card. */
+    .stat-strip { grid-template-columns: repeat(2, 1fr); }
+    /* Only 3 short gram values - keep them 3-across even on phones rather
+       than an uneven 2+1 split. */
+    .macro-strip { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    /* Let long activity stats (distance/time/HR) wrap to their own line
+       instead of forcing the row - and the page - wider than the viewport. */
+    .activity-item { flex-wrap: wrap; }
+
+    /* Tighter information density on phones: the desktop card padding/gaps
+       leave a lot of empty space around short values at this width. Text
+       size is untouched - only spacing shrinks. */
+    .hero-card { padding: 16px; gap: 14px; }
+    .hero-side { align-items: flex-start; text-align: left; }
+    /* Each stat card already packs 3-4 data points (title, metric, pill,
+       two foot values) - keep them single-column and readable rather than
+       cramming two of these richer cards side by side; only tighten gap. */
+    .stats-grid { gap: 8px; margin-bottom: 12px; }
+    .stat-card { padding: 12px; gap: 6px; }
+    .stat-metric { font-size: 1.5rem; }
+    .section-card { padding: 12px 14px; margin-bottom: 12px; }
+    .section-title { margin-bottom: 10px; }
+    .macro-row { margin-bottom: 10px; }
+    .day-chip-row { margin-bottom: 12px; }
+    .day-chip { padding: 10px 12px; }
+    .dash-header { margin-bottom: 12px; }
+    .week-nav2 { margin-bottom: 14px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <!-- Header -->
+  <div class="dash-header">
+    <div>
+      <h1 class="dash-title">Dashboard</h1>
+      <div class="dash-subtitle">Weekly training, recovery &amp; nutrition overview</div>
+    </div>
+  </div>
+
+  <!-- Week navigator -->
+  <div class="week-nav2">
+    <a href="?week={{ prev_week }}" class="nav-arrow"><i class="bi bi-chevron-left"></i></a>
+    <div class="week-range">
+      {{ start_date|date:"d.m" }} &ndash; {{ end_date|date:"d.m.Y" }}
+      {% if week_offset == 0 %}
+        <span class="badge-current">Current</span>
+      {% else %}
+        <span class="badge-past">{{ week_offset }}w ago</span>
+      {% endif %}
+    </div>
+    {% if next_week is not None %}
+      <a href="?week={{ next_week }}" class="nav-arrow"><i class="bi bi-chevron-right"></i></a>
+    {% else %}
+      <span class="nav-arrow disabled"><i class="bi bi-chevron-right"></i></span>
+    {% endif %}
+  </div>
+
+  {% if energy %}
+  <!-- Nutrition Summary: existing energy figures + macro-energy distribution + truthful coverage -->
+  <div class="section-card">
+    <div class="section-title">
+      <i class="bi bi-basket2-fill"></i> Nutrition &mdash; Last {{ nutrition_summary.window_days }} days
+      <span class="muted-sm"><i class="bi bi-calendar-check"></i> {{ nutrition_summary.logged_days }} / {{ nutrition_summary.window_days }} days logged</span>
+    </div>
+
+    <!-- Same compact row list used by the 7-day average comparison panel -
+         .cmp-row/.cmp-highlight - instead of boxed stat tiles. All three
+         rows are daily averages, not period totals, so they stay directly
+         comparable to each other. -->
+    <div class="cmp-row">
+      <span>Avg intake</span>
+      <span>{{ energy.avg_intake|floatformat:0 }} kcal</span>
+    </div>
+    <div class="cmp-row">
+      <span>Avg expenditure</span>
+      <span>{{ energy.avg_expenditure|floatformat:0 }} kcal</span>
+    </div>
+    <div class="cmp-highlight">
+      <span>Avg daily balance</span>
+      <span>{{ energy.avg_balance|floatformat:"+0" }} kcal</span>
+    </div>
+
+    {% if nutrition_summary.percentages_available %}
+    <div class="segbar">
+      <span class="seg-protein" style="width: {{ nutrition_summary.macros.protein.percent }}%;"></span>
+      <span class="seg-carbs" style="width: {{ nutrition_summary.macros.carbs.percent }}%;"></span>
+      <span class="seg-fat" style="width: {{ nutrition_summary.macros.fat.percent }}%;"></span>
+    </div>
+    {% endif %}
+    <div class="cmp-days-title">Macros ({{ nutrition_summary.denominator_label|lower }})</div>
+    <div class="cmp-row">
+      <span><span class="mini-dot" style="background: #34d399;"></span>Protein</span>
+      <span>{% if nutrition_summary.macros.protein.avg_g is None %}<span class="text-muted">Unknown</span>{% else %}{{ nutrition_summary.macros.protein.avg_g }} g{% if nutrition_summary.macros.protein.percent %} <span class="text-muted">&middot; {{ nutrition_summary.macros.protein.percent }}%</span>{% endif %}{% endif %}</span>
+    </div>
+    <div class="cmp-row">
+      <span><span class="mini-dot" style="background: #fbbf24;"></span>Carbs</span>
+      <span>{% if nutrition_summary.macros.carbs.avg_g is None %}<span class="text-muted">Unknown</span>{% else %}{{ nutrition_summary.macros.carbs.avg_g }} g{% if nutrition_summary.macros.carbs.percent %} <span class="text-muted">&middot; {{ nutrition_summary.macros.carbs.percent }}%</span>{% endif %}{% endif %}</span>
+    </div>
+    <div class="cmp-row">
+      <span><span class="mini-dot" style="background: #a78bfa;"></span>Fat</span>
+      <span>{% if nutrition_summary.macros.fat.avg_g is None %}<span class="text-muted">Unknown</span>{% else %}{{ nutrition_summary.macros.fat.avg_g }} g{% if nutrition_summary.macros.fat.percent %} <span class="text-muted">&middot; {{ nutrition_summary.macros.fat.percent }}%</span>{% endif %}{% endif %}</span>
+    </div>
+    {% if not nutrition_summary.percentages_available %}
+    <div class="text-muted" style="font-size: 0.78em; margin-top: 6px;">Energy-share % needs complete data for all three macros this period.</div>
+    {% endif %}
+
+    <!-- Daily Breakdown, moved to the bottom of this card -->
+    <button class="collapse-toggle btn btn-outline-light w-100 text-start d-flex align-items-center gap-2 mt-3" type="button" data-bs-toggle="collapse" data-bs-target="#dailyTable" aria-expanded="false" aria-controls="dailyTable">
+      <i class="bi bi-chevron-right chev"></i>
+      <i class="bi bi-table"></i>
+      Daily Breakdown ({{ full_week_days|length }} days)
+    </button>
+    <div class="collapse mt-3" id="dailyTable">
+      <div class="table-responsive">
+      <table class="table table-dark table-sm table-hover mb-0">
+        <tr>
+          <th>Date</th>
+          <th>In</th>
+          <th>Out</th>
+          <th>Balance</th>
+          <th>Protein</th>
+          <th>Carbs</th>
+          <th>Fat</th>
+        </tr>
+        {% for item in full_week_days %}
+        <tr>
+          <td><strong>{{ item.date|date:"D d.m" }}</strong></td>
+          <td>{{ item.log.calories_in|default:"-" }}</td>
+          <td>{{ item.log.calories_out|default:"-" }}</td>
+          <td class="{% if item.log and item.log.balance_kcal > 0 %}text-success{% elif item.log and item.log.balance_kcal %}text-error{% endif %}">
+            {{ item.log.balance_kcal|default:"-" }}
+          </td>
+          <td>{{ item.log.protein_g|floatformat:0|default:"-" }}</td>
+          <td>{{ item.log.carbs_g|floatformat:0|default:"-" }}</td>
+          <td>{{ item.log.fat_g|floatformat:0|default:"-" }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Two stat cards -->
+  <div class="stats-grid">
+    <!-- TRAINING -->
+    <div class="stat-card">
+      <div class="stat-card-head">
+        <div class="icon-badge soft-warning"><i class="bi bi-activity"></i></div>
+        <div class="stat-card-title">Training</div>
+      </div>
+      {% if training.total_workouts %}
+      <div class="stat-metric">{{ training.total_workouts }}</div>
+      <div class="stat-caption">workouts this week</div>
+      <span class="stat-pill {% if training.load_status == 'low' %}monitor{% elif training.load_status == 'very_high' %}reduce{% else %}ok{% endif %}">
+        {{ training.load_text }}
+      </span>
+      <div class="stat-foot">
+        <div class="stat-foot-item">
+          <div class="stat-foot-value">{{ training.total_time_min|floatformat:0 }}</div>
+          <div class="stat-foot-label">Minutes</div>
+        </div>
+        <div class="stat-foot-item">
+          <div class="stat-foot-value">{{ training.total_calories }}</div>
+          <div class="stat-foot-label">Burned (kcal)</div>
+        </div>
+      </div>
+      {% else %}
+      <div class="stat-metric text-muted">&mdash;</div>
+      <div class="stat-caption">No workouts logged</div>
+      {% endif %}
+    </div>
+
+    <!-- RECOVERY -->
+    <div class="stat-card">
+      <div class="stat-card-head">
+        <div class="icon-badge soft-danger"><i class="bi bi-heart-pulse-fill"></i></div>
+        <div class="stat-card-title">Recovery</div>
+      </div>
+      {% if recovery.current_hr %}
+      <div class="stat-metric">{{ recovery.current_hr }}<span class="unit">bpm</span></div>
+      <div class="stat-caption">resting heart rate</div>
+      <span class="stat-pill {{ recovery.status }}">{{ recovery.status_text }}</span>
+      <div class="stat-foot">
+        <div class="stat-foot-item">
+          <div class="stat-foot-value">{{ recovery.baseline_hr|floatformat:0 }}</div>
+          <div class="stat-foot-label">Baseline (bpm)</div>
+        </div>
+        <div class="stat-foot-item">
+          <div class="stat-foot-value {% if recovery.deviation > 3 %}text-warning{% elif recovery.deviation > 5 %}text-error{% endif %}">
+            {{ recovery.deviation|floatformat:"+0" }}
+          </div>
+          <div class="stat-foot-label">Deviation</div>
+        </div>
+      </div>
+      {% if recovery.consecutive_elevated >= 3 %}
+      <div class="text-error" style="font-size: 0.82em;">
+        <i class="bi bi-exclamation-triangle-fill"></i> Elevated for {{ recovery.consecutive_elevated }} days
+      </div>
+      {% endif %}
+      {% else %}
+      <div class="stat-metric text-muted">&mdash;</div>
+      <div class="stat-caption">No HR data available</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% endif %}
+
+  <!-- Recent Activities -->
+  {% if recent_activities %}
+  <div class="section-card">
+    <div class="section-title"><i class="bi bi-stopwatch"></i> This Week's Activities</div>
+    <ul class="activity-list">
+      {% for activity in recent_activities %}
+      <li class="activity-item">
+        <div class="activity-left">
+          <span class="activity-type-badge type-{{ activity.activity_type }}">{{ activity.get_activity_type_display }}</span>
+          <div class="activity-info">
+            <span class="activity-name">{{ activity.name|default:"Workout" }}</span>
+            <span class="activity-meta">{{ activity.date|date:"D d.m" }}</span>
+          </div>
+        </div>
+        <div class="activity-stats">
+          {% if activity.duration_minutes %}
+          <span><i class="bi bi-clock"></i> {{ activity.duration_minutes|floatformat:0 }}min</span>
+          {% endif %}
+          {% if activity.calories %}
+          <span><i class="bi bi-fire"></i> {{ activity.calories }}kcal</span>
+          {% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+{% endblock %}

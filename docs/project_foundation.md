@@ -1,0 +1,205 @@
+# HealthManager Project Foundation
+
+Last updated: 2026-07-22
+
+## Goal
+
+HealthManager is a local-first health tracking app for:
+
+- Energy expenditure from Garmin daily/activity data.
+- Energy intake, macros, and foods from manual entry, Fineli search/cache, and Fineli diary CSV imports.
+- Daily and weekly review of calorie balance, macros, activity, recovery, and running performance.
+
+The project is designed for later AI/ML analysis while keeping personal data local.
+
+## Core Principles
+
+- Preserve raw exports. Do not manually edit Garmin or Fineli source files.
+- Use one canonical daily row as the base unit for analysis.
+- Compute derived values in code unless persistence has a clear purpose.
+- Keep the default deployment local: SQLite, local files, local Django server.
+- Keep account credentials, Garmin tokens, and personal datasets out of Git.
+
+## Repository Structure
+
+```text
+HealthManager/
+  backend/
+    config/                    Django settings and URL routing
+    core/                      Dashboard, settings, DailyLog, UserSettings
+      templates/core/
+      templatetags/core_extras.py
+    activities/                Garmin activities, laps, running analytics
+      management/commands/import_garmin_csv.py
+      templates/activities/
+    nutrition/                 Food diary, Fineli foods, custom foods, meal entries
+      management/commands/import_fineli_csv.py
+      templates/nutrition/
+    data/                      Generated Garmin CSV files, not committed
+    manage.py
+    db.sqlite3                 Local database, not committed
+  data/                        Raw/local imports, not committed
+  docs/                        Project documentation
+  notes/                       Local development notes
+  get_garmindata.py            Legacy Garmin Connect CSV fetcher
+  requirements.txt
+  .env.example
+  .env                         Local credentials, not committed
+  .garmintokens/               Garmin auth tokens, not committed
+```
+
+## Data Flow
+
+### Garmin
+
+1. `get_garmindata.py` logs in to Garmin Connect.
+2. It reuses tokens from `.garmintokens/` when possible.
+3. It writes generated CSV files to `backend/data/`:
+   - `garmin_daily.csv`
+   - `garmin_activities.csv`
+   - `garmin_activity_laps.csv`
+4. `python manage.py import_garmin_csv` imports those CSV files into SQLite.
+
+Default fetch range is the last 30 completed days. Backfills can be run with:
+
+```bash
+python ../get_garmindata.py --start-date 2026-03-17 --end-date 2026-07-21
+```
+
+Accepted date formats are `YYYY-MM-DD` and `DD.MM.YYYY`.
+
+### Nutrition
+
+Supported intake sources:
+
+- Food diary UI manual entries.
+- Fineli search/cache entries.
+- Fineli diary CSV bulk import.
+- Optional complete Fineli Open Data import via `import_fineli_csv`.
+
+Meal entries update `DailyLog.calories_in` and macro totals through recalculation.
+
+### Analysis
+
+Daily Garmin and nutrition data combine around `DailyLog.date`. Running analytics use `Activity` and `ActivityLap` directly.
+
+Future processed/features files can be generated from the database when needed:
+
+- `data/processed/daily_combined.csv`
+- `data/features/daily_features.csv`
+
+## Canonical Daily Schema
+
+Core daily fields:
+
+- `date`
+- `calories_out`
+- `calories_in`
+- `protein_g`
+- `carbs_g`
+- `fat_g`
+- `sat_fat_g`
+- `steps`
+- `distance_meters`
+- `moderate_intensity_minutes`
+- `vigorous_intensity_minutes`
+- `resting_heart_rate`
+- `min_heart_rate`
+- `max_heart_rate`
+
+Common derived values:
+
+- `balance_kcal = calories_in - calories_out`
+- `protein_kcal = protein_g * 4`
+- `carbs_kcal = carbs_g * 4`
+- `fat_kcal = fat_g * 9`
+- `macro_pct = macro_kcal / calories_in` when `calories_in > 0`
+
+## Django App Scope
+
+### Core
+
+`DailyLog`
+
+- One row per date.
+- Stores Garmin daily stats and nutrition totals.
+- Nutrition totals are recalculated from meal entries.
+
+`UserSettings`
+
+- Singleton user profile and goal settings.
+- Calculates BMR, TDEE, target calories, and macro recommendations.
+- Tracks `last_garmin_sync`.
+
+### Activities
+
+`Activity`
+
+- One row per Garmin activity.
+- Stores activity type, date, start time, duration, distance, pace, speed, HR, calories, elevation, cadence, steps, VO2 max, and HR zone seconds.
+
+`ActivityLap`
+
+- One row per activity lap/interval.
+- Step types include `warmup`, `run`, `cooldown`, `interval`, `recovery`, `rest`, and `other`.
+- Stores timing, distance, pace, speed, HR, elevation, and cadence.
+
+Running analytics:
+
+- Default lap types: `run` and `interval`.
+- Optional lap types: `warmup`, `cooldown`.
+- Excluded lap types: `recovery`, `rest`, `other`.
+- Average pace is weighted by total time divided by total distance.
+- Display pace format is `MM:SS.xx`.
+
+### Nutrition
+
+`FineliFood`
+
+- Multilingual Fineli food cache with nutrition per 100g.
+- Also supports complete offline preload through CSV import.
+
+`CustomFood`
+
+- User-created foods with nutrition per 100g.
+
+`MealEntry`
+
+- Individual food log entries linked to `DailyLog`.
+- Sources: `fineli`, `custom`, `manual`.
+- Meal types: breakfast, lunch, dinner, snack, evening snack.
+
+## Management Commands
+
+```bash
+cd backend
+
+# Import generated Garmin CSV files
+python manage.py import_garmin_csv
+
+# Import complete Fineli Open Data CSV folder
+python manage.py import_fineli_csv --data-folder "path/to/Fineli_Rel20"
+```
+
+## Security Rules
+
+- Do not commit `.env`.
+- Do not commit `.garmintokens/`.
+- Do not commit SQLite databases or generated personal CSV files.
+- Prefer VPN/local network if remote access is ever added.
+- Do not expose the Django dev server directly to the internet.
+
+## UI Conventions
+
+- All templates extend `core/base.html`.
+- Toast notifications use `showToast(message, type, duration)`.
+- Avoid browser alerts/prompts.
+- Use filter buttons for analytics and other repeated filter controls.
+- Include CSRF tokens in POST requests; async dashboard sync reads `csrftoken` from cookies.
+
+## Documentation Rules
+
+- Update `docs/project_status.md` after each meaningful feature or workflow change.
+- Update `docs/database_guide.md` when models or data contracts change.
+- Update `docs/ui_guidelines.md` when frontend conventions change.
+- Update user guides when routes, commands, or usage steps change.

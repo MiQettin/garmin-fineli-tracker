@@ -1,0 +1,263 @@
+{% extends "core/base.html" %}
+
+{% block title %}My Foods - HealthManager{% endblock %}
+
+{% block extra_css %}
+<style>
+  h1, h2 { color: var(--gray-800); margin-bottom: 12px; font-size: 1.2em; }
+  
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .food-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+  
+  .food-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 12px;
+    transition: box-shadow 0.2s;
+  }
+  
+  .food-card:hover {
+    box-shadow: var(--shadow-md);
+  }
+  
+  .food-name {
+    font-weight: bold;
+    font-size: 0.95em;
+    color: var(--gray-800);
+    margin-bottom: 3px;
+  }
+  
+  .food-brand {
+    color: var(--gray-500);
+    font-size: 0.8em;
+    margin-bottom: 8px;
+  }
+  
+  .food-macros {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+  
+  .macro-item {
+    text-align: center;
+    padding: 4px;
+    background: var(--gray-50);
+    border-radius: 3px;
+  }
+  
+  .macro-value {
+    font-weight: bold;
+    color: var(--primary);
+    font-size: 0.9em;
+  }
+  
+  .macro-label {
+    font-size: 0.7em;
+    color: var(--gray-500);
+  }
+  
+  .food-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .food-actions > a, .food-actions > form { flex: 1; }
+  .food-actions .btn { width: 100%; font-size: 0.8em; padding: 6px; }
+
+  .add-form {
+    background: var(--gray-50);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+  }
+
+  .form-group {
+    margin-bottom: 0;
+  }
+
+  .form-group label {
+    display: block;
+    font-weight: bold;
+    color: var(--gray-600);
+    margin-bottom: 5px;
+    font-size: 0.9em;
+  }
+
+  .form-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--gray-500);
+  }
+
+  .empty-state p {
+    margin-bottom: 15px;
+  }
+
+  .info-text {
+    font-size: 0.9em;
+    color: var(--gray-500);
+    margin-bottom: 15px;
+  }
+
+  .portion-info {
+    font-size: 0.85em;
+    color: var(--gray-500);
+    margin-top: 5px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="header-row">
+    <h1>📝 My Foods</h1>
+  </div>
+  
+  <p class="info-text">
+    Create custom foods for items not in the Fineli database (imported products, homemade recipes, restaurant meals).
+    All values are per 100g.
+  </p>
+
+  <div class="header-row" style="gap: 10px; justify-content: flex-start;">
+    <a href="#add-product-form" class="btn btn-success">➕ Add Product</a>
+    <a href="{% url 'create_recipe' %}" class="btn btn-success">🧪 Create Recipe</a>
+  </div>
+
+  <!-- Add Product Form -->
+  <div class="add-form" id="add-product-form">
+    <h2>➕ Add Product</h2>
+    <p class="info-text">Enter nutrition values manually.</p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="id_name">Food Name *</label>
+          {{ form.name }}
+        </div>
+        <div class="form-group">
+          <label for="id_brand">Brand (optional)</label>
+          {{ form.brand }}
+        </div>
+        <div class="form-group">
+          <label for="id_energy_kcal_per_100g">Calories (kcal/100g) *</label>
+          {{ form.energy_kcal_per_100g }}
+        </div>
+        <div class="form-group">
+          <label for="id_protein_per_100g">Protein (g/100g)</label>
+          {{ form.protein_per_100g }}
+        </div>
+        <div class="form-group">
+          <label for="id_carbs_per_100g">Carbs (g/100g)</label>
+          {{ form.carbs_per_100g }}
+        </div>
+        <div class="form-group">
+          <label for="id_sugar_per_100g">Sugar (g/100g)</label>
+          {{ form.sugar_per_100g }}
+        </div>
+        <div class="form-group">
+          <label for="id_fat_per_100g">Fat (g/100g)</label>
+          {{ form.fat_per_100g }}
+        </div>
+        <div class="form-group">
+          <label for="id_sat_fat_per_100g">Sat. Fat (g/100g)</label>
+          {{ form.sat_fat_per_100g }}
+        </div>
+        <div class="form-group">
+          <label for="id_fiber_per_100g">Fiber (g/100g)</label>
+          {{ form.fiber_per_100g }}
+        </div>
+        <div class="form-group">
+          <label for="id_salt_per_100g">Salt (g/100g)</label>
+          {{ form.salt_per_100g }}
+        </div>
+        <div class="form-group">
+          <label for="id_default_portion_g">Default Portion (g)</label>
+          {{ form.default_portion_g }}
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-success">💾 Save Food</button>
+        </div>
+      </div>
+    </form>
+  </div>
+  
+  <!-- Custom Foods List -->
+  <h2>🍽️ My Custom Foods</h2>
+  
+  {% if custom_foods %}
+  <div class="food-grid">
+    {% for food in custom_foods %}
+    <div class="food-card">
+      <div class="food-name">{{ food.name }}</div>
+      {% if food.brand %}
+      <div class="food-brand">{{ food.brand }}</div>
+      {% endif %}
+      
+      <div class="food-macros">
+        <div class="macro-item">
+          <div class="macro-value">{{ food.energy_kcal_per_100g|floatformat:0 }}</div>
+          <div class="macro-label">kcal</div>
+        </div>
+        <div class="macro-item">
+          <div class="macro-value">{{ food.protein_per_100g|floatformat:1 }}</div>
+          <div class="macro-label">protein</div>
+        </div>
+        <div class="macro-item">
+          <div class="macro-value">{{ food.carbs_per_100g|floatformat:1 }}</div>
+          <div class="macro-label">carbs</div>
+        </div>
+        <div class="macro-item">
+          <div class="macro-value">{{ food.fat_per_100g|floatformat:1 }}</div>
+          <div class="macro-label">fat</div>
+        </div>
+      </div>
+      
+      <div class="portion-info">Default portion: {{ food.default_portion_g }}g</div>
+      
+      <div class="food-actions">
+        <a href="{% url 'edit_custom_food' food.id %}" class="btn btn-primary">✏️ Edit</a>
+        <a href="{% url 'recipe_detail' food.id %}" class="btn btn-primary">🧪 Recipe</a>
+        <form method="post" action="{% url 'delete_custom_food' food.id %}" style="margin: 0;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger" onclick="return confirm('Delete {{ food.name }}?')">🗑️ Delete</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <p>No custom foods yet.</p>
+    <p>Add your first custom food using the form above!</p>
+  </div>
+  {% endif %}
+</div>
+{% include "nutrition/_fineli_attribution.html" %}
+{% endblock %}

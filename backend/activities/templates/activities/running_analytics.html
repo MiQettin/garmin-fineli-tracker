@@ -1,0 +1,673 @@
+{% extends "core/base.html" %}
+
+{% block title %}Running Analytics - HealthManager{% endblock %}
+
+{% block content %}
+<style>
+  .analytics-container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 10px;
+  }
+  
+  .page-header {
+    margin-bottom: 15px;
+  }
+  
+  .page-header h1 {
+    color: var(--gray-800);
+    margin-bottom: 5px;
+    font-size: 1.3em;
+  }
+  
+  .page-header p {
+    color: var(--gray-500);
+    font-size: 0.9em;
+  }
+  
+  /* Filter Section */
+  .filter-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 10px 15px;
+    background: var(--bg-card);
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .filter-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .lap-filter-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  
+  .filter-tab {
+    padding: 5px 12px;
+    border-radius: 15px;
+    background: var(--gray-100);
+    color: var(--gray-600);
+    text-decoration: none;
+    font-size: 0.8em;
+    font-weight: 500;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+  }
+  
+  .filter-tab:hover {
+    background: var(--gray-200);
+    color: var(--gray-800);
+  }
+  
+  .filter-tab.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+  
+  .search-form {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+  }
+  
+  .search-form input[type="text"] {
+    padding: 6px 10px;
+    border: 2px solid var(--gray-200);
+    border-radius: 6px;
+    font-size: 0.85em;
+    min-width: 160px;
+    transition: border-color 0.2s;
+  }
+  
+  .search-form input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  
+  .search-form button {
+    padding: 6px 12px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.85em;
+    transition: background 0.2s;
+  }
+  
+  .search-form button:hover {
+    background: var(--primary-dark);
+  }
+  
+  .clear-filter {
+    padding: 6px 10px;
+    color: var(--gray-500);
+    text-decoration: none;
+    font-size: 0.8em;
+  }
+  
+  .clear-filter:hover {
+    color: var(--accent-red);
+  }
+  
+  /* Stats Overview */
+  .stats-overview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .stat-card {
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 12px 15px;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    border-left: 3px solid var(--primary);
+    flex: 1;
+    min-width: 120px;
+  }
+  
+  .stat-card.highlight {
+    border-left-color: var(--accent-green);
+    background: var(--success-bg);
+  }
+  
+  .stat-icon {
+    font-size: 1.3em;
+    margin-bottom: 5px;
+  }
+  
+  .stat-value {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: var(--gray-800);
+  }
+  
+  .stat-label {
+    color: var(--gray-500);
+    font-size: 0.8em;
+    margin-top: 3px;
+  }
+  
+  /* Chart Section */
+  .chart-section {
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .chart-section h2 {
+    color: var(--gray-800);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 1.1em;
+  }
+  
+  .chart-container {
+    position: relative;
+    height: 280px;
+    margin-bottom: 15px;
+  }
+  
+  .chart-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  
+  .chart-tab {
+    padding: 6px 14px;
+    border: none;
+    background: var(--gray-100);
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85em;
+    color: var(--gray-600);
+    transition: all 0.2s;
+  }
+  
+  .chart-tab:hover {
+    background: var(--gray-200);
+  }
+  
+  .chart-tab.active {
+    background: var(--primary);
+    color: white;
+  }
+  
+  /* Workout Table */
+  .workouts-section {
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .workouts-section h2 {
+    color: var(--gray-800);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 1.1em;
+  }
+  
+  .workouts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+  }
+  
+  .workouts-table th {
+    background: var(--gray-50);
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--gray-700);
+    border-bottom: 1px solid var(--border-light);
+  }
+  
+  .workouts-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--gray-100);
+    color: var(--gray-700);
+  }
+  
+  .workouts-table tr:hover {
+    background: var(--gray-50);
+  }
+  
+  .workouts-table a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  
+  .workouts-table a:hover {
+    text-decoration: underline;
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 40px 15px;
+    color: var(--gray-500);
+  }
+  
+  .empty-state h3 {
+    color: var(--gray-600);
+    margin-bottom: 8px;
+    font-size: 1em;
+  }
+  
+  /* Trend indicator */
+  .trend-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8em;
+    margin-left: 8px;
+  }
+  
+  .trend-up {
+    color: var(--error);
+  }
+  
+  .trend-down {
+    color: var(--success);
+  }
+  
+  @media (max-width: 768px) {
+    .filter-section {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    
+    .filter-tabs,
+    .lap-filter-tabs {
+      justify-content: center;
+    }
+    
+    .search-form {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .search-form input[type="text"] {
+      flex: 1;
+      min-width: auto;
+    }
+    
+    .stats-overview {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .chart-tabs {
+      flex-wrap: wrap;
+    }
+    
+    .workouts-table {
+      font-size: 0.9em;
+    }
+    
+    .workouts-table th,
+    .workouts-table td {
+      padding: 8px 10px;
+    }
+  }
+</style>
+
+<div class="analytics-container">
+  <div class="page-header">
+    <h1>📊 Running Performance Analytics</h1>
+    <p>Track your running interval progress over time (excludes warm-ups, cool-downs & walks)</p>
+  </div>
+  
+  <!-- Filter Section -->
+  <div class="filter-section">
+    <div class="filter-tabs">
+      <a href="{% url 'running_analytics' %}{{ workout_filter_urls.all }}" class="filter-tab {% if not workout_type and not search_query %}active{% endif %}">All</a>
+      <a href="{% url 'running_analytics' %}{{ workout_filter_urls.vk }}" class="filter-tab {% if workout_type == 'vk' %}active{% endif %}">🔥 VK (Intervals)</a>
+      <a href="{% url 'running_analytics' %}{{ workout_filter_urls.pk }}" class="filter-tab {% if workout_type == 'pk' %}active{% endif %}">💪 PK (Base)</a>
+      <a href="{% url 'running_analytics' %}{{ workout_filter_urls.pitka }}" class="filter-tab {% if workout_type == 'pitka' %}active{% endif %}">🏃 Pitkä (Long)</a>
+    </div>
+    <div class="lap-filter-tabs" aria-label="Lap filters">
+      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.intervals }}" class="filter-tab {% if include_intervals %}active{% endif %}">Intervals</a>
+      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.warmup }}" class="filter-tab {% if include_warmup %}active{% endif %}">Warm-up</a>
+      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.cooldown }}" class="filter-tab {% if include_cooldown %}active{% endif %}">Cool-down</a>
+    </div>
+    <form class="search-form" method="get" action="{% url 'running_analytics' %}">
+      <input type="text" name="q" value="{{ search_query }}" placeholder="Search workout names...">
+      <input type="hidden" name="intervals" value="{% if include_intervals %}1{% else %}0{% endif %}">
+      <input type="hidden" name="warmup" value="{% if include_warmup %}1{% else %}0{% endif %}">
+      <input type="hidden" name="cooldown" value="{% if include_cooldown %}1{% else %}0{% endif %}">
+      <input type="hidden" name="type" value="{{ workout_type }}">
+      <button type="submit">🔍 Search</button>
+    </form>
+    {% if workout_type or search_query or include_warmup or include_cooldown or not include_intervals %}
+    <a href="{% url 'running_analytics' %}" class="clear-filter">✕ Clear filter</a>
+    {% endif %}
+  </div>
+  
+  {% if workout_data %}
+  <!-- Stats Overview -->
+  <div class="stats-overview">
+    <div class="stat-card">
+      <div class="stat-icon">🏃</div>
+      <div class="stat-value">{{ overall_stats.total_workouts }}</div>
+      <div class="stat-label">Run Workouts</div>
+    </div>
+    
+    <div class="stat-card">
+      <div class="stat-icon">⚡</div>
+      <div class="stat-value">{{ overall_stats.total_intervals }}</div>
+      <div class="stat-label">Total Work Laps</div>
+    </div>
+    
+    <div class="stat-card highlight">
+      <div class="stat-icon">🏆</div>
+      <div class="stat-value">{{ overall_stats.best_avg_pace_formatted }}/km</div>
+      <div class="stat-label">Best Avg Pace</div>
+    </div>
+    
+    <div class="stat-card">
+      <div class="stat-icon">⏱️</div>
+      <div class="stat-value">{{ overall_stats.avg_pace_formatted }}/km</div>
+      <div class="stat-label">Overall Avg Pace</div>
+    </div>
+    
+    <div class="stat-card">
+      <div class="stat-icon">❤️</div>
+      <div class="stat-value">{{ overall_stats.avg_hr|default:"-" }}</div>
+      <div class="stat-label">Avg Heart Rate</div>
+    </div>
+    
+    <div class="stat-card">
+      <div class="stat-icon">📏</div>
+      <div class="stat-value">{{ overall_stats.total_distance|floatformat:2 }}</div>
+      <div class="stat-label">Total km (intervals)</div>
+    </div>
+  </div>
+  
+  <!-- Charts Section -->
+  <div class="chart-section">
+    <h2>📈 Progress Over Time</h2>
+    
+    <div class="chart-tabs">
+      <button class="chart-tab active" data-type="pace" onclick="showChart('pace', this)">Pace</button>
+      <button class="chart-tab" data-type="hr" onclick="showChart('hr', this)">Heart Rate</button>
+      <button class="chart-tab" data-type="distance" onclick="showChart('distance', this)">Distance</button>
+      <button class="chart-tab" data-type="intervals" onclick="showChart('intervals', this)">Work Laps</button>
+    </div>
+    
+    <div class="chart-container">
+      <canvas id="progressChart"></canvas>
+    </div>
+  </div>
+  
+  <!-- Workout History Table -->
+  <div class="workouts-section">
+    <h2>📋 Workout History</h2>
+    
+    <div class="table-responsive">
+    <table class="workouts-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Workout</th>
+          <th>Work Laps</th>
+          <th>Avg Pace</th>
+          <th>Best Pace</th>
+          <th>Avg HR</th>
+          <th>Distance</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for workout in workout_data reversed %}
+        <tr>
+          <td>{{ workout.date }}</td>
+          <td>
+            <a href="{% url 'activity_detail' workout.activity_id %}">
+              {{ workout.activity_name|truncatechars:30 }}
+            </a>
+          </td>
+          <td>{{ workout.interval_count }}</td>
+          <td>{{ workout.avg_pace_formatted }}/km</td>
+          <td>{{ workout.best_pace_formatted }}/km</td>
+          <td>{{ workout.avg_hr|default:"-" }} bpm</td>
+          <td>{{ workout.total_distance_km|floatformat:2 }} km</td>
+          <td>{{ workout.total_time_formatted }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+  
+  {% else %}
+  <div class="empty-state">
+    {% if workout_type or search_query %}
+    <h3>No Matching Workouts</h3>
+    <p>No running workouts found matching your filter{% if search_query %}: "{{ search_query }}"{% endif %}{% if workout_type %} ({{ workout_type|upper }}){% endif %}.</p>
+    <p style="margin-top: 20px;">
+      <a href="{% url 'running_analytics' %}" style="color: var(--primary);">
+        ← Clear filters and show all
+      </a>
+    </p>
+    {% else %}
+    <h3>No Running Data Yet</h3>
+    <p>Import your Garmin activities to see your running performance analytics.</p>
+    <p style="margin-top: 20px;">
+      <a href="{% url 'activities' %}?type=running" style="color: var(--primary);">
+        Go to Activities →
+      </a>
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+<script>
+  const chartData = {{ chart_data_json|safe }};
+  let currentChart = null;
+
+  // Chart configuration
+  const chartConfigs = {
+    pace: {
+      label: 'Average Pace (min/km)',
+      data: chartData.pace_data,
+      borderColor: '#2563eb',
+      backgroundColor: 'rgba(37, 99, 235, 0.1)',
+      yAxisLabel: 'Pace (min/km)',
+      reverse: true,  // Lower pace is better
+      secondDataset: {
+        label: 'Best Work Lap Pace',
+        data: chartData.best_pace_data,
+        borderColor: '#059669',
+        backgroundColor: 'rgba(5, 150, 105, 0.1)',
+        borderDash: [5, 5],
+      }
+    },
+    hr: {
+      label: 'Average Heart Rate (bpm)',
+      data: chartData.hr_data,
+      borderColor: '#dc2626',
+      backgroundColor: 'rgba(220, 38, 38, 0.1)',
+      yAxisLabel: 'Heart Rate (bpm)',
+      reverse: false
+    },
+    distance: {
+      label: 'Total Interval Distance (km)',
+      data: chartData.distance_data,
+      borderColor: '#7c3aed',
+      backgroundColor: 'rgba(124, 58, 237, 0.1)',
+      yAxisLabel: 'Distance (km)',
+      reverse: false
+    },
+    intervals: {
+      label: 'Work Laps',
+      data: chartData.interval_count_data,
+      borderColor: '#0891b2',
+      backgroundColor: 'rgba(8, 145, 178, 0.1)',
+      yAxisLabel: 'Work Laps',
+      reverse: false
+    }
+  };
+  
+  function showChart(type, clickedElement) {
+    // Update tabs
+    document.querySelectorAll('.chart-tab').forEach(tab => tab.classList.remove('active'));
+    if (clickedElement) {
+      clickedElement.classList.add('active');
+    } else {
+      // Find and activate the correct tab on initial load
+      document.querySelector(`.chart-tab[data-type="${type}"]`).classList.add('active');
+    }
+    
+    // Destroy existing chart
+    if (currentChart) {
+      currentChart.destroy();
+    }
+    
+    const config = chartConfigs[type];
+    const datasets = [{
+      label: config.label,
+      data: config.data,
+      borderColor: config.borderColor,
+      backgroundColor: config.backgroundColor,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 5,
+      pointHoverRadius: 8,
+    }];
+    
+    // Add second dataset for pace chart (best pace)
+    if (config.secondDataset) {
+      datasets.push({
+        label: config.secondDataset.label,
+        data: config.secondDataset.data,
+        borderColor: config.secondDataset.borderColor,
+        backgroundColor: config.secondDataset.backgroundColor,
+        fill: false,
+        tension: 0.3,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderDash: config.secondDataset.borderDash || [],
+      });
+    }
+    
+    const ctx = document.getElementById('progressChart').getContext('2d');
+    currentChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: chartData.labels,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: datasets.length > 1,
+            position: 'top',
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: function(context) {
+                let label = context.dataset.label || '';
+                if (label) {
+                  label += ': ';
+                }
+                if (type === 'pace') {
+                  const pace = context.parsed.y;
+                  if (pace) {
+                    const totalCentis = Math.round(pace * 60 * 100);
+                    const mins = Math.floor(totalCentis / (60 * 100));
+                    const secs = Math.floor((totalCentis / 100) % 60);
+                    const centis = totalCentis % 100;
+                    label += `${mins}:${secs.toString().padStart(2, '0')}.${centis.toString().padStart(2, '0')}/km`;
+                  }
+                } else if (type === 'distance') {
+                  label += context.parsed.y.toFixed(2) + ' km';
+                } else if (type === 'hr') {
+                  label += Math.round(context.parsed.y) + ' bpm';
+                } else {
+                  label += context.parsed.y;
+                }
+                return label;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            reverse: config.reverse,
+            title: {
+              display: true,
+              text: config.yAxisLabel
+            },
+            ticks: {
+              callback: function(value) {
+                if (type === 'pace') {
+                  const totalCentis = Math.round(value * 60 * 100);
+                  const mins = Math.floor(totalCentis / (60 * 100));
+                  const secs = Math.floor((totalCentis / 100) % 60);
+                  const centis = totalCentis % 100;
+                  return `${mins}:${secs.toString().padStart(2, '0')}.${centis.toString().padStart(2, '0')}`;
+                } else if (type === 'distance') {
+                  return value.toFixed(2);
+                } else if (type === 'hr') {
+                  return Math.round(value);
+                }
+                return value;
+              }
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Date'
+            }
+          }
+        },
+        interaction: {
+          mode: 'nearest',
+          axis: 'x',
+          intersect: false
+        }
+      }
+    });
+  }
+  
+  // Initialize with pace chart
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('Chart data:', chartData);
+    if (chartData && chartData.labels && chartData.labels.length > 0) {
+      showChart('pace', null);
+    } else {
+      console.log('No chart data available');
+      document.querySelector('.chart-container').innerHTML = '<p style="text-align: center; color: var(--gray-500); padding: 40px;">No interval data to display</p>';
+    }
+  });
+</script>
+
+{% endblock %}

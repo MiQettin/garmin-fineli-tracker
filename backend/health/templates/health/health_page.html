@@ -1,0 +1,352 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Health & Recovery - HealthManager{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ---------- header ---------- */
+  .health-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .health-header-text h1 { font-size: 1.5em; }
+  .health-header-text p { color: var(--gray-500); font-size: 0.9em; margin-top: 2px; }
+
+  .health-date-field { display: flex; align-items: center; gap: 8px; }
+  .health-date-field label { color: var(--gray-600); font-size: 0.85em; white-space: nowrap; }
+  .health-date-field input[type="date"] {
+    border: 1px solid var(--border-medium);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.9em;
+    background: var(--bg-card);
+  }
+
+  .status-banner {
+    background: var(--info-bg);
+    color: var(--gray-800);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 10px 0;
+    font-size: 0.9em;
+  }
+  .status-banner.is-error { background: var(--error-bg); color: var(--error); }
+
+  .health-section {
+    margin: 28px 0 12px;
+  }
+  .health-section-title {
+    font-size: 1.05em;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 10px;
+  }
+  .health-section-title .subtitle {
+    font-weight: 400;
+    color: var(--gray-400);
+    font-size: 0.85em;
+    margin-left: 6px;
+  }
+
+  /* ---------- accent colors (identification only, not judgement) ---------- */
+  .accent-hrv    { --accent: var(--primary); }
+  .accent-rhr    { --accent: var(--accent-violet); }
+  .accent-sleep  { --accent: var(--accent-cyan); }
+  .accent-stress { --accent: var(--accent-orange); }
+  .accent-bb     { --accent: var(--accent-green); }
+  .accent-steps  { --accent: var(--gray-500); }
+
+  /* ---------- overview ---------- */
+  .overview-hero-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  .overview-hero-card {
+    border-left: 4px solid var(--accent, var(--border-medium));
+    padding-left: 12px;
+  }
+  .overview-hero-label { color: var(--gray-500); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.03em; }
+  .overview-hero-value { font-size: 2.1em; font-weight: 700; color: var(--gray-900); line-height: 1.2; margin: 2px 0; }
+  .overview-hero-sub { color: var(--gray-500); font-size: 0.82em; }
+  .overview-hero-secondary { color: var(--gray-500); font-size: 0.78em; margin-top: 4px; }
+
+  .overview-secondary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  .overview-secondary-card {
+    border-left: 3px solid var(--accent, var(--border-light));
+    padding-left: 10px;
+  }
+  .overview-secondary-label { color: var(--gray-500); font-size: 0.75em; }
+  .overview-secondary-value { font-size: 1.3em; font-weight: 600; color: var(--gray-800); margin: 2px 0; }
+  .overview-secondary-sub { color: var(--gray-400); font-size: 0.75em; }
+
+  /* ---------- trend charts ---------- */
+  .trend-controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .health-range-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+  #range-validation { color: var(--error); font-size: 0.85em; }
+
+  .trend-chart-grid {
+    display: grid;
+    /* 380px didn't fit the 360-390px target phone widths at all, forcing
+       the whole page to scroll horizontally; 280px matches this file's
+       other auto-fit grids and still gives each chart 2 columns' worth
+       of room on desktop. */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 8px;
+  }
+  .chart-card { display: flex; flex-direction: column; }
+  .chart-card-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+  .chart-card-title {
+    font-weight: 600;
+    color: var(--gray-800);
+    border-left: 3px solid var(--accent, var(--border-medium));
+    padding-left: 8px;
+  }
+  .chart-card-title .unit { font-weight: 400; color: var(--gray-400); font-size: 0.8em; margin-left: 4px; }
+  .chart-card-now { font-size: 0.85em; color: var(--gray-500); }
+  .chart-wrap { position: relative; height: 300px; }
+  .chart-empty-note {
+    color: var(--gray-400);
+    font-size: 0.85em;
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  /* ---------- compact reference table (7d/28d/90d) ---------- */
+  .trend-table-wrap { overflow-x: auto; }
+  .trend-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+  .trend-table th, .trend-table td { padding: 8px 10px; text-align: right; white-space: nowrap; }
+  .trend-table th:first-child, .trend-table td:first-child { text-align: left; }
+  .trend-table thead th { color: var(--gray-400); font-weight: 500; font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.02em; border-bottom: 1px solid var(--border-light); }
+  .trend-table tbody tr { border-bottom: 1px solid var(--border-light); }
+  .trend-table tbody tr:last-child { border-bottom: none; }
+  .trend-table td.metric-name { font-weight: 600; color: var(--gray-800); }
+  .trend-table td.current-cell { font-weight: 700; color: var(--gray-900); }
+  .trend-table .counts-cell { color: var(--gray-400); font-size: 0.85em; }
+
+  /* ---------- metric cards (Body Battery / Sleep / Respiration / Activity) ---------- */
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+  }
+  .metric-group { margin-bottom: 16px; }
+  .metric-group:last-child { margin-bottom: 0; }
+  .metric-group-title { color: var(--gray-400); font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 8px; }
+
+  .metric-card-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .metric-card-label { color: var(--gray-500); font-size: 0.8em; }
+  .metric-card-date { color: var(--gray-400); font-size: 0.7em; }
+  .metric-card-current { font-size: 1.5em; font-weight: 700; color: var(--gray-900); margin: 2px 0 4px; }
+  .metric-card-delta { font-size: 0.78em; color: var(--gray-600); margin-bottom: 8px; min-height: 1.1em; }
+  .metric-card-avgs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .avg-chip { background: var(--gray-100); border-radius: 999px; padding: 2px 8px; font-size: 0.72em; color: var(--gray-600); }
+  .metric-card-counts { margin-top: 8px; font-size: 0.68em; color: var(--gray-400); }
+
+  @media (max-width: 480px) {
+    .chart-wrap { height: 220px; }
+    .overview-hero-value { font-size: 1.7em; }
+    .health-header { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card health-header">
+  <div class="health-header-text">
+    <h1>Health &amp; Recovery</h1>
+    <p>Garmin-derived recovery and wellness metrics. Data only - no scores or interpretation.</p>
+  </div>
+  <div class="health-date-field">
+    <label for="health-date">Snapshot date</label>
+    <input type="date" id="health-date">
+  </div>
+</div>
+
+<div id="health-status" class="status-banner" hidden></div>
+
+<div class="health-section">
+  <div class="health-section-title">Overview <span class="subtitle">current snapshot</span></div>
+  <div class="card">
+    <div class="overview-hero-grid">
+      <div class="overview-hero-card accent-hrv">
+        <div class="overview-hero-label">HRV</div>
+        <div class="overview-hero-value" id="ov-hrv-value">—</div>
+        <div class="overview-hero-sub" id="ov-hrv-sub"></div>
+      </div>
+      <div class="overview-hero-card accent-rhr">
+        <div class="overview-hero-label">Resting heart rate</div>
+        <div class="overview-hero-value" id="ov-rhr-value">—</div>
+        <div class="overview-hero-sub" id="ov-rhr-sub"></div>
+      </div>
+      <div class="overview-hero-card accent-sleep">
+        <div class="overview-hero-label">Sleep</div>
+        <div class="overview-hero-value" id="ov-sleep-duration-value">—</div>
+        <div class="overview-hero-sub" id="ov-sleep-duration-sub"></div>
+        <div class="overview-hero-secondary">Score: <b id="ov-sleep-score-value">—</b> · <span id="ov-sleep-score-sub"></span></div>
+      </div>
+    </div>
+    <div class="overview-secondary-grid">
+      <div class="overview-secondary-card accent-stress">
+        <div class="overview-secondary-label">Stress (avg)</div>
+        <div class="overview-secondary-value" id="ov-stress-value">—</div>
+        <div class="overview-secondary-sub" id="ov-stress-sub"></div>
+      </div>
+      <div class="overview-secondary-card accent-bb">
+        <div class="overview-secondary-label">Body Battery (end of day)</div>
+        <div class="overview-secondary-value" id="ov-bb-end-value">—</div>
+        <div class="overview-secondary-sub" id="ov-bb-end-sub"></div>
+      </div>
+      <div class="overview-secondary-card accent-steps">
+        <div class="overview-secondary-label">Steps</div>
+        <div class="overview-secondary-value" id="ov-steps-value">—</div>
+        <div class="overview-secondary-sub" id="ov-steps-sub"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="health-section">
+  <div class="health-section-title">HRV &amp; resting heart rate trends</div>
+  <div class="card">
+    <div class="trend-controls-row">
+      <div class="health-range-fields">
+        <div class="health-date-field">
+          <label for="range-from">From</label>
+          <input type="date" id="range-from">
+        </div>
+        <div class="health-date-field">
+          <label for="range-to">To</label>
+          <input type="date" id="range-to">
+        </div>
+        <span id="range-validation" hidden></span>
+      </div>
+    </div>
+    <div id="range-status" class="status-banner" hidden></div>
+
+    <div class="trend-chart-grid">
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <span class="chart-card-title accent-hrv">HRV <span class="unit">ms</span></span>
+          <span class="chart-card-now" id="hrv-chart-now"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="hrv-chart"></canvas></div>
+        <div class="chart-empty-note" id="hrv-chart-empty" hidden>No HRV data in this range.</div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <span class="chart-card-title accent-rhr">Resting heart rate <span class="unit">bpm</span></span>
+          <span class="chart-card-now" id="rhr-chart-now"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="rhr-chart"></canvas></div>
+        <div class="chart-empty-note" id="rhr-chart-empty" hidden>No resting heart rate data in this range.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="health-section">
+  <div class="health-section-title">Recovery / health trends <span class="subtitle">reference averages for the snapshot date above</span></div>
+  <div class="card">
+    <div class="trend-table-wrap">
+      <table class="trend-table">
+        <thead>
+          <tr><th>Metric</th><th>Current</th><th>7d avg</th><th>28d avg</th><th>90d avg</th><th>Δ vs 28d</th><th>Samples</th></tr>
+        </thead>
+        <tbody>
+          {% include "health/_trend_row.html" with prefix="trend-hrv" label="HRV" %}
+          {% include "health/_trend_row.html" with prefix="trend-rhr" label="Resting HR" %}
+          {% include "health/_trend_row.html" with prefix="trend-stress" label="Stress (avg)" %}
+          {% include "health/_trend_row.html" with prefix="trend-sleep-duration" label="Sleep duration" %}
+          {% include "health/_trend_row.html" with prefix="trend-sleep-score" label="Sleep score" %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="health-section">
+  <div class="health-section-title">Body Battery</div>
+  <div class="card">
+    <div class="metric-group">
+      <div class="metric-group-title">Start / end of day</div>
+      <div class="metric-grid">
+        {% include "health/_metric_card.html" with prefix="bb-start" label="Start" %}
+        {% include "health/_metric_card.html" with prefix="bb-end" label="End" %}
+      </div>
+    </div>
+    <div class="metric-group">
+      <div class="metric-group-title">Charge activity</div>
+      <div class="metric-grid">
+        {% include "health/_metric_card.html" with prefix="bb-charged" label="Charged" %}
+        {% include "health/_metric_card.html" with prefix="bb-drained" label="Drained" %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="health-section">
+  <div class="health-section-title">Sleep</div>
+  <div class="card">
+    <div class="metric-grid">
+      {% include "health/_metric_card.html" with prefix="sleep-duration" label="Duration" %}
+      {% include "health/_metric_card.html" with prefix="sleep-score" label="Sleep score" %}
+      {% include "health/_metric_card.html" with prefix="sleep-hr" label="Average heart rate" %}
+      {% include "health/_metric_card.html" with prefix="sleep-stress" label="Average stress" %}
+    </div>
+  </div>
+</div>
+
+<div class="health-section">
+  <div class="health-section-title">Respiration &amp; SpO2</div>
+  <div class="card">
+    <div class="metric-group">
+      <div class="metric-group-title">Respiration</div>
+      <div class="metric-grid">
+        {% include "health/_metric_card.html" with prefix="resp-waking" label="Waking" %}
+        {% include "health/_metric_card.html" with prefix="resp-sleep" label="Sleep" %}
+      </div>
+    </div>
+    <div class="metric-group">
+      <div class="metric-group-title">SpO2</div>
+      <div class="metric-grid">
+        {% include "health/_metric_card.html" with prefix="spo2-daily" label="Daily" %}
+        {% include "health/_metric_card.html" with prefix="spo2-sleep" label="Sleep" %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="health-section">
+  <div class="health-section-title">Daily activity</div>
+  <div class="card">
+    <div class="metric-grid">
+      {% include "health/_metric_card.html" with prefix="steps" label="Steps" %}
+      {% include "health/_metric_card.html" with prefix="mod-min" label="Moderate intensity minutes" %}
+      {% include "health/_metric_card.html" with prefix="vig-min" label="Vigorous intensity minutes" %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+<script src="{% static 'health/health_page.js' %}" data-analytics-url="/api/health/analytics/"></script>
+{% endblock %}

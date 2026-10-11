@@ -1,0 +1,262 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Activities - HealthManager{% endblock %}
+
+{% block content %}
+<style>
+  .activities-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+  .activities-header h1 {
+    color: var(--gray-800);
+    font-size: 1.3em;
+  }
+  .filter-tabs {
+    display: flex;
+    gap: 6px;
+  }
+  .filter-tab {
+    padding: 6px 14px;
+    border: none;
+    background: var(--bg-card);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85em;
+    transition: all 0.2s;
+    box-shadow: var(--shadow-sm);
+    color: var(--gray-600);
+  }
+  .filter-tab:hover {
+    background: var(--gray-50);
+    box-shadow: var(--shadow-md);
+  }
+  .filter-tab.active {
+    background: var(--primary);
+    color: white;
+    font-weight: 600;
+  }
+  .stats-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+  .stat-card {
+    background: var(--bg-card);
+    padding: 12px 15px;
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    flex: 1;
+    min-width: 120px;
+  }
+  .stat-card h3 {
+    font-size: 0.75em;
+    color: var(--gray-500);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .stat-value {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: var(--primary);
+  }
+  .stat-unit {
+    font-size: 0.7em;
+    color: var(--gray-400);
+    margin-left: 3px;
+  }
+  .activities-list {
+    background: var(--bg-card);
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .activities-list h2 {
+    padding: 12px 15px;
+    background: var(--gray-50);
+    margin: 0;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--gray-800);
+    font-size: 1em;
+  }
+  .activity-item {
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--gray-100);
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .activity-item:last-child {
+    border-bottom: none;
+  }
+  .activity-item:hover {
+    background: var(--gray-50);
+  }
+  .activity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 8px;
+  }
+  .activity-name {
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--gray-800);
+  }
+  .activity-date {
+    color: var(--gray-500);
+    font-size: 0.8em;
+  }
+  .activity-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  .activity-detail {
+    display: flex;
+    flex-direction: column;
+  }
+  .activity-detail-label {
+    font-size: 0.75em;
+    color: var(--gray-400);
+    margin-bottom: 2px;
+  }
+  .activity-detail-value {
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--gray-800);
+  }
+  .empty-state {
+    text-align: center;
+    padding: 40px 15px;
+    color: var(--gray-400);
+  }
+  .empty-state-icon {
+    font-size: 3em;
+    margin-bottom: 15px;
+  }
+</style>
+
+<div class="activities-header">
+  <h1>🏃 Activities</h1>
+  <div class="filter-tabs">
+    <button class="filter-tab {% if activity_type == 'running' %}active{% endif %}" 
+            onclick="window.location.href='?type=running'">
+      🏃 Running
+    </button>
+    <button class="filter-tab {% if activity_type == 'walking' %}active{% endif %}"
+            onclick="window.location.href='?type=walking'">
+      🚶 Walking
+    </button>
+    <button class="filter-tab {% if activity_type == 'dancing' %}active{% endif %}"
+            onclick="window.location.href='?type=dancing'">
+      💃 Dancing
+    </button>
+    <button class="filter-tab {% if activity_type == 'strength' %}active{% endif %}"
+            onclick="window.location.href='?type=strength'">
+      💪 Strength
+    </button>
+  </div>
+</div>
+
+{% if stats.total_count %}
+<div class="stats-grid">
+  <div class="stat-card">
+    <h3>Total Activities</h3>
+    <div class="stat-value">{{ stats.total_count }}<span class="stat-unit">workouts</span></div>
+  </div>
+  <div class="stat-card">
+    <h3>Total Distance</h3>
+    <div class="stat-value">{{ stats.total_distance|floatformat:1 }}<span class="stat-unit">km</span></div>
+  </div>
+  <div class="stat-card">
+    <h3>Total Time</h3>
+    <div class="stat-value">{{ stats.total_duration|floatformat:0 }}<span class="stat-unit">min</span></div>
+  </div>
+  <div class="stat-card">
+    <h3>Avg Distance</h3>
+    <div class="stat-value">{{ stats.avg_distance|floatformat:1 }}<span class="stat-unit">km</span></div>
+  </div>
+  <div class="stat-card">
+    <h3>Avg Pace</h3>
+    <div class="stat-value">{{ stats.avg_pace|floatformat:2 }}<span class="stat-unit">min/km</span></div>
+  </div>
+  <div class="stat-card">
+    <h3>Avg Heart Rate</h3>
+    <div class="stat-value">{{ stats.avg_hr|floatformat:0 }}<span class="stat-unit">bpm</span></div>
+  </div>
+</div>
+
+<div class="activities-list">
+  <h2>Recent Activities (Last 30)</h2>
+  {% for activity in activities %}
+  <div class="activity-item" onclick="window.location.href='{% url 'activity_detail' activity.id %}'">
+    <div class="activity-header">
+      <div>
+        <div class="activity-name">{{ activity.name|default:"Untitled Activity" }}</div>
+        <div class="activity-date">{{ activity.date|date:"d-m-Y" }} at {{ activity.start_time|date:"H:i" }}</div>
+      </div>
+    </div>
+    <div class="activity-details">
+      <div class="activity-detail">
+        <span class="activity-detail-label">Duration</span>
+        <span class="activity-detail-value">{{ activity.duration_minutes|floatformat:1 }} min</span>
+      </div>
+      {% if activity.distance_km %}
+      <div class="activity-detail">
+        <span class="activity-detail-label">Distance</span>
+        <span class="activity-detail-value">{{ activity.distance_km|floatformat:2 }} km</span>
+      </div>
+      {% endif %}
+      {% if activity.pace_min_per_km %}
+      <div class="activity-detail">
+        <span class="activity-detail-label">Avg Pace</span>
+        <span class="activity-detail-value">{{ activity.pace_min_per_km|floatformat:2 }} min/km</span>
+      </div>
+      {% endif %}
+      {% if activity.avg_hr %}
+      <div class="activity-detail">
+        <span class="activity-detail-label">Avg HR</span>
+        <span class="activity-detail-value">{{ activity.avg_hr }} bpm</span>
+      </div>
+      {% endif %}
+      {% if activity.max_hr %}
+      <div class="activity-detail">
+        <span class="activity-detail-label">Max HR</span>
+        <span class="activity-detail-value">{{ activity.max_hr }} bpm</span>
+      </div>
+      {% endif %}
+      {% if activity.calories %}
+      <div class="activity-detail">
+        <span class="activity-detail-label">Calories</span>
+        <span class="activity-detail-value">{{ activity.calories }} kcal</span>
+      </div>
+      {% endif %}
+      {% if activity.elevation_gain %}
+      <div class="activity-detail">
+        <span class="activity-detail-label">Elevation Gain</span>
+        <span class="activity-detail-value">{{ activity.elevation_gain|floatformat:0 }} m</span>
+      </div>
+      {% endif %}
+      {% if activity.avg_cadence %}
+      <div class="activity-detail">
+        <span class="activity-detail-label">Avg Cadence</span>
+        <span class="activity-detail-value">{{ activity.avg_cadence|floatformat:0 }} spm</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">🏃</div>
+  <h2>No {{ activity_type }} activities found</h2>
+  <p>Import Garmin data to see your activities here</p>
+</div>
+{% endif %}
+
+{% endblock %}

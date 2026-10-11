@@ -1,0 +1,113 @@
+:root {
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+  --primary-light: #60a5fa;
+  --accent-violet: #a78bfa;
+  --accent-cyan: #22d3ee;
+  --accent-green: #34d399;
+  --accent-red: #f87171;
+  --accent-orange: #fb923c;
+
+  /* Neutral ramp - 50 is the darkest surface, 900 the lightest text.
+     Kept as one monotonic scale so every existing var(--gray-N) still
+     means "darker/less prominent" at low N and "lighter/more prominent"
+     at high N - just inverted in absolute value for a dark UI. */
+  --gray-50: #1c283a;
+  --gray-100: #24334a;
+  --gray-200: #32455e;
+  --gray-300: #475971;
+  --gray-400: #7c8ba1;
+  --gray-500: #93a2b8;
+  --gray-600: #aab8cc;
+  --gray-700: #c7d3e2;
+  --gray-800: #e9eef5;
+  --gray-900: #f8fafc;
+
+  --success: #34d399;
+  --success-bg: #103428;
+  --warning: #fbbf24;
+  --warning-bg: #3d2e0a;
+  --error: #f87171;
+  --error-bg: #3d1616;
+  --info: #60a5fa;
+  --info-bg: #122e4d;
+
+  --bg-page: #0b1220;
+  --bg-card: #16202f;
+  --bg-hover: #1f2c40;
+  --border-light: #263349;
+  --border-medium: #37485f;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.35);
+  --shadow-md: 0 4px 10px rgba(0,0,0,0.45);
+  --shadow-lg: 0 12px 28px rgba(0,0,0,0.55);
+}
+
+/* Bootstrap (via data-bs-theme="dark" on <html>) drives layout, nav,
+   buttons, forms, cards, tables and alerts. The palette above remains for
+   this app's own bespoke pieces (dashboard hero/macro bars, food cards,
+   activity badges, etc.) that Bootstrap has no component for - kept
+   visually close to Bootstrap's own dark palette. */
+body {
+  background: var(--bg-page);
+  color: var(--gray-800);
+}
+
+a { color: inherit; }
+
+/* App-specific text utilities Bootstrap doesn't name this way. */
+.info-text { font-size: 0.9em; color: var(--gray-500); margin-bottom: 15px; }
+.empty-state { text-align: center; padding: 30px; color: var(--gray-500); }
+
+/* Nav "Sync Garmin" button (base.html) - shared across every page. */
+.sync-status { font-size: 0.75em; color: var(--gray-500); margin-top: 4px; text-align: center; }
+.btn-sync.syncing { animation: sync-pulse 1s infinite; }
+@keyframes sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@media (min-width: 992px) {
+  .sync-status { text-align: right; }
+}
+
+#toast-container {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 9999;
+  max-width: 400px;
+}
+/* Named .app-toast (not Bootstrap's .toast) - the app's own lightweight
+   notification, built by the showToast() JS in base.html rather than
+   Bootstrap's Toast component. */
+.app-toast {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  margin-bottom: 10px;
+  padding: 15px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: slideIn 0.3s ease-out;
+  border-left: 4px solid var(--info);
+}
+.app-toast.success { border-left-color: var(--success); }
+.app-toast.error { border-left-color: var(--error); }
+.app-toast.warning { border-left-color: var(--warning); }
+.app-toast.info { border-left-color: var(--info); }
+.toast-icon { font-size: 1.5em; }
+.toast-message { flex: 1; color: var(--gray-800); font-weight: 500; }
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--gray-500);
+  cursor: pointer;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Fineli CC BY 4.0 credit (nutrition/_fineli_attribution.html). */
+.fineli-attribution { font-size: 0.75em; color: var(--gray-500); text-align: center; margin: 24px 0 8px; }
+.fineli-attribution a { color: inherit; text-decoration: underline; }

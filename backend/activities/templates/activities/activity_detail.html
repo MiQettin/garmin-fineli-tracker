@@ -1,0 +1,793 @@
+{% extends 'core/base.html' %}
+
+{% block title %}{{ activity.name|default:"Activity" }} - HealthManager{% endblock %}
+
+{% block content %}
+<style>
+  .detail-container {
+    max-width: 100%;
+    margin: 0 auto;
+  }
+  .back-button {
+    display: inline-block;
+    margin-bottom: 12px;
+    padding: 6px 14px;
+    background: var(--gray-100);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--gray-700);
+    font-size: 0.9em;
+    transition: background 0.2s;
+  }
+  .back-button:hover {
+    background: var(--gray-200);
+  }
+  .activity-header-section {
+    background: var(--primary);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    box-shadow: var(--shadow-md);
+  }
+  .activity-title {
+    font-size: 1.5em;
+    margin-bottom: 5px;
+    font-weight: 700;
+  }
+  .activity-meta {
+    font-size: 0.9em;
+    opacity: 0.9;
+  }
+  .activity-type-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 15px;
+    margin-top: 8px;
+    font-size: 0.8em;
+  }
+  
+  .primary-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+  .primary-stat-card {
+    background: var(--bg-card);
+    padding: 12px 15px;
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    text-align: center;
+    flex: 1;
+    min-width: 120px;
+  }
+  .primary-stat-icon {
+    font-size: 1.5em;
+    margin-bottom: 5px;
+  }
+  .primary-stat-value {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: var(--primary);
+    margin-bottom: 3px;
+  }
+  .primary-stat-label {
+    color: var(--gray-500);
+    text-transform: uppercase;
+    font-size: 0.7em;
+    letter-spacing: 0.5px;
+  }
+  
+  /* Tabbed Interface */
+  .tabs-container {
+    background: var(--bg-card);
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 15px;
+    overflow: hidden;
+  }
+  .tabs-header {
+    display: flex;
+    border-bottom: 1px solid var(--border-light);
+    background: var(--gray-50);
+  }
+  .tab-button {
+    flex: 1;
+    padding: 10px 15px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: var(--gray-500);
+    transition: all 0.2s;
+  }
+  .tab-button:hover {
+    background: var(--gray-100);
+  }
+  .tab-button.active {
+    color: var(--primary);
+    border-bottom: 2px solid var(--primary);
+    margin-bottom: -1px;
+  }
+  .tab-content {
+    display: none;
+    padding: 15px;
+  }
+  .tab-content.active {
+    display: block;
+  }
+  
+  /* Intervals Table */
+  .intervals-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 0.85em;
+  }
+  .intervals-table th {
+    background: var(--gray-50);
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--gray-600);
+    border-bottom: 1px solid var(--border-light);
+    font-size: 0.8em;
+    text-transform: uppercase;
+  }
+  .intervals-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--gray-100);
+    color: var(--gray-700);
+  }
+  .intervals-table tr:hover {
+    background: var(--gray-50);
+  }
+  
+  .group-header-row {
+    background: var(--info-bg) !important;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    border-left: 3px solid var(--primary);
+  }
+  
+  .group-header-row:hover {
+    background: var(--bg-hover) !important;
+  }
+  
+  .group-lap-row {
+    transition: opacity 0.2s;
+  }
+  
+  .expand-icon {
+    display: inline-block;
+    transition: transform 0.2s;
+    font-size: 11px;
+  }
+  
+  .expand-icon.collapsed {
+    transform: rotate(-90deg);
+  }
+  
+  /* List View Styles */
+  .intervals-list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .interval-list-group {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  
+  .interval-list-header {
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--gray-50);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  
+  .interval-list-header:hover {
+    background: var(--gray-100);
+  }
+  
+  .interval-list-header.single-lap {
+    cursor: default;
+  }
+  
+  .interval-list-header.single-lap:hover {
+    background: var(--gray-50);
+  }
+  
+  .interval-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+  }
+  
+  .interval-lap-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--gray-200);
+    color: var(--gray-600);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  
+  .list-expand-icon {
+    display: inline-block;
+    transition: transform 0.2s;
+    font-size: 14px;
+    color: var(--gray-500);
+  }
+  
+  .list-expand-icon.collapsed {
+    transform: rotate(-90deg);
+  }
+  
+  .interval-list-items {
+    display: flex;
+    flex-direction: column;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+  
+  .interval-list-items.expanded {
+    max-height: 1000px;
+  }
+  
+  .interval-list-item {
+    padding: 12px 20px 12px 70px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--gray-100);
+    transition: background 0.2s;
+  }
+  
+  .interval-list-item:hover {
+    background: var(--gray-50);
+  }
+  
+  /* View Toggle Buttons */
+  .view-toggle-btn {
+    background: transparent;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 6px;
+    color: var(--gray-500);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .view-toggle-btn:hover {
+    background: var(--gray-200);
+  }
+  
+  .view-toggle-btn.active {
+    background: var(--primary);
+    color: white;
+  }
+  
+  .intervals-table tr.summary-row {
+    background: var(--info-bg);
+    font-weight: 600;
+  }
+  .intervals-table tr.summary-row td {
+    border-top: 2px solid var(--primary);
+  }
+  .step-type-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+  }
+  .step-type-warmup {
+    background: var(--accent-violet);
+    color: #ffffff;
+  }
+  .step-type-run {
+    background: var(--primary);
+    color: #ffffff;
+  }
+  .step-type-cooldown {
+    background: var(--accent-cyan);
+    color: #ffffff;
+  }
+  .step-type-recovery {
+    background: var(--accent-green);
+    color: #ffffff;
+  }
+  .step-type-rest {
+    background: var(--gray-500);
+    color: #ffffff;
+  }
+  .step-type-other {
+    background: var(--gray-400);
+    color: var(--gray-800);
+  }
+  .best-lap {
+    background: var(--success-bg);
+  }
+  .worst-lap {
+    background: var(--error-bg);
+  }
+  
+  .details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+  }
+  .detail-item {
+    padding: 15px;
+    background: var(--gray-50);
+    border-radius: 8px;
+    border-left: 4px solid var(--primary);
+  }
+  .detail-item-label {
+    color: var(--gray-500);
+    font-size: 0.9em;
+    margin-bottom: 5px;
+  }
+  .detail-item-value {
+    font-size: 1.3em;
+    font-weight: 600;
+    color: var(--gray-800);
+  }
+  
+  .hr-zones-section h3 {
+    color: var(--gray-800);
+    margin-bottom: 20px;
+    font-size: 1.3em;
+  }
+  .hr-zone {
+    margin-bottom: 15px;
+    padding: 15px;
+    background: var(--gray-50);
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .hr-zone.active {
+    background: var(--info-bg);
+    border: 2px solid var(--primary);
+    font-weight: 600;
+  }
+  .hr-zone-name {
+    font-weight: 600;
+    color: var(--gray-800);
+    flex: 1;
+  }
+  .hr-zone-time {
+    font-weight: 600;
+    color: var(--primary);
+    min-width: 70px;
+    text-align: center;
+  }
+  .hr-zone-range {
+    color: var(--gray-500);
+    min-width: 120px;
+    text-align: right;
+  }
+  .hr-zone-bar {
+    height: 10px;
+    background: linear-gradient(90deg, var(--success), var(--warning), var(--error));
+    border-radius: 5px;
+    margin: 20px 0;
+  }
+  .current-hr-indicator {
+    display: inline-block;
+    padding: 5px 15px;
+    background: var(--primary);
+    color: white;
+    border-radius: 20px;
+    font-size: 0.9em;
+  }
+</style>
+
+<script>
+function showTab(tabName) {
+  // Hide all tabs
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  document.querySelectorAll('.tab-button').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  // Show selected tab
+  document.getElementById(tabName + '-tab').classList.add('active');
+  document.querySelector(`[onclick="showTab('${tabName}')"]`).classList.add('active');
+}
+</script>
+
+<div class="detail-container">
+  <a href="{% url 'activities' %}?type={{ activity.activity_type }}" class="back-button">
+    ← Back to Activities
+  </a>
+  
+  <div class="activity-header-section">
+    <div class="activity-title">{{ activity.name|default:"Untitled Activity" }}</div>
+    <div class="activity-meta">
+      {{ activity.date|date:"l, F j, Y" }} at {{ activity.start_time|date:"H:i" }}
+    </div>
+    <div class="activity-type-badge">
+      {% if activity.activity_type == 'running' %}🏃 Running
+      {% elif activity.activity_type == 'walking' %}🚶 Walking
+      {% elif activity.activity_type == 'dancing' %}💃 Dancing
+      {% elif activity.activity_type == 'strength' %}💪 Strength Training
+      {% else %}{{ activity.get_activity_type_display }}
+      {% endif %}
+    </div>
+  </div>
+  
+  <div class="primary-stats">
+    <div class="primary-stat-card">
+      <div class="primary-stat-icon">⏱️</div>
+      <div class="primary-stat-value">{{ duration_formatted }}</div>
+      <div class="primary-stat-label">Duration</div>
+    </div>
+    
+    {% if activity.distance_km %}
+    <div class="primary-stat-card">
+      <div class="primary-stat-icon">📏</div>
+      <div class="primary-stat-value">{{ activity.distance_km|floatformat:2 }}</div>
+      <div class="primary-stat-label">Distance (km)</div>
+    </div>
+    {% endif %}
+    
+    {% if pace_formatted %}
+    <div class="primary-stat-card">
+      <div class="primary-stat-icon">🏃</div>
+      <div class="primary-stat-value">{{ pace_formatted }}</div>
+      <div class="primary-stat-label">Avg Pace (min/km)</div>
+    </div>
+    {% endif %}
+    
+    {% if activity.avg_hr %}
+    <div class="primary-stat-card">
+      <div class="primary-stat-icon">❤️</div>
+      <div class="primary-stat-value">{{ activity.avg_hr }}</div>
+      <div class="primary-stat-label">Avg Heart Rate (bpm)</div>
+    </div>
+    {% endif %}
+    
+    {% if activity.calories %}
+    <div class="primary-stat-card">
+      <div class="primary-stat-icon">🔥</div>
+      <div class="primary-stat-value">{{ activity.calories }}</div>
+      <div class="primary-stat-label">Calories</div>
+    </div>
+    {% endif %}
+  </div>
+  
+  <!-- Tabbed Content Area -->
+  <div class="tabs-container">
+    <div class="tabs-header">
+      <button class="tab-button active" onclick="showTab('stats')">📊 Stats</button>
+      <button class="tab-button" onclick="showTab('intervals')">⏱️ Intervals</button>
+      {% if hr_zones %}
+      <button class="tab-button" onclick="showTab('hr-zones')">❤️ HR Zones</button>
+      {% endif %}
+    </div>
+    
+    <!-- Stats Tab -->
+    <div id="stats-tab" class="tab-content active">
+      <h2 style="margin-top: 0;">Detailed Metrics</h2>
+      <div class="details-grid">
+        {% if activity.avg_speed_kmh %}
+        <div class="detail-item">
+          <div class="detail-item-label">Average Speed</div>
+          <div class="detail-item-value">{{ activity.avg_speed_kmh|floatformat:2 }} km/h</div>
+        </div>
+        {% endif %}
+        
+        {% if activity.max_hr %}
+        <div class="detail-item">
+          <div class="detail-item-label">Maximum Heart Rate</div>
+          <div class="detail-item-value">{{ activity.max_hr }} bpm</div>
+        </div>
+        {% endif %}
+        
+        {% if activity.elevation_gain %}
+        <div class="detail-item">
+          <div class="detail-item-label">Elevation Gain</div>
+          <div class="detail-item-value">{{ activity.elevation_gain|floatformat:0 }} m</div>
+        </div>
+        {% endif %}
+        
+        {% if activity.elevation_loss %}
+        <div class="detail-item">
+          <div class="detail-item-label">Elevation Loss</div>
+          <div class="detail-item-value">{{ activity.elevation_loss|floatformat:0 }} m</div>
+        </div>
+        {% endif %}
+        
+        {% if activity.avg_cadence %}
+        <div class="detail-item">
+          <div class="detail-item-label">Average Cadence</div>
+          <div class="detail-item-value">{{ activity.avg_cadence|floatformat:0 }} spm</div>
+        </div>
+        {% endif %}
+        
+        {% if activity.steps %}
+        <div class="detail-item">
+          <div class="detail-item-label">Total Steps</div>
+          <div class="detail-item-value">{{ activity.steps }}</div>
+        </div>
+        {% endif %}
+        
+        {% if activity.vo2max %}
+        <div class="detail-item">
+          <div class="detail-item-label">VO2 Max Estimate</div>
+          <div class="detail-item-value">{{ activity.vo2max|floatformat:1 }}</div>
+        </div>
+        {% endif %}
+        
+        <div class="detail-item">
+          <div class="detail-item-label">Activity ID</div>
+          <div class="detail-item-value">{{ activity.activity_id }}</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Intervals Tab -->
+    <div id="intervals-tab" class="tab-content">
+      <h2 style="margin-top: 0;">Lap / Interval Data</h2>
+      {% if laps %}
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 20px;">
+          <p style="color: var(--gray-500); margin: 0;">
+            Total laps: {{ laps|length }}
+            {% if lap_stats.best_pace %}
+            | Best pace: {{ lap_stats.best_pace.pace_formatted }} (Lap {{ lap_stats.best_pace.lap_number }})
+            {% endif %}
+            {% if lap_stats.worst_pace %}
+            | Slowest pace: {{ lap_stats.worst_pace.pace_formatted }} (Lap {{ lap_stats.worst_pace.lap_number }})
+            {% endif %}
+          </p>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+            <label for="stepTypeFilter" style="font-weight: 600; color: var(--gray-500);">Step Type</label>
+            <select id="stepTypeFilter" onchange="filterByStepType(this.value)" style="padding: 8px 12px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 14px;">
+              <option value="all">All</option>
+              <option value="warmup">Warm Up</option>
+              <option value="run">Run</option>
+              <option value="cooldown">Cool Down</option>
+              <option value="recovery">Recovery</option>
+              <option value="rest">Rest</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="table-responsive">
+        <table class="intervals-table" id="intervalsTable">
+          <thead>
+            <tr>
+              <th style="width: 40px;"></th>
+              <th>Interval</th>
+              <th>Step Type</th>
+              <th>Lap</th>
+              <th>Time</th>
+              <th>Cumulative</th>
+              <th>Distance</th>
+              <th>Avg Pace</th>
+              <th>Avg HR</th>
+              <th>Max HR</th>
+              <th>Ascent</th>
+              <th>Cadence</th>
+            </tr>
+          </thead>
+          <tbody id="lapsTableBody">
+            {% load core_extras %}
+            {% for group in lap_groups %}
+              {% if group.is_grouped %}
+                {# Group header row - collapsible (warmup/cooldown) #}
+                <tr class="group-header-row" data-group-id="group-{{ forloop.counter }}" data-step-type="{{ group.step_type }}" onclick="toggleGroup('group-{{ forloop.counter }}')">
+                  <td><span class="expand-icon">▶</span></td>
+                  <td></td>
+                  <td>
+                    <span class="step-type-badge step-type-{{ group.step_type }}">
+                      {{ group.laps.0.get_step_type_display }}
+                    </span>
+                  </td>
+                  <td>{{ group.laps.0.lap_number }} - {{ group.laps|last|get_lap_number }}</td>
+                  <td><strong>{% group_total_time group.laps %}</strong></td>
+                  <td>{{ group.laps|last|get_cumulative_time }}</td>
+                  <td><strong>{% group_total_distance group.laps %} km</strong></td>
+                  <td>{% group_avg_pace group.laps %}/km</td>
+                  <td>{% group_avg_hr group.laps %} bpm</td>
+                  <td>{% group_max_hr group.laps %} bpm</td>
+                  <td>{% group_total_ascent group.laps %} m</td>
+                  <td>{% group_avg_cadence group.laps %}</td>
+                </tr>
+                {# Individual lap rows - initially hidden #}
+                {% for lap in group.laps %}
+                <tr class="group-lap-row group-{{ forloop.parentloop.counter }}" data-step-type="{{ lap.step_type }}" style="display: none;">
+                  <td></td>
+                  <td></td>
+                  <td>{{ lap.get_step_type_display }}</td>
+                  <td>{{ lap.lap_number }}</td>
+                  <td>{{ lap.lap_time_formatted }}</td>
+                  <td>{{ lap.cumulative_time_seconds|floatformat:0 }}s</td>
+                  <td>{% if lap.distance_km %}{{ lap.distance_km|floatformat:2 }} km{% else %}-{% endif %}</td>
+                  <td>{% if lap.avg_pace_min_per_km %}{{ lap.pace_formatted }}/km{% else %}-{% endif %}</td>
+                  <td>{% if lap.avg_hr %}{{ lap.avg_hr }} bpm{% else %}-{% endif %}</td>
+                  <td>{% if lap.max_hr %}{{ lap.max_hr }} bpm{% else %}-{% endif %}</td>
+                  <td>{% if lap.total_ascent_m %}{{ lap.total_ascent_m|floatformat:0 }} m{% else %}-{% endif %}</td>
+                  <td>{% if lap.avg_cadence %}{{ lap.avg_cadence|floatformat:0 }}{% else %}-{% endif %}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                {# Single lap row (run/recovery with interval number) #}
+                {% for lap in group.laps %}
+                <tr data-step-type="{{ lap.step_type }}">
+                  <td></td>
+                  <td>
+                    {% if group.interval_number %}
+                      <strong>{{ group.interval_number }}</strong>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span class="step-type-badge step-type-{{ lap.step_type }}">
+                      {{ lap.get_step_type_display }}
+                    </span>
+                  </td>
+                  <td>{{ lap.lap_number }}</td>
+                  <td>{{ lap.lap_time_formatted }}</td>
+                  <td>{{ lap.cumulative_time_seconds|floatformat:0 }}s</td>
+                  <td>{% if lap.distance_km %}{{ lap.distance_km|floatformat:2 }} km{% else %}-{% endif %}</td>
+                  <td>{% if lap.avg_pace_min_per_km %}{{ lap.pace_formatted }}/km{% else %}-{% endif %}</td>
+                  <td>{% if lap.avg_hr %}{{ lap.avg_hr }} bpm{% else %}-{% endif %}</td>
+                  <td>{% if lap.max_hr %}{{ lap.max_hr }} bpm{% else %}-{% endif %}</td>
+                  <td>{% if lap.total_ascent_m %}{{ lap.total_ascent_m|floatformat:0 }} m{% else %}-{% endif %}</td>
+                  <td>{% if lap.avg_cadence %}{{ lap.avg_cadence|floatformat:0 }}{% else %}-{% endif %}</td>
+                </tr>
+                {% endfor %}
+              {% endif %}
+            {% endfor %}
+            
+            <!-- Summary Row -->
+            <tr class="summary-row">
+              <td colspan="4"><strong>Summary</strong></td>
+              <td><strong>{{ duration_formatted }}</strong></td>
+              <td><strong>{{ activity.duration_minutes|floatformat:0 }}m</strong></td>
+              <td><strong>{{ activity.distance_km|floatformat:2 }} km</strong></td>
+              <td><strong>{% if pace_formatted %}{{ pace_formatted }}/km{% endif %}</strong></td>
+              <td><strong>{% if activity.avg_hr %}{{ activity.avg_hr }} bpm{% endif %}</strong></td>
+              <td><strong>{% if activity.max_hr %}{{ activity.max_hr }} bpm{% endif %}</strong></td>
+              <td><strong>{% if activity.elevation_gain %}{{ activity.elevation_gain|floatformat:0 }} m{% endif %}</strong></td>
+              <td><strong>{% if activity.avg_cadence %}{{ activity.avg_cadence|floatformat:0 }}{% endif %}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      {% else %}
+        <p style="color: var(--gray-500); text-align: center; padding: 40px;">
+          No lap data available for this activity.
+        </p>
+      {% endif %}
+    </div>
+    
+    <!-- HR Zones Tab -->
+    {% if hr_zones %}
+    <div id="hr-zones-tab" class="tab-content">
+      <div class="hr-zones-section">
+        <h3>Heart Rate Zones</h3>
+        <div class="hr-zone-bar"></div>
+        <p style="text-align: center; color: var(--gray-500); margin-bottom: 20px;">
+          Your average heart rate was in <span class="current-hr-indicator">Zone {{ hr_zones.current_zone }}</span>
+        </p>
+        
+        <div class="hr-zone {% if hr_zones.current_zone == 5 %}active{% endif %}">
+          <span class="hr-zone-name">Zone 5 - Maximum</span>
+          <span class="hr-zone-time">{% if hr_zones.zone5_time %}{{ hr_zones.zone5_time }}{% else %}-{% endif %}</span>
+          <span class="hr-zone-range">{{ hr_zones.zone5.0 }} - {{ hr_zones.zone5.1 }} bpm</span>
+        </div>
+        <div class="hr-zone {% if hr_zones.current_zone == 4 %}active{% endif %}">
+          <span class="hr-zone-name">Zone 4 - Threshold</span>
+          <span class="hr-zone-time">{% if hr_zones.zone4_time %}{{ hr_zones.zone4_time }}{% else %}-{% endif %}</span>
+          <span class="hr-zone-range">{{ hr_zones.zone4.0 }} - {{ hr_zones.zone4.1 }} bpm</span>
+        </div>
+        <div class="hr-zone {% if hr_zones.current_zone == 3 %}active{% endif %}">
+          <span class="hr-zone-name">Zone 3 - Tempo</span>
+          <span class="hr-zone-time">{% if hr_zones.zone3_time %}{{ hr_zones.zone3_time }}{% else %}-{% endif %}</span>
+          <span class="hr-zone-range">{{ hr_zones.zone3.0 }} - {{ hr_zones.zone3.1 }} bpm</span>
+        </div>
+        <div class="hr-zone {% if hr_zones.current_zone == 2 %}active{% endif %}">
+          <span class="hr-zone-name">Zone 2 - Aerobic</span>
+          <span class="hr-zone-time">{% if hr_zones.zone2_time %}{{ hr_zones.zone2_time }}{% else %}-{% endif %}</span>
+          <span class="hr-zone-range">{{ hr_zones.zone2.0 }} - {{ hr_zones.zone2.1 }} bpm</span>
+        </div>
+        <div class="hr-zone {% if hr_zones.current_zone == 1 %}active{% endif %}">
+          <span class="hr-zone-name">Zone 1 - Recovery</span>
+          <span class="hr-zone-time">{% if hr_zones.zone1_time %}{{ hr_zones.zone1_time }}{% else %}-{% endif %}</span>
+          <span class="hr-zone-range">{{ hr_zones.zone1.0 }} - {{ hr_zones.zone1.1 }} bpm</span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function showTab(tabName) {
+  const tabContents = document.querySelectorAll('.tab-content');
+  tabContents.forEach(content => {
+    content.classList.remove('active');
+  });
+  
+  const tabButtons = document.querySelectorAll('.tab-button');
+  tabButtons.forEach(button => {
+    button.classList.remove('active');
+  });
+  
+  const selectedTab = document.getElementById(tabName + '-tab');
+  if (selectedTab) {
+    selectedTab.classList.add('active');
+  }
+  
+  event.target.classList.add('active');
+}
+
+function toggleGroup(groupId) {
+  const lapRows = document.querySelectorAll('.group-lap-row.' + groupId);
+  const headerRow = document.querySelector('[data-group-id="' + groupId + '"]');
+  const icon = headerRow.querySelector('.expand-icon');
+  
+  lapRows.forEach(row => {
+    if (row.style.display === 'none') {
+      row.style.display = '';
+      icon.classList.remove('collapsed');
+    } else {
+      row.style.display = 'none';
+      icon.classList.add('collapsed');
+    }
+  });
+}
+
+function filterByStepType(stepType) {
+  const tbody = document.getElementById('lapsTableBody');
+  const allRows = tbody.querySelectorAll('tr');
+  
+  allRows.forEach(row => {
+    if (stepType === 'all') {
+      row.style.display = '';
+    } else {
+      const rowStepType = row.getAttribute('data-step-type');
+      if (rowStepType === stepType || row.classList.contains('summary-row')) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    }
+  });
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,1355 @@
+{% extends "core/base.html" %}
+{% load nutrition_filters %}
+
+{% block title %}Food Diary - {{ current_date|date:"d.m.Y" }}{% endblock %}
+
+{% block content %}
+<div class="food-diary-container">
+    <div class="diary-header">
+        <h1>🍽️ Food Diary</h1>
+        
+        <!-- Date Navigation -->
+        <div class="date-nav">
+            <a href="?date={{ prev_date|date:'Y-m-d' }}" class="date-btn">◀ Previous</a>
+            <input type="date" id="datePicker" value="{{ current_date|date:'Y-m-d' }}" 
+                   onchange="window.location.href='?date='+this.value" class="date-input">
+            {% if not is_today %}
+                <a href="?" class="date-btn today-btn">Today</a>
+            {% endif %}
+            <a href="?date={{ next_date|date:'Y-m-d' }}" class="date-btn">Next ▶</a>
+            <button onclick="openBulkImportModal()" class="date-btn bulk-import-btn">📥 Import Diary CSV</button>
+        </div>
+    </div>
+
+    <!-- Daily Totals -->
+    <div class="daily-summary">
+        <div class="summary-card">
+            <div class="summary-label">Calories In</div>
+            <div class="summary-value">{{ daily_log.calories_in|floatformat:0 }}</div>
+            <div class="summary-unit">kcal</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Protein</div>
+            <div class="summary-value">{{ daily_log.protein_g|floatformat:0 }}</div>
+            <div class="summary-unit">g</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Carbs</div>
+            <div class="summary-value">{{ daily_log.carbs_g|floatformat:0 }}</div>
+            <div class="summary-unit">g (sugar: {{ daily_log.sugar_g|floatformat:0 }}g)</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Fat</div>
+            <div class="summary-value">{{ daily_log.fat_g|floatformat:0 }}</div>
+            <div class="summary-unit">g (sat: {{ daily_log.sat_fat_g|floatformat:0 }}g)</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Fiber</div>
+            <div class="summary-value">{{ daily_log.fiber_g|floatformat:1 }}</div>
+            <div class="summary-unit">g</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Salt</div>
+            <div class="summary-value">{{ daily_log.salt_g|floatformat:1 }}</div>
+            <div class="summary-unit">g</div>
+        </div>
+    </div>
+
+    <!-- Meal Sections -->
+    {% for meal_type, meal_label in meal_types %}
+    <div class="meal-section">
+        <div class="meal-header">
+            <h2>{{ meal_label }}</h2>
+            <button class="add-food-btn" onclick="openAddModal('{{ meal_type }}')">+ Add Food</button>
+        </div>
+        
+        <div class="meal-totals">
+            <span>{{ meal_totals|get_item:meal_type|get_item:'calories'|floatformat:0 }} kcal</span>
+            <span>P: {{ meal_totals|get_item:meal_type|get_item:'protein'|floatformat:0 }}g</span>
+            <span>C: {{ meal_totals|get_item:meal_type|get_item:'carbs'|floatformat:0 }}g</span>
+            <span>F: {{ meal_totals|get_item:meal_type|get_item:'fat'|floatformat:0 }}g</span>
+        </div>
+
+        <div class="food-entries">
+            {% for entry in meal_entries %}
+                {% if entry.meal_type == meal_type %}
+                <div class="food-entry">
+                    <div class="food-info">
+                        <strong>{{ entry.food_name }}</strong>
+                        <span class="food-portion">{{ entry.portion_grams|floatformat:0 }}g</span>
+                        {% if entry.source_type %}
+                            <span class="food-source badge-{{ entry.source_type }}">{{ entry.get_source_type_display }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="food-macros">
+                        <span>{{ entry.calories|floatformat:0 }} kcal</span>
+                        <span>P: {{ entry.protein_g|floatformat:1 }}g</span>
+                        <span>C: {{ entry.carbs_g|floatformat:1 }}g</span>
+                        <span>F: {{ entry.fat_g|floatformat:1 }}g</span>
+                    </div>
+                    <div class="food-actions">
+                        <button onclick="deleteEntry({{ entry.id }})" class="delete-btn">🗑️</button>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Add Food Modal -->
+<div id="addFoodModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Add Food</h2>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        
+        <div class="modal-tabs">
+            <button class="tab-btn active" onclick="switchTab('fineli')">🔍 Search Fineli</button>
+            <button class="tab-btn" onclick="switchTab('myfoods')">⭐ My Foods</button>
+            <button class="tab-btn" onclick="switchTab('favorites')">★ Favorites</button>
+            <button class="tab-btn" onclick="switchTab('recent')">🕒 Recent</button>
+            <button class="tab-btn" onclick="switchTab('frequent')">🔁 Frequent</button>
+            <button class="tab-btn" onclick="switchTab('csv')">📥 Diary CSV</button>
+            <button class="tab-btn" onclick="switchTab('manual')">✏️ Manual Entry</button>
+        </div>
+
+        <!-- Fineli Search Tab -->
+        <div id="fineliTab" class="tab-content active">
+            <input type="text" id="fineliSearch" placeholder="Search foods (searches ALL 4,232 Fineli foods)..." 
+                   oninput="searchFineli(this.value)" 
+                   onfocus="if(this.value.length < 2) searchFineli('')"
+                   class="search-input">
+            <div id="fineliResults" class="search-results">
+                <p class="search-hint">Loading favorites...</p>
+            </div>
+        </div>
+
+        <!-- My Foods Tab -->
+        <div id="myfoodsTab" class="tab-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <input type="text" id="myFoodsSearch" placeholder="Filter my foods..." 
+                       oninput="filterMyFoods(this.value)"
+                       class="search-input" style="flex: 1; margin-right: 10px;">
+                <a href="{% url 'manage_custom_foods' %}" class="submit-btn" style="white-space: nowrap; text-decoration: none;">
+                    + Create New Food
+                </a>
+            </div>
+            <div id="myFoodsResults" class="search-results">
+                <p class="search-hint">Loading your foods...</p>
+            </div>
+        </div>
+
+        <!-- Favorites Tab -->
+        <div id="favoritesTab" class="tab-content">
+            <div id="favoritesResults" class="search-results">
+                <p class="search-hint">Loading favorites...</p>
+            </div>
+        </div>
+
+        <!-- Recent Tab -->
+        <div id="recentTab" class="tab-content">
+            <p class="search-hint">Your recently logged foods.</p>
+            <div id="recentResults" class="search-results">
+                <p class="search-hint">Loading recent foods...</p>
+            </div>
+        </div>
+
+        <!-- Frequent Tab -->
+        <div id="frequentTab" class="tab-content">
+            <p class="search-hint">Your most-logged foods.</p>
+            <div id="frequentResults" class="search-results">
+                <p class="search-hint">Loading frequent foods...</p>
+            </div>
+        </div>
+
+        <!-- CSV Import Tab -->
+        <div id="csvTab" class="tab-content">
+            <p>Import foods from a Fineli diary CSV export. The file's own date and meal columns are used for each entry, so this uses the same historical diary import as the button at the top of the page.</p>
+            <button type="button" class="submit-btn" onclick="closeModal(); openBulkImportModal();">📥 Open Diary CSV Import</button>
+        </div>
+
+        <!-- Manual Entry Tab -->
+        <div id="manualTab" class="tab-content">
+            <form id="manualEntryForm">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Food Name:</label>
+                    <input type="text" name="food_name" required>
+                </div>
+                <div class="form-group">
+                    <label>Portion (g):</label>
+                    <input type="number" name="portion_grams" value="100" step="0.1" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Calories:</label>
+                        <input type="number" name="calories" step="0.1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Protein (g):</label>
+                        <input type="number" name="protein_g" step="0.1" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Carbs (g):</label>
+                        <input type="number" name="carbs_g" step="0.1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Sugar (g):</label>
+                        <input type="number" name="sugar_g" step="0.1" value="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Fat (g):</label>
+                        <input type="number" name="fat_g" step="0.1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Sat. Fat (g):</label>
+                        <input type="number" name="sat_fat_g" step="0.1" value="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Fiber (g):</label>
+                        <input type="number" name="fiber_g" step="0.1" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Salt (g):</label>
+                        <input type="number" name="salt_g" step="0.1" value="0">
+                    </div>
+                </div>
+                <button type="submit" class="submit-btn">Add Entry</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Portion Selection Modal -->
+<div id="portionModal" class="modal" style="z-index: 2100;">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h3 id="portionFoodName">Select Portion</h3>
+            <button class="close-btn" onclick="closePortionModal()">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <div class="form-group">
+                <label>Amount:</label>
+                <input type="number" id="portionAmount" value="100" step="0.1" min="0" class="form-control" style="margin-bottom: 10px;">
+            </div>
+            <div class="form-group">
+                <label>Unit:</label>
+                <select id="portionUnit" class="form-control" style="margin-bottom: 20px;">
+                    <option value="g">Grams (g)</option>
+                    <option value="dl">Deciliter (dl)</option>
+                    <option value="kpl">Pieces (kpl/pcs)</option>
+                    <option value="rkl">Tablespoon (rkl)</option>
+                    <option value="tl">Teaspoon (tl)</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="confirmPortion()" class="submit-btn" style="flex: 1;">OK</button>
+                <button onclick="closePortionModal()" class="submit-btn" style="flex: 1; background: #a0aec0;">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Import Modal -->
+<div id="bulkImportModal" class="modal" style="z-index: 2000;">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h2>📥 Bulk Import Fineli Diary</h2>
+            <button class="close-btn" onclick="closeBulkImportModal()">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <div class="info-box" style="background: var(--info-bg); padding: 15px; border-radius: 4px; border-left: 4px solid var(--primary); margin-bottom: 20px;">
+                <p><strong>Import individual foods from Fineli diary CSV exports</strong></p>
+                <p style="margin-top: 10px; font-size: 0.9em; color: var(--gray-600);">
+                    • Select one or more <code>diary_*.csv</code> files<br>
+                    • Each food row becomes a diary entry, using the file's own date and meal<br>
+                    • Re-importing a date replaces only its previously imported rows<br>
+                    • Manually added and Fineli/custom food entries are never affected
+                </p>
+            </div>
+            <form id="bulkImportForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Select CSV file(s):</label>
+                    <input type="file" name="csv_files" id="bulkCsvFiles" accept=".csv" multiple required 
+                           style="padding: 10px; border: 2px dashed var(--border-light); border-radius: 6px; width: 100%; cursor: pointer;">
+                </div>
+                <div id="bulkImportStatus" style="margin: 15px 0; display: none;"></div>
+                <button type="submit" class="submit-btn" style="width: 100%;" id="bulkImportBtn">
+                    📥 Import All Days
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.food-diary-container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 10px;
+}
+
+.diary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.diary-header h1 {
+    font-size: 1.3em;
+}
+
+.date-nav {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.date-btn {
+    padding: 6px 12px;
+    background: var(--primary);
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-size: 0.85em;
+}
+
+.date-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+.today-btn {
+    background: var(--accent-green);
+}
+
+.bulk-import-btn {
+    background: var(--warning);
+    border: none;
+    cursor: pointer;
+}
+
+.bulk-import-btn:hover {
+    background: #d69e2e;
+}
+
+.date-input {
+    padding: 6px 10px;
+    border: 2px solid var(--border-light);
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.daily-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.summary-card {
+    background: var(--bg-card);
+    padding: 10px 15px;
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    text-align: center;
+    flex: 1;
+    min-width: 100px;
+}
+
+.summary-label {
+    color: var(--gray-500);
+    font-size: 0.8em;
+    margin-bottom: 4px;
+}
+
+.summary-value {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: var(--gray-800);
+}
+
+.summary-unit {
+    color: var(--gray-400);
+    font-size: 0.75em;
+    margin-top: 2px;
+}
+
+.meal-section {
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.meal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.meal-header h2 {
+    font-size: 1.1em;
+    color: var(--gray-800);
+}
+
+.add-food-btn {
+    padding: 5px 12px;
+    background: var(--accent-green);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85em;
+}
+
+.add-food-btn:hover {
+    background: var(--success);
+    transform: translateY(-1px);
+}
+
+.meal-totals {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 10px;
+    padding: 8px;
+    background: var(--gray-50);
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.85em;
+    color: var(--gray-600);
+}
+
+.food-entries {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.food-entry {
+    display: grid;
+    grid-template-columns: 2fr 2fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 10px;
+    background: var(--gray-50);
+    border-radius: 6px;
+    border-left: 3px solid var(--primary);
+    font-size: 0.9em;
+}
+
+.food-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.food-portion {
+    color: var(--gray-500);
+    font-size: 0.85em;
+}
+
+.food-source {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.7em;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-fineli { background: var(--info-bg); color: var(--info); }
+.badge-custom { background: var(--success-bg); color: var(--success); }
+.badge-manual { background: var(--warning-bg); color: var(--warning); }
+
+.food-macros {
+    display: flex;
+    gap: 10px;
+    font-size: 0.8em;
+    color: var(--gray-600);
+}
+
+.delete-btn {
+    background: var(--error-bg);
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.delete-btn:hover {
+    background: var(--error);
+    transform: scale(1.1);
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background: var(--bg-card);
+    margin: 3% auto;
+    padding: 0;
+    border-radius: 8px;
+    max-width: 550px;
+    max-height: 85vh;
+    overflow: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.modal-header h2 {
+    font-size: 1.1em;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5em;
+    cursor: pointer;
+    color: var(--gray-400);
+    line-height: 1;
+}
+
+.close-btn:hover {
+    color: var(--gray-600);
+}
+
+.modal-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 15px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+    color: var(--gray-500);
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    border-bottom: 3px solid var(--primary);
+}
+
+.tab-btn:hover {
+    background: var(--gray-50);
+}
+
+.tab-content {
+    display: none;
+    padding: 20px;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.search-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid var(--border-light);
+    border-radius: 8px;
+    font-size: 1em;
+    margin-bottom: 15px;
+}
+
+.search-results {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.search-result {
+    position: relative;
+    padding: 12px;
+    border: 2px solid var(--border-light);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.favorite-star {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    border: none;
+    background: none;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--gray-500, #888);
+}
+.favorite-star:hover {
+    color: #f5a623;
+}
+
+.search-result:hover {
+    border-color: var(--primary);
+    background: var(--gray-50);
+}
+
+.result-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.result-macros {
+    font-size: 0.9em;
+    color: var(--gray-500);
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: var(--gray-600);
+}
+
+.form-group input, .form-group select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 2px solid var(--border-light);
+    border-radius: 6px;
+    font-size: 1em;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid var(--border-light);
+    border-radius: 6px;
+    font-size: 1em;
+    transition: border-color 0.2s;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.submit-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.submit-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+/* Search result message styles */
+.favorites-header {
+    padding: 10px;
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.search-hint {
+    color: var(--gray-500);
+    padding: 10px;
+}
+
+.search-error {
+    color: var(--error);
+    padding: 10px;
+    background: var(--error-bg);
+    border-radius: 6px;
+    border: 1px solid var(--error);
+}
+
+.source-api {
+    padding: 8px;
+    background: var(--success-bg);
+    color: var(--success);
+    font-size: 0.85em;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.source-cache {
+    padding: 8px;
+    background: var(--warning-bg);
+    color: var(--warning);
+    font-size: 0.85em;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+@media (max-width: 480px) {
+    /* Header + date nav were a single non-wrapping row - the primary
+       source of page-level horizontal overflow on phones. */
+    .diary-header { flex-wrap: wrap; }
+    .date-nav { flex-wrap: wrap; }
+
+    /* The dense 3-column desktop row (name | macros | delete) is too
+       tight to fit on one line at 360-390px. Let it wrap onto two rows
+       instead: name+delete stay together, macros move below - not a
+       full redesign, just letting the existing row wrap naturally. */
+    .food-entry {
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "info actions"
+            "macros macros";
+        row-gap: 6px;
+    }
+    .food-info { grid-area: info; }
+    .food-macros { grid-area: macros; flex-wrap: wrap; }
+    .food-actions { grid-area: actions; }
+
+    /* 7 modal tabs in one non-wrapping row don't fit at phone width. */
+    .modal-tabs { flex-wrap: wrap; }
+    .tab-btn { flex: 1 1 33%; }
+
+    /* Manual Entry form's 2-up fields are more comfortable stacked. */
+    .form-row { grid-template-columns: 1fr; }
+}
+</style>
+
+<script>
+let currentMealType = 'snack';
+const currentDate = '{{ current_date|date:"Y-m-d" }}';
+let searchTimeout;
+
+function openAddModal(mealType) {
+    currentMealType = mealType;
+    document.getElementById('addFoodModal').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('addFoodModal').style.display = 'none';
+}
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    // Find and activate the clicked button
+    const buttons = document.querySelectorAll('.tab-btn');
+    buttons.forEach(btn => {
+        if (btn.textContent.toLowerCase().includes(tabName)) {
+            btn.classList.add('active');
+        }
+    });
+    
+    document.getElementById(tabName + 'Tab').classList.add('active');
+    
+    // Load data for the selected tab
+    if (tabName === 'myfoods') {
+        loadMyFoods();
+    } else if (tabName === 'favorites') {
+        loadFavorites();
+    } else if (tabName === 'recent') {
+        loadRecentFoods();
+    } else if (tabName === 'frequent') {
+        loadFrequentFoods();
+    }
+}
+
+function fmtNutrient(value, decimals) {
+    // Display-only: unknown (null) nutrient shows as "?" instead of
+    // crashing .toFixed(). Never changes the value actually submitted -
+    // selectFineliFood/selectCustomFood/confirmPortion read the original
+    // food.* / selectedFood.* fields directly, not this formatted string.
+    return value === null || value === undefined ? '?' : value.toFixed(decimals);
+}
+
+function searchFineli(query) {
+    clearTimeout(searchTimeout);
+    
+    const resultsDiv = document.getElementById('fineliResults');
+    
+    if (query.length < 2) {
+        // Show favorites when no query
+        fetch('/food-diary/api/search/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.results.length > 0) {
+                    resultsDiv.innerHTML = '<div class="favorites-header">⭐ Your Favorites</div>' +
+                        data.results.map(food => formatFoodResult(food)).join('');
+                } else {
+                    resultsDiv.innerHTML = '<p class="search-hint">Start searching for foods...</p>';
+                }
+            });
+        return;
+    }
+    
+    searchTimeout = setTimeout(() => {
+        resultsDiv.innerHTML = '<p class="search-hint">Searching Fineli API...</p>';
+        
+        fetch(`/food-diary/api/search/?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.results.length === 0) {
+                    let errorMsg = 'No results found';
+                    if (data.error) {
+                        errorMsg = data.error;
+                    }
+                    resultsDiv.innerHTML = `<p class="search-error">${errorMsg}</p>`;
+                    return;
+                }
+                
+                // Show data source indicator
+                let sourceInfo = '';
+                if (data.source === 'api') {
+                    sourceInfo = '<div class="source-api">✓ Live from Fineli API (all 4,232 foods available)</div>';
+                } else if (data.source === 'cache') {
+                    let warning = '⚠️ API unavailable, using cached data';
+                    if (data.error) {
+                        warning += ` (${data.error})`;
+                    }
+                    sourceInfo = `<div class="source-cache">${warning}</div>`;
+                }
+                
+                resultsDiv.innerHTML = sourceInfo + data.results.map(food => formatFoodResult(food)).join('');
+            })
+            .catch(error => {
+                console.error('Search error:', error);
+                resultsDiv.innerHTML = `<p class="search-error">Network error: ${error.message}</p>`;
+            });
+    }, 300);
+}
+
+// Custom Foods (My Foods tab)
+let allMyFoods = [];
+
+function loadMyFoods() {
+    const resultsDiv = document.getElementById('myFoodsResults');
+    resultsDiv.innerHTML = '<p class="search-hint">Loading your foods...</p>';
+    
+    fetch('/food-diary/api/custom-foods/')
+        .then(response => response.json())
+        .then(data => {
+            allMyFoods = data.results;
+            renderMyFoods(allMyFoods);
+        })
+        .catch(error => {
+            console.error('Error loading custom foods:', error);
+            resultsDiv.innerHTML = `<p class="search-error">Failed to load foods: ${error.message}</p>`;
+        });
+}
+
+function filterMyFoods(query) {
+    const filtered = query.length < 2 ? allMyFoods : 
+        allMyFoods.filter(food => 
+            food.name.toLowerCase().includes(query.toLowerCase()) ||
+            (food.brand && food.brand.toLowerCase().includes(query.toLowerCase()))
+        );
+    renderMyFoods(filtered);
+}
+
+function renderMyFoods(foods) {
+    const resultsDiv = document.getElementById('myFoodsResults');
+    
+    if (foods.length === 0) {
+        resultsDiv.innerHTML = `
+            <p class="search-hint">No custom foods yet.</p>
+            <p class="search-hint">Create your first food using the button above!</p>
+        `;
+        return;
+    }
+    
+    resultsDiv.innerHTML = foods.map(food => formatCustomFoodResult(food)).join('');
+}
+
+function formatCustomFoodResult(food) {
+    const brandInfo = food.brand ? ` <span style="color: var(--gray-500);">(${food.brand})</span>` : '';
+    return `
+        <div class="search-result" onclick='selectCustomFood(${JSON.stringify(food)})'>
+            <button type="button" class="favorite-star" title="Add to favorites"
+                    onclick='event.stopPropagation(); favoriteFood({custom_food_id: ${food.id}})'>☆</button>
+            <div class="result-name">⭐ ${food.name}${brandInfo}</div>
+            <div class="result-macros">
+                ${fmtNutrient(food.energy_kcal, 0)} kcal |
+                P: ${fmtNutrient(food.protein, 1)}g |
+                C: ${fmtNutrient(food.carbs, 1)}g |
+                F: ${fmtNutrient(food.fat, 1)}g
+                (per 100g)
+            </div>
+        </div>
+    `;
+}
+
+// Favorites / Recent / Frequent (all require an authenticated session for
+// the mutating favorite calls; the food diary page itself is login-protected)
+function favoriteFood(payload) {
+    fetch('/food-diary/api/favorites/add/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify(payload),
+    })
+        .then(response => {
+            if (response.status === 401) {
+                showToast('Log in to save favorites', 'error');
+                return;
+            }
+            showToast('Added to favorites', 'success');
+        })
+        .catch(error => console.error('Favorite error:', error));
+}
+
+function unfavoriteFood(payload) {
+    fetch('/food-diary/api/favorites/remove/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify(payload),
+    })
+        .then(() => loadFavorites())
+        .catch(error => console.error('Unfavorite error:', error));
+}
+
+function formatFavoriteResult(food) {
+    const isCustom = food.source === 'custom';
+    const payload = isCustom ? { custom_food_id: food.id } : { fineli_id: food.id };
+    const selectFn = isCustom ? 'selectCustomFood' : 'selectFineliFood';
+    const label = isCustom ? `${food.name}${food.brand ? ' (' + food.brand + ')' : ''}` : food.name;
+    return `
+        <div class="search-result" onclick='${selectFn}(${JSON.stringify(food)})'>
+            <button type="button" class="favorite-star" title="Remove from favorites"
+                    onclick='event.stopPropagation(); unfavoriteFood(${JSON.stringify(payload)})'>★</button>
+            <div class="result-name">${label}</div>
+            <div class="result-macros">
+                ${fmtNutrient(food.energy_kcal, 0)} kcal |
+                P: ${fmtNutrient(food.protein, 1)}g |
+                C: ${fmtNutrient(food.carbs, 1)}g |
+                F: ${fmtNutrient(food.fat, 1)}g
+                (per 100g)
+            </div>
+        </div>
+    `;
+}
+
+function loadFavorites() {
+    const resultsDiv = document.getElementById('favoritesResults');
+    resultsDiv.innerHTML = '<p class="search-hint">Loading favorites...</p>';
+    fetch('/food-diary/api/favorites/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.results.length === 0) {
+                resultsDiv.innerHTML = '<p class="search-hint">No favorites yet. Star a food to save it here.</p>';
+                return;
+            }
+            resultsDiv.innerHTML = data.results.map(food => formatFavoriteResult(food)).join('');
+        })
+        .catch(error => {
+            resultsDiv.innerHTML = `<p class="search-error">Failed to load favorites: ${error.message}</p>`;
+        });
+}
+
+function loadRecentFoods() {
+    const resultsDiv = document.getElementById('recentResults');
+    resultsDiv.innerHTML = '<p class="search-hint">Loading recent foods...</p>';
+    fetch('/food-diary/api/recent/')
+        .then(response => response.json())
+        .then(data => {
+            resultsDiv.innerHTML = data.results.length
+                ? data.results.map(food => food.source === 'custom' ? formatCustomFoodResult(food) : formatFoodResult(food)).join('')
+                : '<p class="search-hint">No recently logged foods yet.</p>';
+        })
+        .catch(error => {
+            resultsDiv.innerHTML = `<p class="search-error">Failed to load recent foods: ${error.message}</p>`;
+        });
+}
+
+function loadFrequentFoods() {
+    const resultsDiv = document.getElementById('frequentResults');
+    resultsDiv.innerHTML = '<p class="search-hint">Loading frequent foods...</p>';
+    fetch('/food-diary/api/frequent/')
+        .then(response => response.json())
+        .then(data => {
+            resultsDiv.innerHTML = data.results.length
+                ? data.results.map(food => food.source === 'custom' ? formatCustomFoodResult(food) : formatFoodResult(food)).join('')
+                : '<p class="search-hint">No usage history yet.</p>';
+        })
+        .catch(error => {
+            resultsDiv.innerHTML = `<p class="search-error">Failed to load frequent foods: ${error.message}</p>`;
+        });
+}
+
+function selectCustomFood(food) {
+    // Convert custom food format to match Fineli food format for the portion modal
+    const convertedFood = {
+        id: food.id,
+        name: food.display_name,
+        energy_kcal: food.energy_kcal,
+        protein: food.protein,
+        carbs: food.carbs,
+        sugar: food.sugar,
+        fat: food.fat,
+        sat_fat: food.sat_fat,
+        fiber: food.fiber,
+        salt: food.salt,
+        source: 'custom',
+        custom_food_id: food.id
+    };
+    selectFineliFood(convertedFood);
+    
+    // Set default portion if available
+    if (food.default_portion && food.default_portion !== 100) {
+        document.getElementById('portionAmount').value = food.default_portion;
+    }
+}
+
+function formatFoodResult(food) {
+    const favoriteIcon = food.is_favorite ? '⭐ ' : '';
+    return `
+        <div class="search-result" onclick='selectFineliFood(${JSON.stringify(food)})'>
+            <button type="button" class="favorite-star" title="Add to favorites"
+                    onclick='event.stopPropagation(); favoriteFood({fineli_id: ${food.id}})'>☆</button>
+            <div class="result-name">${favoriteIcon}${food.name}</div>
+            <div class="result-macros">
+                ${fmtNutrient(food.energy_kcal, 0)} kcal |
+                P: ${fmtNutrient(food.protein, 1)}g |
+                C: ${fmtNutrient(food.carbs, 1)}g |
+                F: ${fmtNutrient(food.fat, 1)}g
+                (per 100g)
+            </div>
+        </div>
+    `;
+}
+
+function selectFineliFood(food) {
+    selectedFood = food;
+    document.getElementById('portionFoodName').textContent = food.name;
+    document.getElementById('portionAmount').value = '100';
+    document.getElementById('portionUnit').value = 'g';
+    document.getElementById('portionModal').style.display = 'block';
+}
+
+// Store selected food temporarily
+let selectedFood = null;
+
+function closePortionModal() {
+    document.getElementById('portionModal').style.display = 'none';
+    selectedFood = null;
+}
+
+function confirmPortion() {
+    const amount = parseFloat(document.getElementById('portionAmount').value);
+    const unit = document.getElementById('portionUnit').value;
+    
+    if (!amount || amount <= 0) {
+        showToast('Please enter a valid amount', 'error');
+        return;
+    }
+    
+    // Convert to grams based on unit
+    let portionGrams = amount;
+    switch(unit) {
+        case 'dl':
+            // Approximate: 1 dl ≈ 100g for most foods
+            portionGrams = amount * 100;
+            break;
+        case 'kpl':
+            // Approximate: 1 piece ≈ 50g (user should adjust)
+            portionGrams = amount * 50;
+            break;
+        case 'rkl':
+            // 1 tablespoon ≈ 15g
+            portionGrams = amount * 15;
+            break;
+        case 'tl':
+            // 1 teaspoon ≈ 5g
+            portionGrams = amount * 5;
+            break;
+        // 'g' falls through with no conversion
+    }
+    
+    const data = {
+        fineli_id: selectedFood.id,
+        name: selectedFood.name,
+        name_en: selectedFood.name_en,
+        energy_kcal: selectedFood.energy_kcal,
+        protein: selectedFood.protein,
+        carbs: selectedFood.carbs,
+        sugar: selectedFood.sugar,
+        fat: selectedFood.fat,
+        sat_fat: selectedFood.sat_fat,
+        fiber: selectedFood.fiber,
+        salt: selectedFood.salt,
+        portion_grams: portionGrams,
+        meal_type: currentMealType,
+        date: currentDate
+    };
+    
+    closePortionModal();
+    
+    fetch('/food-diary/api/add/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Food added successfully', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('Failed to add food: ' + (data.error || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Failed to add food. Please try again.', 'error');
+    });
+}
+
+// Manual Entry
+document.getElementById('manualEntryForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {
+        date: currentDate,
+        meal_type: currentMealType,
+        source_type: 'manual'
+    };
+    
+    formData.forEach((value, key) => {
+        data[key] = value;
+    });
+    
+    fetch('/food-diary/add-entry/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: new URLSearchParams(data)
+    })
+    .then(response => {
+        if (response.ok) {
+            showToast('Entry added successfully', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('Failed to add entry. Please check all fields.', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Failed to add entry. Please try again.', 'error');
+    });
+});
+
+function deleteEntry(entryId) {
+    // Show confirmation toast with action buttons
+    showToast('Click the delete button again within 3 seconds to confirm deletion', 'warning', 3000);
+    
+    // Store the confirmation state
+    const confirmKey = `delete_confirm_${entryId}`;
+    if (window[confirmKey]) {
+        // Second click - actually delete
+        delete window[confirmKey];
+        
+        fetch(`/food-diary/delete-entry/${entryId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                showToast('Entry deleted', 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast('Failed to delete entry', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Failed to delete entry. Please try again.', 'error');
+        });
+    } else {
+        // First click - set confirmation state
+        window[confirmKey] = true;
+        setTimeout(() => delete window[confirmKey], 3000);
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Close modal on outside click
+window.onclick = function(event) {
+    const modal = document.getElementById('addFoodModal');
+    const bulkModal = document.getElementById('bulkImportModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+    if (event.target == bulkModal) {
+        closeBulkImportModal();
+    }
+}
+
+// Bulk Import Modal Functions
+function openBulkImportModal() {
+    document.getElementById('bulkImportModal').style.display = 'flex';
+    document.getElementById('bulkImportStatus').style.display = 'none';
+    document.getElementById('bulkCsvFiles').value = '';
+}
+
+function closeBulkImportModal() {
+    document.getElementById('bulkImportModal').style.display = 'none';
+}
+
+// Bulk Import Form Submit
+document.getElementById('bulkImportForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('bulkCsvFiles');
+    const statusDiv = document.getElementById('bulkImportStatus');
+    const submitBtn = document.getElementById('bulkImportBtn');
+    
+    if (fileInput.files.length === 0) {
+        showToast('Please select at least one CSV file', 'warning');
+        return;
+    }
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '⏳ Importing...';
+    statusDiv.style.display = 'block';
+    statusDiv.innerHTML = '<p style="color: var(--gray-600);">Processing ' + fileInput.files.length + ' file(s)...</p>';
+    
+    const formData = new FormData();
+    for (let i = 0; i < fileInput.files.length; i++) {
+        formData.append('csv_files', fileInput.files[i]);
+    }
+    
+    fetch('/food-diary/api/bulk-import/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '📥 Import All Days';
+        
+        if (data.success) {
+            // Show detailed results
+            let resultHtml = '<div style="background: var(--success-bg); color: var(--success); padding: 12px; border-radius: 6px; margin-bottom: 10px;">';
+            resultHtml += '<strong>✅ ' + data.message + '</strong></div>';
+            
+            if (data.files && data.files.length > 0) {
+                resultHtml += '<ul style="margin: 10px 0; padding-left: 20px;">';
+                data.files.forEach(function(file) {
+                    if (file.status === 'success') {
+                        resultHtml += '<li style="color: var(--success);">' + file.filename + ': ' + file.imported + ' new, ' + file.updated + ' updated</li>';
+                    } else {
+                        resultHtml += '<li style="color: var(--danger);">' + file.filename + ': ' + file.message + '</li>';
+                    }
+                });
+                resultHtml += '</ul>';
+            }
+            
+            statusDiv.innerHTML = resultHtml;
+            showToast(data.message, 'success');
+            
+            // Auto-reload with countdown
+            resultHtml += '<p style="color: var(--gray-600); margin-top: 10px;" id="reloadCountdown">Reloading in 2...</p>';
+            statusDiv.innerHTML = resultHtml;
+            
+            setTimeout(() => {
+                const countdown = document.getElementById('reloadCountdown');
+                if (countdown) countdown.textContent = 'Reloading in 1...';
+            }, 1000);
+            
+            setTimeout(() => {
+                const countdown = document.getElementById('reloadCountdown');
+                if (countdown) countdown.textContent = 'Reloading now...';
+                location.reload();
+            }, 2000);
+        } else {
+            statusDiv.innerHTML = '<p style="color: var(--danger);">❌ ' + (data.error || 'Import failed') + '</p>';
+            showToast('Import failed: ' + (data.error || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '📥 Import All Days';
+        statusDiv.innerHTML = '<p style="color: var(--danger);">❌ Network error. Please try again.</p>';
+        console.error('Error:', error);
+        showToast('Import failed. Please try again.', 'error');
+    });
+});
+
+// Load favorites on page load
+document.addEventListener('DOMContentLoaded', function() {
+    searchFineli('');  // Load favorites
+});
+</script>
+
+{% include "nutrition/_fineli_attribution.html" %}
+{% endblock %}

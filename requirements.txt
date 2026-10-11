@@ -1,0 +1,36 @@
+# HealthManager requires Python 3.12 or newer.
+# Django 6.x and garminconnect >= 0.3.3 do not install on Python 3.11 or older:
+# pip then fails with "No matching distribution found for Django==...".
+#
+# Check before installing:  python3 --version   (must show 3.12 or newer)
+# Then create the venv with that Python, e.g.:  python3 -m venv .venv
+
+annotated-types==0.7.0
+asgiref==3.11.0
+certifi==2026.1.4
+cffi==2.1.0
+charset-normalizer==3.4.4
+curl_cffi==0.15.0
+Django==6.0.1
+garminconnect==0.3.6
+garth==0.5.21
+gunicorn==26.2.0; sys_platform != "win32"
+idna==3.11
+markdown-it-py==4.2.0
+mdurl==0.1.2
+oauthlib==3.3.1
+pycparser==3.0
+pydantic==2.12.5
+pydantic_core==2.41.5
+Pygments==2.20.0
+python-dotenv==1.2.1
+requests-oauthlib==2.0.0
+requests==2.32.5
+rich==15.0.0
+sqlparse==0.5.5
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+tzdata==2025.3
+ua-generator==2.1.2
+urllib3==2.6.3
+whitenoise==6.12.0

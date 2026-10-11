@@ -1,0 +1,246 @@
+{% extends "core/base.html" %}
+
+{% block title %}Settings - HealthManager{% endblock %}
+
+{% block extra_css %}
+<style>
+  h1, h3 { color: var(--gray-800); font-size: 1.2em; }
+  h1 { font-size: 1.3em; margin-bottom: 10px; }
+  form { margin: 12px 0; }
+  .form-section { background: var(--gray-50); padding: 12px 15px; margin: 10px 0; border-radius: 6px; border: 1px solid var(--border-light); }
+  .form-section h3 { margin-top: 0; color: var(--primary); font-size: 1em; }
+  label { display: block; margin: 10px 0 3px 0; font-weight: bold; color: var(--gray-600); font-size: 0.9em; }
+  label .form-control, label .form-select { margin-top: 4px; font-weight: normal; }
+  small { color: var(--gray-400); display: block; margin-top: 2px; font-size: 0.8em; }
+  .info-box { background: var(--info-bg); padding: 10px; border-radius: 4px; border-left: 3px solid var(--primary); margin: 12px 0; font-size: 0.85em; }
+  .checkbox-label { display: flex; align-items: flex-start; gap: 8px; font-weight: normal; cursor: pointer; font-size: 0.9em; }
+  .checkbox-label input[type="checkbox"] { width: auto; margin-top: 2px; }
+  .checkbox-label small { margin-left: 20px; margin-top: 3px; }
+  
+  /* Macro box styling */
+  .macro-box { background: var(--info-bg); padding: 12px; border-radius: 6px; border: 2px solid var(--primary); }
+  .macro-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .macro-item { background: var(--bg-hover); padding: 10px; border-radius: 6px; border: 1px solid var(--border-light); text-align: center; }
+  .macro-item label { margin: 0 0 5px 0; font-size: 0.95em; color: var(--primary); display: block; }
+  .macro-item input[type="number"] { width: 70px; display: inline-block; font-size: 1.1em; padding: 6px 8px; text-align: center; }
+  .macro-item .unit { font-weight: bold; color: var(--gray-500); margin-left: 3px; font-size: 1em; }
+  .macro-grams { margin-top: 6px; font-size: 0.9em; font-weight: bold; color: var(--gray-600); }
+  .macro-total { margin-top: 10px; text-align: center; font-size: 0.95em; font-weight: bold; color: var(--primary-light); padding: 8px; background: var(--bg-hover); border-radius: 4px; }
+  .macro-total.warning { color: var(--warning); }
+  .macro-total.valid { color: var(--success); }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <h1>Settings</h1>
+
+    {% if message %}
+      <div class="alert alert-success">
+        <strong>{{ message }}</strong>
+      </div>
+    {% endif %}
+
+    <form method="post" id="settingsForm">
+      {% csrf_token %}
+      
+      <div class="form-section">
+        <h3>👤 Physical Data</h3>
+        <label for="id_weight_kg">
+          Weight (kg):
+          <input class="form-control" type="number" name="weight_kg" value="{{ form.weight_kg.value|default:'' }}" id="id_weight_kg" step="0.1" min="30" max="300">
+          <small>Your current weight in kilograms</small>
+        </label>
+
+        <label for="id_height_cm">
+          Height (cm):
+          <input class="form-control" type="number" name="height_cm" value="{{ form.height_cm.value|default:'' }}" id="id_height_cm" step="0.1" min="100" max="250">
+          <small>Your height in centimeters</small>
+        </label>
+
+        <label for="id_age">
+          Age:
+          <input class="form-control" type="number" name="age" value="{{ form.age.value|default:'' }}" id="id_age" min="10" max="120">
+          <small>Your age in years</small>
+        </label>
+
+        <label for="id_sex">
+          Sex:
+          <select class="form-select" name="sex" id="id_sex">
+            <option value="">---------</option>
+            <option value="M" {% if form.sex.value == 'M' %}selected{% endif %}>Male</option>
+            <option value="F" {% if form.sex.value == 'F' %}selected{% endif %}>Female</option>
+          </select>
+          <small>Biological sex for metabolic calculations</small>
+        </label>
+
+        <label for="id_activity_level">
+          Activity Level:
+          <select class="form-select" name="activity_level" id="id_activity_level">
+            {% for val, label in form.fields.activity_level.choices %}
+              <option value="{{ val }}" {% if form.activity_level.value == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <small>Your typical weekly activity level</small>
+        </label>
+
+        <label for="id_fitness_goal">
+          Fitness Goal:
+          <select class="form-select" name="fitness_goal" id="id_fitness_goal">
+            {% for val, label in form.fields.fitness_goal.choices %}
+              <option value="{{ val }}" {% if form.fitness_goal.value == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <small>Your current fitness objective</small>
+        </label>
+      </div>
+
+      <div class="form-section">
+        <h3>Warning Thresholds</h3>
+        <label class="checkbox-label" for="id_use_auto_thresholds">
+          <input type="checkbox" name="use_auto_thresholds" id="id_use_auto_thresholds" {% if form.use_auto_thresholds.value %}checked{% endif %} onchange="toggleCustomThresholds()">
+          Use automatic thresholds based on fitness goal
+          <small>When enabled, warnings are calculated from your selected goal above</small>
+        </label>
+
+        <div id="customThresholds" style="{% if form.use_auto_thresholds.value %}display:none{% endif %}">
+          <label for="id_max_daily_deficit">
+            Warning Threshold (kcal below goal):
+            <input class="form-control" type="number" name="max_daily_deficit" value="{{ form.max_daily_deficit.value }}" id="id_max_daily_deficit" min="50" max="500">
+            <small>Show warning when deficit exceeds goal by this amount (default: 100 kcal)</small>
+          </label>
+        </div>
+        
+        <!-- Hidden fields to preserve values -->
+        <input type="hidden" name="min_daily_calories" value="{{ form.min_daily_calories.value }}">
+        <input type="hidden" name="max_daily_calories" value="{{ form.max_daily_calories.value }}">
+      </div>
+
+      <div class="form-section">
+        <h3>Macro Goals</h3>
+        {% if target_calories %}
+        <div style="margin-bottom: 15px; color: var(--gray-600);">
+          Target: <strong>{{ target_calories|floatformat:0 }}</strong> kcal/day
+        </div>
+        {% endif %}
+        <div class="macro-box">
+          <div class="macro-grid">
+            <div class="macro-item">
+              <label>Protein</label>
+              <input class="form-control" type="number" id="protein_pct_input" step="1" min="0" max="100" oninput="adjustCarbs('protein')">
+              <span class="unit">%</span>
+              <div class="macro-grams" id="protein_grams">-- g</div>
+              <input type="hidden" name="protein_goal_g" id="id_protein_goal_g" value="{{ form.protein_goal_g.value }}">
+            </div>
+            <div class="macro-item">
+              <label>Carbs</label>
+              <input class="form-control" type="number" id="carbs_pct_input" step="1" min="0" max="100" oninput="recalcGrams()">
+              <span class="unit">%</span>
+              <div class="macro-grams" id="carbs_grams">-- g</div>
+              <input type="hidden" name="carbs_goal_g" id="id_carbs_goal_g" value="{{ form.carbs_goal_g.value }}">
+            </div>
+            <div class="macro-item">
+              <label>Fat</label>
+              <input class="form-control" type="number" id="fat_pct_input" step="1" min="0" max="100" oninput="adjustCarbs('fat')">
+              <span class="unit">%</span>
+              <div class="macro-grams" id="fat_grams">-- g</div>
+              <input type="hidden" name="fat_goal_g" id="id_fat_goal_g" value="{{ form.fat_goal_g.value }}">
+            </div>
+          </div>
+          <div class="macro-total" id="macro_total">Total: 100%</div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>📅 Display Preferences</h3>
+        <label for="id_week_start_day">
+          Week Starts On:
+          <select class="form-select" name="week_start_day" required id="id_week_start_day">
+            <option value="0" {% if form.week_start_day.value == 0 %}selected{% endif %}>Monday</option>
+            <option value="6" {% if form.week_start_day.value == 6 %}selected{% endif %}>Sunday</option>
+          </select>
+          <small>First day of the week for weekly summaries</small>
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-success">💾 Save Settings</button>
+    </form>
+  </div>
+  
+  <script>
+    const TARGET_CALORIES = {{ target_calories|default:2000 }};
+    const CAL_PER_GRAM = { protein: 4, carbs: 4, fat: 9 };
+    
+    // Calculate grams from percentage
+    function pctToGrams(pct, macro) {
+      const calories = (pct / 100) * TARGET_CALORIES;
+      return Math.round(calories / CAL_PER_GRAM[macro]);
+    }
+    
+    // Calculate percentage from grams
+    function gramsToPct(grams, macro) {
+      const calories = grams * CAL_PER_GRAM[macro];
+      return Math.round((calories / TARGET_CALORIES) * 100);
+    }
+    
+    // Update displayed grams and hidden inputs
+    function recalcGrams() {
+      const proteinPct = parseInt(document.getElementById('protein_pct_input').value) || 0;
+      const carbsPct = parseInt(document.getElementById('carbs_pct_input').value) || 0;
+      const fatPct = parseInt(document.getElementById('fat_pct_input').value) || 0;
+      
+      const proteinG = pctToGrams(proteinPct, 'protein');
+      const carbsG = pctToGrams(carbsPct, 'carbs');
+      const fatG = pctToGrams(fatPct, 'fat');
+      
+      document.getElementById('protein_grams').textContent = proteinG + ' g';
+      document.getElementById('carbs_grams').textContent = carbsG + ' g';
+      document.getElementById('fat_grams').textContent = fatG + ' g';
+      
+      // Update hidden form inputs
+      document.getElementById('id_protein_goal_g').value = proteinG;
+      document.getElementById('id_carbs_goal_g').value = carbsG;
+      document.getElementById('id_fat_goal_g').value = fatG;
+      
+      // Update total display
+      const total = proteinPct + carbsPct + fatPct;
+      const totalEl = document.getElementById('macro_total');
+      totalEl.textContent = 'Total: ' + total + '%';
+      totalEl.className = 'macro-total ' + (total === 100 ? 'valid' : 'warning');
+    }
+    
+    // When protein or fat changes, adjust carbs to keep total at 100%
+    function adjustCarbs(changedMacro) {
+      const proteinPct = parseInt(document.getElementById('protein_pct_input').value) || 0;
+      const fatPct = parseInt(document.getElementById('fat_pct_input').value) || 0;
+      
+      // Carbs = 100 - protein - fat (but not negative)
+      const carbsPct = Math.max(0, 100 - proteinPct - fatPct);
+      document.getElementById('carbs_pct_input').value = carbsPct;
+      
+      recalcGrams();
+    }
+    
+    // Initialize percentages from saved gram values on page load
+    function initFromGrams() {
+      const proteinG = parseFloat(document.getElementById('id_protein_goal_g').value) || 0;
+      const carbsG = parseFloat(document.getElementById('id_carbs_goal_g').value) || 0;
+      const fatG = parseFloat(document.getElementById('id_fat_goal_g').value) || 0;
+      
+      document.getElementById('protein_pct_input').value = gramsToPct(proteinG, 'protein');
+      document.getElementById('carbs_pct_input').value = gramsToPct(carbsG, 'carbs');
+      document.getElementById('fat_pct_input').value = gramsToPct(fatG, 'fat');
+      
+      recalcGrams();
+    }
+    
+    function toggleCustomThresholds() {
+      const autoCheckbox = document.getElementById('id_use_auto_thresholds');
+      const customSection = document.getElementById('customThresholds');
+      customSection.style.display = autoCheckbox.checked ? 'none' : 'block';
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', initFromGrams);
+  </script>
+{% endblock %}

@@ -1,13 +1,13 @@
 # HealthManager Project Foundation
 
-Last updated: 2026-07-22
+Last updated: 2026-10-12
 
 ## Goal
 
 HealthManager is a local-first health tracking app for:
 
 - Energy expenditure from Garmin daily/activity data.
-- Energy intake, macros, and foods from manual entry, Fineli search/cache, and Fineli diary CSV imports.
+- Energy intake, macros, and foods from the locally imported Fineli database, own products and recipes, manual entries, and Fineli diary CSV imports.
 - Daily and weekly review of calorie balance, macros, activity, recovery, and running performance.
 
 The project is designed for later AI/ML analysis while keeping personal data local.
@@ -17,7 +17,9 @@ The project is designed for later AI/ML analysis while keeping personal data loc
 - Preserve raw exports. Do not manually edit Garmin or Fineli source files.
 - Use one canonical daily row as the base unit for analysis.
 - Compute derived values in code unless persistence has a clear purpose.
-- Keep the default deployment local: SQLite, local files, local Django server.
+- Unknown is not zero: a value a source doesn't report is stored as empty, never as 0.
+- The server is the source of truth: portion grams, nutrient values and recipe values are computed server-side.
+- Keep the default deployment local: SQLite, local files, a home server (Raspberry Pi) at most.
 - Keep account credentials, Garmin tokens, and personal datasets out of Git.
 
 ## Repository Structure
@@ -32,16 +34,21 @@ HealthManager/
     activities/                Garmin activities, laps, running analytics
       management/commands/import_garmin_csv.py
       templates/activities/
-    nutrition/                 Food diary, Fineli foods, custom foods, meal entries
+    nutrition/                 Fineli catalog, food diary, products, recipes, favorites
       management/commands/import_fineli_csv.py
+      aggregation.py             Per-user daily/weekly nutrition totals
+      recipe_aggregation.py      Recipe nutrient calculation (pure)
+      recipe_persistence.py      Recipe recalculation, incl. recipes depending on a changed food
       templates/nutrition/
+    health/                    Garmin sleep, HRV, stress, Body Battery; /health/ and /api/health/
     data/                      Generated Garmin CSV files, not committed
+    backups/                   backup_db snapshots, not committed
     manage.py
     db.sqlite3                 Local database, not committed
   data/                        Raw/local imports, not committed
   docs/                        Project documentation
   notes/                       Local development notes
-  get_garmindata.py            Legacy Garmin Connect CSV fetcher
+  get_garmindata.py            Garmin Connect fetcher (CSV files + health metrics)
   requirements.txt
   .env.example
   .env                         Local credentials, not committed
@@ -72,12 +79,12 @@ Accepted date formats are `YYYY-MM-DD` and `DD.MM.YYYY`.
 
 Supported intake sources:
 
-- Food diary UI manual entries.
-- Fineli search/cache entries.
+- Fineli foods from the local catalog (required: `import_fineli_csv`).
+- Own products (values from the label) and recipes (values calculated from ingredients).
+- Manual entries.
 - Fineli diary CSV bulk import.
-- Optional complete Fineli Open Data import via `import_fineli_csv`.
 
-Meal entries update `DailyLog.calories_in` and macro totals through recalculation.
+Each `MealEntry` stores the values of its portion at logging time (taken from the database). Saving or deleting one refreshes the shared `DailyLog` cache totals; what users see is computed from their own entries (`nutrition.aggregation.user_daily_totals()`). Recipes recalculate when their ingredients, or the foods those use, change.
 
 ### Analysis
 
@@ -121,14 +128,13 @@ Common derived values:
 
 `DailyLog`
 
-- One row per date.
-- Stores Garmin daily stats and nutrition totals.
-- Nutrition totals are recalculated from meal entries.
+- One row per date, shared by all users.
+- Stores Garmin daily stats and a cache of every user's nutrition totals (never shown as one person's intake).
 
 `UserSettings`
 
-- Singleton user profile and goal settings.
-- Calculates BMR, TDEE, target calories, and macro recommendations.
+- Singleton user profile and goal settings (preset or custom fitness goal, warning thresholds, Garmin calorie adjustment).
+- Calculates BMR, TDEE, target calories, and macro recommendations; `goal_adjustment_kcal()` is the goal value.
 - Tracks `last_garmin_sync`.
 
 ### Activities
@@ -154,20 +160,20 @@ Running analytics:
 
 ### Nutrition
 
-`FineliFood`
+`FineliFood` (+ `FineliFoodNutrient`, `FineliFoodUnit`)
 
-- Multilingual Fineli food cache with nutrition per 100g.
-- Also supports complete offline preload through CSV import.
+- The Fineli catalog imported from Open Data CSVs: names in three languages, nutrition per 100 g, micronutrients, portion sizes.
 
-`CustomFood`
+`CustomFood` (+ `CustomFoodNutrient`, `CustomFoodIngredient`)
 
-- User-created foods with nutrition per 100g.
+- The user's own products (`kind = product`, per 100 g or 100 ml, optional package) and recipes (`kind = recipe`, built from ingredients, optional servings and finished weight).
 
-`MealEntry`
+`MealEntry` (+ `MealEntryNutrient`), `FavoriteFood`
 
-- Individual food log entries linked to `DailyLog`.
-- Sources: `fineli`, `custom`, `manual`.
-- Meal types: breakfast, lunch, dinner, snack, evening snack.
+- Diary entries linked to `DailyLog` and the user; sources `fineli`, `custom`, `manual`, `bulk_import`; meal types breakfast, lunch, dinner, snack, evening snack, or a diary CSV's own meal name.
+- Favorites per user.
+
+Details and rules: [database_guide.md](database_guide.md).
 
 ## Management Commands
 
@@ -179,6 +185,9 @@ python manage.py import_garmin_csv
 
 # Import complete Fineli Open Data CSV folder
 python manage.py import_fineli_csv --data-folder "path/to/Fineli_Rel20"
+
+# Consistent database snapshot (backend/backups/)
+python manage.py backup_db
 ```
 
 ## Security Rules
@@ -193,7 +202,8 @@ python manage.py import_fineli_csv --data-folder "path/to/Fineli_Rel20"
 
 - All templates extend `core/base.html`.
 - Toast notifications use `showToast(message, type, duration)`.
-- Avoid browser alerts/prompts.
+- No browser alerts/prompts/confirms - two-click confirmation (`data-confirm`) for deletes.
+- Server-side messages (`django.contrib.messages`) appear as toasts.
 - Use filter buttons for analytics and other repeated filter controls.
 - Include CSRF tokens in POST requests; async dashboard sync reads `csrftoken` from cookies.
 

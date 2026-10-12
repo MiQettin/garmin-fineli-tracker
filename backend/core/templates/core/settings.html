@@ -86,12 +86,19 @@
 
         <label for="id_fitness_goal">
           Fitness Goal:
-          <select class="form-select" name="fitness_goal" id="id_fitness_goal">
+          <select class="form-select" name="fitness_goal" id="id_fitness_goal" onchange="toggleCustomGoal()">
             {% for val, label in form.fields.fitness_goal.choices %}
               <option value="{{ val }}" {% if form.fitness_goal.value == val %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
           <small>Your current fitness objective</small>
+        </label>
+
+        <label for="id_custom_goal_kcal" id="customGoal">
+          Custom Goal (kcal/day):
+          <input class="form-control" type="number" name="custom_goal_kcal" value="{{ form.custom_goal_kcal.value|default_if_none:'' }}" id="id_custom_goal_kcal" min="-2000" max="2000" step="1" placeholder="e.g. 100 or -350">
+          <small>Your own daily energy balance target. Positive for a surplus, negative for a deficit.</small>
+          {% for error in form.custom_goal_kcal.errors %}<small style="color: var(--error);">{{ error }}</small>{% endfor %}
         </label>
       </div>
 
@@ -240,6 +247,12 @@
       recalcGrams();
     }
     
+    function toggleCustomGoal() {
+      const isCustom = document.getElementById('id_fitness_goal').value === 'custom';
+      document.getElementById('customGoal').style.display = isCustom ? '' : 'none';
+      document.getElementById('id_custom_goal_kcal').required = isCustom;
+    }
+
     function toggleCustomThresholds() {
       const autoCheckbox = document.getElementById('id_use_auto_thresholds');
       const customSection = document.getElementById('customThresholds');
@@ -249,6 +262,7 @@
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
       initFromGrams();
+      toggleCustomGoal();
       toggleCustomThresholds();
     });
   </script>

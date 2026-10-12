@@ -83,6 +83,22 @@
   .cmp-days-title { font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-500); margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-light); }
   .mini-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
 
+  /* ---------- Avg daily balance status (vs. goal and warning thresholds) ---------- */
+  .balance-status { --status: var(--gray-500); --status-bg: rgba(255,255,255,0.04);
+    margin: 8px 0 4px; padding: 12px 14px; border: 1px solid var(--border-light); border-left: 4px solid var(--status);
+    border-radius: 12px; background: linear-gradient(90deg, var(--status-bg), transparent 85%); transition: background 0.3s; }
+  .balance-status.balance-good { --status: var(--success); --status-bg: var(--success-bg); }
+  .balance-status.balance-moderate { --status: var(--warning); --status-bg: var(--warning-bg); }
+  .balance-status.balance-aggressive { --status: var(--error); --status-bg: var(--error-bg); }
+  .balance-status.balance-surplus { --status: var(--info); --status-bg: var(--info-bg); }
+  .balance-status .cmp-highlight { border-bottom: none; padding: 0; }
+  .balance-status .balance-value { color: var(--status); font-size: 1.15em; }
+  .balance-status .balance-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 6px; font-size: 0.76em; color: var(--gray-500); }
+  .balance-status .balance-pill { padding: 2px 10px; border-radius: 999px; font-weight: 700; color: var(--status); background: var(--status-bg); border: 1px solid var(--status); }
+  .balance-status.balance-aggressive .balance-pill i { animation: balance-pulse 1.6s ease-in-out infinite; }
+  @keyframes balance-pulse { 50% { opacity: 0.35; } }
+  @media (prefers-reduced-motion: reduce) { .balance-status.balance-aggressive .balance-pill i { animation: none; } }
+
   /* ---------- Icon badges ---------- */
   .icon-badge { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
   .icon-badge.soft-primary { background: rgba(59,130,246,0.15); color: var(--primary-light); }
@@ -269,9 +285,20 @@
       <span>Avg expenditure</span>
       <span>{{ energy.avg_expenditure|floatformat:0 }} kcal</span>
     </div>
-    <div class="cmp-highlight">
-      <span>Avg daily balance</span>
-      <span>{{ energy.avg_balance|floatformat:"+0" }} kcal</span>
+    <div class="balance-status balance-{{ energy.status }}"{% if energy.status != 'surplus' %} style="--status: hsl({{ energy.status_hue }}, 78%, 58%); --status-bg: hsla({{ energy.status_hue }}, 70%, 45%, 0.22);"{% endif %}>
+      <div class="cmp-highlight">
+        <span>Avg daily balance</span>
+        <span class="balance-value">{{ energy.avg_balance|floatformat:"+0" }} kcal</span>
+      </div>
+      <div class="balance-meta">
+        <span class="balance-pill">
+          {% if energy.status == 'good' %}<i class="bi bi-check-circle-fill"></i>{% elif energy.status == 'moderate' %}<i class="bi bi-exclamation-triangle-fill"></i>{% elif energy.status == 'aggressive' %}<i class="bi bi-exclamation-octagon-fill"></i>{% else %}<i class="bi bi-arrow-up-circle-fill"></i>{% endif %}
+          {{ energy.interpretation }}
+        </span>
+        <span>Goal {{ energy.target_balance|floatformat:"+0" }} kcal/day
+          &middot; on track {% if energy.ok_high is not None %}{{ energy.ok_low|floatformat:"+0" }}&hellip;{{ energy.ok_high|floatformat:"+0" }}{% else %}&ge; {{ energy.ok_low|floatformat:"+0" }}{% endif %}
+          &middot; alert below {{ energy.alert_low|floatformat:"+0" }}</span>
+      </div>
     </div>
 
     {% if nutrition_summary.percentages_available %}

@@ -4,8 +4,9 @@ from .views import (
     add_meal_entry, edit_meal_entry, delete_meal_entry,
     search_fineli_api, add_fineli_entry, bulk_import_diary_csv,
     list_custom_foods_api,
-    add_favorite_food, remove_favorite_food, list_favorite_foods, list_recent_foods, list_frequent_foods,
-    recipe_detail_view, add_recipe_fineli_ingredient, add_recipe_custom_ingredient,
+    add_favorite_food, remove_favorite_food, list_favorite_foods, list_recent_foods, list_frequent_foods, manage_favorites,
+    recipe_list, recipe_detail_view, add_recipe_fineli_ingredient, add_recipe_custom_ingredient,
+    update_recipe_settings, duplicate_recipe, delete_recipe,
     remove_recipe_ingredient, recalculate_recipe_view, save_recipe_final_values,
 )
 
@@ -24,6 +25,7 @@ urlpatterns = [
     path("api/favorites/add/", add_favorite_food, name="add_favorite_food"),
     path("api/favorites/remove/", remove_favorite_food, name="remove_favorite_food"),
     path("api/favorites/", list_favorite_foods, name="list_favorite_foods"),
+    path("favorites/", manage_favorites, name="manage_favorites"),
     path("api/recent/", list_recent_foods, name="list_recent_foods"),
     path("api/frequent/", list_frequent_foods, name="list_frequent_foods"),
 
@@ -34,6 +36,10 @@ urlpatterns = [
     path("custom-foods/delete/<int:food_id>/", delete_custom_food, name="delete_custom_food"),
 
     # Recipe composition
+    path("recipes/", recipe_list, name="recipe_list"),
+    path("custom-foods/<int:food_id>/recipe/settings/", update_recipe_settings, name="update_recipe_settings"),
+    path("custom-foods/<int:food_id>/recipe/duplicate/", duplicate_recipe, name="duplicate_recipe"),
+    path("custom-foods/<int:food_id>/recipe/delete/", delete_recipe, name="delete_recipe"),
     path("custom-foods/create-recipe/", create_recipe, name="create_recipe"),
     path("custom-foods/<int:food_id>/recipe/", recipe_detail_view, name="recipe_detail"),
     path("custom-foods/<int:food_id>/recipe/add-fineli/", add_recipe_fineli_ingredient, name="add_recipe_fineli_ingredient"),

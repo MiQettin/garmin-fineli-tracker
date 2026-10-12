@@ -5,35 +5,39 @@ A local-first health and fitness tracking application that combines Garmin activ
 > [!IMPORTANT]
 > **The Garmin features are built for the author's own personal use.** They are tailored to one account and one set of devices and workouts (for example, the running analytics' workout categories), and they use the **unofficial** [`garminconnect`](https://github.com/cyberjunky/python-garminconnect) library rather than an official Garmin API. They are shared as-is, may not work for your account, and may break whenever Garmin changes its service. They will be generalized for public use later on.
 >
-> The **food diary** (Fineli search, custom foods, recipes, diary CSV import) works on its own, without any Garmin account.
+> The **food diary** (Fineli search, own products, recipes, favorites, diary CSV import) works on its own, without any Garmin account.
 >
 > HealthManager is not affiliated with, endorsed by, or supported by Garmin or THL. See [Third-party notices](#-license-and-third-party-notices).
 
 ## 🎯 Overview
 
 HealthManager is a privacy-focused Django web application that helps you:
+- Log what you eat against the Finnish Fineli food database, your own products and your own recipes
 - Track energy expenditure from Garmin device data
-- Log nutritional intake and macros
-- Monitor daily and weekly energy balance
-- Analyze activity patterns and heart rate data
-- Receive personalized health insights and alerts
+- Follow daily and weekly energy balance and macros against your goal
+- Analyze activities, running laps and recovery (resting heart rate, sleep, HRV)
 
-**Privacy First**: All data stays on your local machine. No cloud services, no data sharing.
+**Privacy First**: All data stays on your own machine or home server. No cloud services, no data sharing.
 
 ## ✨ Features
 
-### Core Tracking
-- **Garmin Integration**: `get_garmindata.py` fetches activities, daily stats, and health metrics (sleep, HRV, stress, Body Battery, respiration, SpO2) from Garmin Connect using the unofficial `garminconnect` library, with token reuse so you don't re-login every time. This is the app's actual, currently-used data path - it can be run manually or triggered with one click from the Sync Garmin button. *Currently tailored to the author's own use - see the notice at the top.*
-- **Nutritional Logging**: Fineli database search, custom foods and recipes, manual entries, favorites, and bulk diary CSV import (see below) - all against the local Fineli data, no live API dependency.
-- **Daily Dashboard**: View calories in vs out, macro breakdown, and activity summary
-- **Weekly Summary**: 7-day rolling analysis with balance calculations
+### Food diary
+- **Fineli search**: the whole Fineli database imported locally (about 4,200 foods) - works offline. Case and ä/ö/å don't matter, every word matches in any order ("maito lak"), best matches first.
+- **Portions**: Fineli's own portion sizes (pieni/iso kpl, annos, dl, rkl …), product packages ("1 × pakkaus"), ml/dl/l for liquids, recipe servings ("1 × annos"), or grams.
+- **Own products**: values per 100 g or per 100 ml from the label, optional package size.
+- **Recipes**: build dishes from Fineli foods and your own foods; values per 100 g are calculated (optionally from the finished dish's weight) and kept up to date when ingredients change; optional servings; duplicate and delete.
+- **Favorites, Recent, Frequent**, manual entries, editing entries, and **bulk import** of Fineli diary CSV exports.
+- Unknown nutrient values stay unknown - never counted as zero.
 
-### Advanced Insights
-- **Heart Rate Baseline**: 7-day weighted average with deviation tracking
-- **Recovery Status**: Consecutive elevated HR detection and recovery monitoring
-- **Rolling Deficit Tracking**: 3-day and 7-day average deficit calculations
-- **Under-fueling Alerts**: Detection of high activity combined with sustained caloric deficit
-- **Macro Goal Tracking**: Automated TDEE calculation with customizable fitness goals
+### Dashboard
+- Last 7 completed days: intake vs Garmin expenditure, average daily balance against your goal (preset or custom kcal/day), colored green → yellow → red by your warning thresholds.
+- Macro goals and energy shares, logged-day coverage, and a Daily Breakdown of all 7 days compared with the 7-day average.
+- Manual Garmin calorie adjustment if your device over- or underestimates.
+- Recovery: 7-day weighted resting-HR baseline and consecutive elevated days; training summary.
+
+### Garmin (personal use, see the notice above)
+- `get_garmindata.py` fetches activities, laps, daily stats and health metrics (sleep, HRV, stress, Body Battery, respiration, SpO2) with the unofficial `garminconnect` library and token reuse; one click with **Sync Garmin**.
+- Running analytics with workout and lap filters, weighted pace.
 
 ## 🚀 Quick Start
 
@@ -121,7 +125,7 @@ If it shows 3.11 or older, install a newer Python before continuing:
    ```bash
    python manage.py import_fineli_csv --data-folder "path/to/Fineli_Rel20"
    ```
-   About 4,200 foods are imported. See [docs/fineli_complete_import.md](docs/fineli_complete_import.md).
+   About 4,200 foods and their portion sizes are imported. See [docs/fineli_complete_import.md](docs/fineli_complete_import.md).
 
 8. **Start the development server**
    ```bash
@@ -166,9 +170,9 @@ cd backend
 python manage.py import_garmin_csv
 ```
 
-### Importing Fineli Nutrition Data
+### Importing a Fineli Diary Export
 
-Import daily nutrition totals from Fineli diary CSV exports:
+Import your food diary from Fineli diary CSV exports (food by food, not just daily totals):
 
 1. Go to Food Diary page: http://127.0.0.1:8000/food-diary/
 2. Click "📥 Import CSV" button in the header
@@ -185,7 +189,7 @@ Import daily nutrition totals from Fineli diary CSV exports:
 
 ### Daily Workflow
 
-1. Log meals in Nutrition → Diary as you eat - see [docs/food_diary_guide.md](docs/food_diary_guide.md)
+1. Log meals in Nutrition → Diary as you eat; keep your own products in Nutrition → Foods and recipes in Nutrition → Recipes - see [docs/food_diary_guide.md](docs/food_diary_guide.md)
 2. Press **Sync Garmin** in the top nav to pull the latest Garmin data
 3. Check the Dashboard: the last 7 completed days (the window ends yesterday, since today is still incomplete), energy balance, macros and recovery
 4. Adjust body data and goals on the Settings page as needed
@@ -198,11 +202,11 @@ Fineli is the Finnish food composition database maintained by the Finnish Instit
 
 ### What's Built
 
-- **Food Search**: Type-ahead search across the imported Fineli database (Finnish names).
-- **Quick Add**: Add a Fineli food to the diary with a portion size, auto-filling macro and micronutrient values.
-- **Custom Foods & Recipes**: Save your own foods, and build recipes from Fineli foods and/or other custom foods - composition recalculates from the ingredient list.
-- **Favorites, Recent, and Frequent**: Quick-access lists for foods you log often.
-- **Bulk Diary CSV Import**: Upload one or more Fineli diary export CSVs from the Food Diary page - see "Importing Fineli Nutrition Data" below.
+- **Food Search**: search across the imported Fineli database (Finnish, Swedish and English names).
+- **Quick Add**: log a Fineli food with one of its portion sizes; macros and micronutrients are filled in from the database.
+- **Recipes**: build dishes from Fineli foods and your own products and recipes - values recalculate from the ingredient list.
+- **Favorites, Recent, and Frequent**: quick-access lists for foods you log often.
+- **Bulk Diary CSV Import**: upload one or more Fineli diary export CSVs - see "Importing a Fineli Diary Export" above.
 
 ### Data Packages
 
@@ -228,17 +232,19 @@ garmin-fineli-tracker/
 │   ├── config/           # Project settings
 │   ├── core/             # Core app (DailyLog, UserSettings, dashboard)
 │   │   ├── models.py     # DailyLog and UserSettings models
-│   │   ├── views.py      # Dashboard and settings views
+│   │   ├── views.py      # Dashboard, settings and Garmin sync views
 │   │   ├── templates/    # Base and core templates
-│   │   └── templatetags/ # Template filters
+│   │   ├── templatetags/ # Template filters
+│   │   └── management/   # backup_db command
 │   ├── activities/       # Activity tracking app
 │   │   ├── models.py     # Activity and ActivityLap models
 │   │   ├── views.py      # Activity list, detail, analytics
 │   │   ├── templates/    # Activity templates
 │   │   └── management/   # import_garmin_csv command
 │   ├── nutrition/        # Food diary app
-│   │   ├── models.py     # FineliFood, CustomFood, MealEntry, recipes, favorites
-│   │   ├── views.py      # Food diary, recipe, and bulk CSV import views
+│   │   ├── models.py     # Fineli catalog, products and recipes (CustomFood), diary (MealEntry), favorites
+│   │   ├── views.py      # Diary, products, recipes, favorites, search and bulk CSV import
+│   │   ├── aggregation.py, recipe_aggregation.py, recipe_persistence.py  # daily totals and recipe calculation
 │   │   ├── templates/    # Food diary templates
 │   │   └── management/   # import_fineli_csv command
 │   ├── health/           # Garmin health/recovery metrics app
@@ -258,35 +264,29 @@ garmin-fineli-tracker/
 
 ## 📈 Data Model
 
-### DailyLog
-Stores one entry per day with:
-- Energy: calories_in, calories_out, balance
-- Macros: protein_g, carbs_g, fat_g, sat_fat_g
-- Activity: steps, distance_meters, moderate/vigorous intensity minutes
-- Heart Rate: resting_heart_rate, min/max heart rate
-- Derived: hr_baseline_7d, rolling_deficit_3d, rolling_deficit_7d
+The full model reference, the rules the code relies on, and how to back up, inspect and restore the database are in [docs/database_guide.md](docs/database_guide.md). In short:
 
-### UserSettings
-Singleton model containing:
-- Physical data: weight, height, age, sex
-- Calorie thresholds and goals
-- Activity level and fitness goals
-- Macro targets (protein, carbs, fat)
-- Display preferences
+- **`DailyLog`** - one row per day: Garmin expenditure (`calories_out`, active/BMR kcal), steps, distance, intensity minutes, heart rate; plus cached nutrition totals.
+- **`UserSettings`** - one shared settings row: body data, activity level, fitness goal (preset or custom), warning thresholds, Garmin calorie adjustment, macro goals.
+- **Nutrition** - `FineliFood` (+ micronutrients and portion sizes), `CustomFood` (your products and recipes, with ingredients), `MealEntry` (one diary entry, values stored for the portion), `FavoriteFood`.
+- **Garmin** - `Activity`, `ActivityLap`, and the health tables `DailyHealth`, `SleepSummary`, `HrvSummary`.
 
 ### A note on multi-user data
-`MealEntry`, `CustomFood`, and `FavoriteFood` (all in `nutrition`) are scoped to the logged-in Django user. Everything else - `DailyLog`, `UserSettings`, and all Garmin/activity/health data (`Activity`, `ActivityLap`, `DailyHealth`, `SleepSummary`, `HrvSummary`) - is global and shared by whoever is logged in, with no per-user separation. `DailyLog.recalculate_from_meals()` in particular sums every user's meal entries together. This app was originally single-user; if you're using it with more than one account, be aware that food diary totals and all Garmin/health data are currently shared across accounts, not private per person.
+Diary entries, products, recipes and favorites belong to the logged-in Django user, and the diary and dashboard totals count only that user's entries. Everything else - `UserSettings`, the Garmin, activity and health data - is shared by whoever is logged in. The app is meant for one person; with more than one account, settings, goals and Garmin data are not private per person.
 
 ## 🔧 Configuration
 
 ### Fitness Goals
-The app supports various fitness goals with automatic calorie adjustment:
+The dashboard compares your average daily balance with the goal:
 - **Aggressive Cut**: -500 kcal/day (significant fat loss)
 - **Moderate Cut**: -300 kcal/day (standard fat loss)
 - **Mild Cut**: -200 kcal/day (for lean individuals)
 - **Maintenance**: 0 kcal/day
 - **Lean Bulk**: +250 kcal/day (slow muscle gain)
 - **Bulk**: +400 kcal/day (faster muscle gain)
+- **Custom**: your own kcal/day target
+
+Warning thresholds are automatic or a custom value ("kcal below goal"); the alert level is twice the warning threshold. A **Garmin calorie adjustment** (kcal/day, positive or negative) corrects Garmin's expenditure in every calculation without changing the imported data.
 
 ### Activity Levels
 - Sedentary (1.2x): Little or no exercise
@@ -297,27 +297,21 @@ The app supports various fitness goals with automatic calorie adjustment:
 
 ## 🏥 Health Insights
 
-The app provides several automated health insights:
+### Energy balance
+- 7-day average daily balance against the fitness goal, colored by the warning thresholds (green on track, yellow warning, red alert, blue surplus on cut goals)
+- Each day compared with the 7-day average
+- Macro energy shares, shown only when the macro data is complete
 
-### Rolling Deficit Monitoring
-- 3-day and 7-day average deficit tracking
-- Alerts for sustained deficits exceeding safe thresholds
-- Color-coded indicators (green/yellow/red)
-
-### Heart Rate Analysis
-- 7-day weighted baseline calculation
-- Deviation tracking from baseline
-- Consecutive elevated HR detection for recovery status
-
-### Under-fueling Detection
-- Identifies high activity days with inadequate calorie intake
-- Combines activity metrics with deficit tracking
+### Heart rate and recovery
+- 7-day weighted resting-HR baseline and deviation
+- Consecutive elevated-HR days
+- Sleep, HRV, stress and Body Battery trends on the Health page
 
 ## 🔐 Privacy & Security
 
-- **Local-only**: All data stored in local SQLite database
+- **Local-only**: All data stored in a local SQLite database - back it up with `python manage.py backup_db` (see [docs/database_guide.md](docs/database_guide.md))
 - **No telemetry**: No data sent to external services
-- **Open source**: Full transparency of data handling
+- **Source available**: the full source is public, so you can see exactly how your data is handled (noncommercial license, see below)
 - **Garmin credentials**: Stored only in environment variables, never in code
 - **Login required**: every page and API endpoint requires a logged-in user (Django admin login). Page views redirect to the login page; JSON endpoints return HTTP 401.
 - **Home network only**: the server setup (gunicorn + whitenoise, see [docs/deployment.md](docs/deployment.md)) runs over plain HTTP. Don't expose it to the internet without adding HTTPS first.
@@ -329,6 +323,7 @@ The app provides several automated health insights:
 cd backend
 python manage.py test
 ```
+Tests always run on an in-memory database, never on `db.sqlite3`.
 
 ### Backing Up / Moving the Database
 ```bash
@@ -340,7 +335,9 @@ Writes a consistent snapshot to `backend/backups/` (safe while the server runs).
 ```bash
 python manage.py makemigrations
 python manage.py migrate
+python manage.py makemigrations --check --dry-run   # before pushing: must print "No changes detected"
 ```
+Every model change ships with its migration; a server is updated with `backup_db`, `git pull`, `migrate` ([docs/deployment.md](docs/deployment.md)).
 
 ### Creating Admin User
 ```bash
@@ -353,16 +350,14 @@ Access admin panel at: http://127.0.0.1:8000/admin/
 See [docs/project_status.md](docs/project_status.md) for the up-to-date phase, recent changes, and known issues - it's kept current as the app changes; this section only summarizes what's working.
 
 ### What Works
-✅ Garmin data import via the unofficial `garminconnect` library (`get_garmindata.py`, personal-use feature) - activities, daily stats, and health metrics (sleep, HRV, stress, Body Battery, respiration, SpO2)
-✅ Fineli food search, custom foods, recipes, favorites, and bulk diary CSV import
-✅ Daily and weekly views, running analytics
-✅ Heart rate baseline and recovery tracking
-✅ Rolling deficit calculations
-✅ Activity summary display
-✅ Personalized insights and alerts
+✅ Food diary: Fineli search, portion sizes, own products, recipes (servings, finished weight, automatic recalculation), favorites, editing, diary CSV import
+✅ Per-user diary totals on the diary and dashboard
+✅ Dashboard: energy balance against preset or custom goals with threshold coloring, macros, Garmin calorie adjustment
+✅ Garmin data import via the unofficial `garminconnect` library (personal-use feature) - activities, daily stats, and health metrics
+✅ Running analytics, heart rate baseline and recovery tracking
 
 ### Known Gaps
-⚠️ Garmin/health/activity data and `DailyLog` totals are shared globally, not scoped per user (fine for a single person)
+⚠️ Settings and Garmin/health/activity data are shared by all accounts (fine for a single person)
 ⚠️ Server deployment is for a home network only (gunicorn + whitenoise over HTTP) - no HTTPS setup yet
 
 ### Roadmap
@@ -373,7 +368,7 @@ See [docs/project_status.md](docs/project_status.md) for the up-to-date phase, r
 
 ## 🤝 Contributing
 
-This is a personal project, but suggestions and improvements are welcome. The Garmin features are still tailored to the author's own use (see the notice at the top), so issues about other accounts or devices may not be addressed until they are generalized. To contribute:
+This is a personal project, but suggestions and improvements are welcome. Contributions are accepted under the same noncommercial license as the project. The Garmin features are still tailored to the author's own use (see the notice at the top), so issues about other accounts or devices may not be addressed until they are generalized. To contribute:
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
@@ -381,7 +376,7 @@ This is a personal project, but suggestions and improvements are welcome. The Ga
 
 ## 📄 License and third-party notices
 
-HealthManager's own code is released under the [MIT License](LICENSE). Third-party libraries and data keep their own licenses - see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the full list.
+HealthManager's own code is released under the [PolyForm Noncommercial License 1.0.0](LICENSE): you may use, change and share it for any **noncommercial** purpose - personal use, study, hobby projects, research, and use by charitable, educational and public organizations. **Commercial use is not permitted**; for a commercial license, contact the copyright holder. Third-party libraries and data keep their own licenses - see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the full list.
 
 **Trademarks and affiliation**
 - Garmin®, Garmin Connect™ and Body Battery™ are trademarks of Garmin Ltd. or its subsidiaries. HealthManager is not affiliated with, endorsed by, or supported by Garmin.
@@ -399,8 +394,9 @@ HealthManager's own code is released under the [MIT License](LICENSE). Third-par
 For issues or questions, please refer to the documentation in the `docs/` folder:
 - [project_foundation.md](docs/project_foundation.md) - Core principles and design
 - [project_status.md](docs/project_status.md) - Current development status
-- [food_diary_guide.md](docs/food_diary_guide.md) - Using the food diary
-- [deployment.md](docs/deployment.md) - Moving the database to a server and shipping updates
+- [food_diary_guide.md](docs/food_diary_guide.md) - Using the food diary, products, recipes and favorites
+- [database_guide.md](docs/database_guide.md) - Data model, safe database operations, backups and health checks
+- [deployment.md](docs/deployment.md) - Moving the database to a server, shipping updates, replacing the server database
 
 ---
 

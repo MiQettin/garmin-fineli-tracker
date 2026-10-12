@@ -12,6 +12,7 @@ class UserSettingsForm(forms.ModelForm):
             "sex",
             "activity_level",
             "fitness_goal",
+            "custom_goal_kcal",
             "use_auto_thresholds",
             "min_daily_calories",
             "max_daily_calories",
@@ -29,6 +30,7 @@ class UserSettingsForm(forms.ModelForm):
             "sex": forms.Select(attrs={"class": "form-control"}),
             "activity_level": forms.Select(attrs={"class": "form-control"}),
             "fitness_goal": forms.Select(attrs={"class": "form-control"}),
+            "custom_goal_kcal": forms.NumberInput(attrs={"class": "form-control", "min": "-2000", "max": "2000", "step": "1"}),
             "use_auto_thresholds": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "min_daily_calories": forms.NumberInput(attrs={"class": "form-control", "min": "800", "max": "5000"}),
             "max_daily_calories": forms.NumberInput(attrs={"class": "form-control", "min": "1000", "max": "6000"}),
@@ -39,3 +41,15 @@ class UserSettingsForm(forms.ModelForm):
             "fat_goal_g": forms.NumberInput(attrs={"class": "form-control", "min": "0", "step": "0.1"}),
             "week_start_day": forms.Select(attrs={"class": "form-control"}),
         }
+
+    def clean_custom_goal_kcal(self):
+        value = self.cleaned_data.get("custom_goal_kcal")
+        if value is not None and not -2000 <= value <= 2000:
+            raise forms.ValidationError("Use a value between -2000 and +2000 kcal/day.")
+        return value
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("fitness_goal") == "custom" and cleaned.get("custom_goal_kcal") is None:
+            self.add_error("custom_goal_kcal", "Enter your own daily goal (kcal/day) for a Custom goal.")
+        return cleaned

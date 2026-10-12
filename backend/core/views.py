@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 from django.shortcuts import render, redirect
-from django.utils.timezone import now
+from django.utils.timezone import localdate, now
 from django.db.models import Sum
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
@@ -72,7 +72,7 @@ def week_view(request):
     user_settings = UserSettings.get_settings()
     week_offset = int(request.GET.get('week', 0))
     
-    today = now().date()
+    today = localdate()
     # The window ends yesterday, not today - today's data is still
     # incomplete/in-progress, so "last 7 days" means the last 7 finished
     # days rather than including a partial today.
@@ -148,16 +148,8 @@ def week_view(request):
         else:
             energy['intake_pct'] = 0
         
-        # Get target deficit from fitness goal
-        goal_deficits = {
-            'aggressive_cut': -500,
-            'moderate_cut': -300,
-            'mild_cut': -200,
-            'maintain': 0,
-            'lean_bulk': 250,
-            'bulk': 400,
-        }
-        target_balance = goal_deficits.get(user_settings.fitness_goal, -300)
+        # Target daily balance from the fitness goal (preset or custom)
+        target_balance = user_settings.goal_adjustment_kcal()
         energy['target_balance'] = target_balance
         
         # Warning thresholds - auto or custom
@@ -173,6 +165,25 @@ def week_view(request):
         # How far off from target? (negative means deeper deficit than planned)
         deviation_from_goal = avg_balance - target_balance
         energy['deviation'] = round(deviation_from_goal, 0)
+
+        # Status boundaries, shown under the balance row so the colour is
+        # explainable: on track from ok_low (up to ok_high for cut goals),
+        # alert below alert_low, warning in between.
+        energy['ok_low'] = target_balance - warning_buffer
+        energy['alert_low'] = target_balance - danger_buffer
+        energy['ok_high'] = target_balance + warning_buffer if target_balance < 0 else None
+
+        # Sliding colour for the balance row: 0 at/above target (green), 0.5
+        # at the warning threshold (yellow), 1 at the alert threshold (red).
+        # HSL hue 145 (green) -> 48 (yellow) -> 0 (red), piecewise so the
+        # warning threshold lands on a true yellow.
+        shortfall = max(0, target_balance - avg_balance)
+        severity = min(1, shortfall / danger_buffer) if danger_buffer > 0 else (1 if shortfall > 0 else 0)
+        energy['severity'] = round(severity, 2)
+        if severity <= 0.5:
+            energy['status_hue'] = round(145 - (145 - 48) * severity * 2)
+        else:
+            energy['status_hue'] = round(48 * (1 - severity) * 2)
         
         # Status based on deviation from personal goal
         if target_balance >= 0:  # Maintenance or bulk goals
@@ -425,16 +436,7 @@ def settings_view(request):
     target_calories = None
     tdee = user_settings.calculate_tdee()
     if tdee:
-        goal_adjustments = {
-            'aggressive_cut': -500,
-            'moderate_cut': -300,
-            'mild_cut': -200,
-            'maintain': 0,
-            'lean_bulk': 250,
-            'bulk': 400,
-        }
-        adjustment = goal_adjustments.get(user_settings.fitness_goal, 0)
-        target_calories = tdee + adjustment
+        target_calories = tdee + user_settings.goal_adjustment_kcal()
     
     return render(request, "core/settings.html", {
         "form": form,

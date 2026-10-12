@@ -1,0 +1,6 @@
+{# A Fineli food in a recipe picker list. Tapping it opens the amount panel; units are "code|label|grams;..." #}
+<button type="button" class="pick-item" data-pick="fineli" data-id="{{ food.fineli_id }}" data-name="{{ food.name_fi }}"
+        data-units="{% for unit in food.units.all %}{{ unit.unit_code }}|{{ unit.label }}|{{ unit.mass_g|stringformat:'s' }}{% if not forloop.last %};{% endif %}{% endfor %}">
+  <span class="pick-name">{{ food.name_fi }}</span>
+  <i class="bi bi-chevron-right" aria-hidden="true"></i>
+</button>

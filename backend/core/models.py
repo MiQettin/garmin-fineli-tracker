@@ -46,8 +46,23 @@ class UserSettings(models.Model):
         ('maintain', 'Maintenance (0 kcal) - Maintain current weight'),
         ('lean_bulk', 'Lean Bulk (+250 kcal) - Slow muscle gain'),
         ('bulk', 'Bulk (+400 kcal) - Faster muscle gain'),
+        ('custom', 'Custom - set your own kcal/day'),
     ]
+    # Daily energy balance target (kcal) for each preset goal; 'custom' uses
+    # custom_goal_kcal instead.
+    GOAL_ADJUSTMENTS = {
+        'aggressive_cut': -500,
+        'moderate_cut': -300,
+        'mild_cut': -200,
+        'maintain': 0,
+        'lean_bulk': 250,
+        'bulk': 400,
+    }
     fitness_goal = models.CharField(max_length=20, choices=GOAL_CHOICES, default='maintain', help_text="Current fitness goal")
+    custom_goal_kcal = models.IntegerField(
+        null=True, blank=True,
+        help_text="Own daily energy balance target (kcal/day) when the fitness goal is Custom; negative for a deficit",
+    )
     
     # Macro goals (grams per day)
     protein_goal_g = models.FloatField(default=150.0, help_text="Daily protein goal in grams")
@@ -81,6 +96,12 @@ class UserSettings(models.Model):
         settings, created = cls.objects.get_or_create(pk=1)
         return settings
     
+    def goal_adjustment_kcal(self) -> int:
+        """Target daily energy balance for the selected goal (kcal/day)."""
+        if self.fitness_goal == 'custom':
+            return self.custom_goal_kcal or 0
+        return self.GOAL_ADJUSTMENTS.get(self.fitness_goal, 0)
+
     def calculate_bmr(self):
         """Calculate Basal Metabolic Rate using Mifflin-St Jeor equation"""
         if not all([self.weight_kg, self.height_cm, self.age, self.sex]):
@@ -113,22 +134,13 @@ class UserSettings(models.Model):
         - Maintenance (0): Weight maintenance
         - Lean bulk (+250): ~0.25kg/month gain, minimize fat gain
         - Bulk (+400): ~0.4kg/month gain, faster muscle building
+        - Custom: custom_goal_kcal
         """
         tdee = self.calculate_tdee()
         if tdee is None:
             return None
         
-        goal_adjustments = {
-            'aggressive_cut': -500,
-            'moderate_cut': -300,
-            'mild_cut': -200,
-            'maintain': 0,
-            'lean_bulk': 250,
-            'bulk': 400,
-        }
-        
-        adjustment = goal_adjustments.get(self.fitness_goal, 0)
-        return tdee + adjustment
+        return tdee + self.goal_adjustment_kcal()
     
     def calculate_recommended_macros(self):
         """
@@ -143,11 +155,13 @@ class UserSettings(models.Model):
         if target_cals is None or self.weight_kg is None:
             return None
         
-        # Protein: Higher during cutting to preserve muscle mass
-        if self.fitness_goal in ['aggressive_cut', 'moderate_cut', 'mild_cut']:
+        # Protein: Higher during cutting to preserve muscle mass. The goal's
+        # sign decides cut/bulk/maintain, so a Custom goal is handled too.
+        adjustment = self.goal_adjustment_kcal()
+        if adjustment < 0:
             protein_g = self.weight_kg * 2.2  # Higher protein during deficit
             fat_pct = 0.25  # Lower fat % to allow more carbs for energy
-        elif self.fitness_goal in ['lean_bulk', 'bulk']:
+        elif adjustment > 0:
             protein_g = self.weight_kg * 1.8  # Slightly lower, still adequate
             fat_pct = 0.30  # Higher fat for hormone production
         else:  # maintain

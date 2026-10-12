@@ -10,15 +10,16 @@ row) - never as its known subtotal, and never fabricated as zero. The richer
 recipe_aggregation.RecipeNutrientResult remains the place to inspect partial
 coverage computationally.
 
-Not wired to any model save()/signal/view - callers must invoke
-recalculate_custom_food_recipe() explicitly. Nested source_custom_food
-ingredients contribute their OWN currently persisted per-100g values; this
-function does not recursively recalculate them first.
+Not wired to any model save()/signal - views call it explicitly.
+Nested source_custom_food ingredients contribute their OWN currently
+persisted per-100g values; recalculate_custom_food_recipe() does not
+recursively recalculate them first. recalculate_dependent_recipes() is the
+other direction: after a food changes, it updates every recipe using it.
 """
 from django.db import transaction
 
-from .models import CustomFoodIngredient, NUTRIENT_UNITS, replace_custom_food_nutrients
-from .recipe_aggregation import normalize_to_per_100g, recipe_nutrient_result, total_recipe_grams
+from .models import CustomFood, CustomFoodIngredient, NUTRIENT_UNITS, replace_custom_food_nutrients
+from .recipe_aggregation import normalize_to_per_100g, recipe_nutrient_result, recipe_yield_grams
 
 # Recipe core result key -> CustomFood typed per-100g field name.
 _CORE_TARGET_FIELD = {
@@ -39,7 +40,8 @@ def recalculate_custom_food_recipe(custom_food):
     source (FineliFood/CustomFood and their nutrient children) are read-only
     inputs and are never mutated - only `custom_food`'s own core fields and
     CustomFoodNutrient rows change."""
-    grams = total_recipe_grams(custom_food)
+    # Per 100 g of the finished dish when its weight is known.
+    grams = recipe_yield_grams(custom_food)
 
     core_updates = {}
     for result_key, field_name in _CORE_TARGET_FIELD.items():
@@ -156,3 +158,47 @@ def recalculate_custom_food_recipe_with_dependencies(root):
         for node_id in order:
             if node_id == root.id or has_ingredients.get(node_id):
                 recalculate_custom_food_recipe(nodes[node_id])
+
+
+def recalculate_dependent_recipes(food):
+    """Recalculate every recipe that uses `food` as an ingredient - directly
+    or through other recipes - after `food`'s values changed, so recipes
+    never keep stale values. A recipe is recalculated only after all of its
+    changed ingredients (it reads their freshly persisted values). Returns
+    the recalculated recipes in that order; one atomic unit."""
+    with transaction.atomic():
+        parents_of = {}
+        affected = set()
+        frontier = [food.id]
+        while frontier:
+            current = frontier.pop()
+            parent_ids = set(
+                CustomFoodIngredient.objects.filter(source_custom_food_id=current)
+                .values_list("custom_food_id", flat=True)
+            )
+            parents_of[current] = parent_ids
+            for parent_id in parent_ids:
+                if parent_id == food.id:
+                    raise RecipeGraphError(f"Cycle detected in recipe graph at CustomFood {food.id}.")
+                if parent_id not in affected:
+                    affected.add(parent_id)
+                    frontier.append(parent_id)
+
+        waiting_for = {recipe_id: set() for recipe_id in affected}
+        for child_id, parent_ids in parents_of.items():
+            for parent_id in parent_ids:
+                waiting_for[parent_id].add(child_id)
+
+        done = {food.id}
+        order = []
+        while len(order) < len(affected):
+            ready = sorted(r for r in affected if r not in done and waiting_for[r] <= done)
+            if not ready:
+                raise RecipeGraphError("Cycle detected in recipe graph.")
+            order.extend(ready)
+            done.update(ready)
+
+        recipes = CustomFood.objects.in_bulk(order)
+        for recipe_id in order:
+            recalculate_custom_food_recipe(recipes[recipe_id])
+        return [recipes[recipe_id] for recipe_id in order]

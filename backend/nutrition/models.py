@@ -71,8 +71,10 @@ FINELI_UNIT_LABELS = {
 _FINELI_UNIT_ORDER = {code: i for i, code in enumerate(FINELI_UNIT_LABELS)}
 
 # Units a MealEntry portion can be logged in: Fineli's, plus "PKG" - one
-# package of a custom product (CustomFood.default_portion_g grams).
-PORTION_UNIT_LABELS = {**FINELI_UNIT_LABELS, "PKG": "pakkaus"}
+# package of a custom product (CustomFood.default_portion_g grams) - the
+# volume units of per-100 ml custom products, and "SERV" - one serving of a
+# recipe (its yield / servings grams).
+PORTION_UNIT_LABELS = {**FINELI_UNIT_LABELS, "PKG": "pakkaus", "ML": "ml", "L": "l", "SERV": "annos"}
 
 
 def fineli_unit_sort_key(unit_code):
@@ -113,6 +115,12 @@ class CustomFood(models.Model):
         ("G", "100 g"),
         ("ML", "100 ml"),
     ]
+    KIND_PRODUCT = "product"
+    KIND_RECIPE = "recipe"
+    KIND_CHOICES = [
+        (KIND_PRODUCT, "Product"),
+        (KIND_RECIPE, "Recipe"),
+    ]
     # None means legacy/unowned (created before per-user ownership existed) -
     # never fabricate a user for these. Not exposed in CustomFoodForm, so it
     # can only be set from request.user server-side, never client input.
@@ -150,6 +158,22 @@ class CustomFood(models.Model):
     nutrition_basis = models.CharField(
         max_length=2, choices=NUTRITION_BASIS_CHOICES, default="G",
         help_text="Whether nutrition values are per 100 g or per 100 ml",
+    )
+
+    # Product (values from the label) or recipe (values from ingredients).
+    kind = models.CharField(
+        max_length=10, choices=KIND_CHOICES, default=KIND_PRODUCT,
+        help_text="Product (label values) or recipe (built from ingredients)",
+    )
+    # Recipe yield - both optional. servings lets the diary log "1 × annos"
+    # (yield / servings grams) besides grams; cooked_weight_g is the weight
+    # of the finished dish, so per-100 g values account for water lost or
+    # gained in cooking (falls back to the ingredients' total mass).
+    servings = models.FloatField(
+        null=True, blank=True, help_text="How many servings the recipe makes (optional)",
+    )
+    cooked_weight_g = models.FloatField(
+        null=True, blank=True, help_text="Weight of the finished dish in grams (optional)",
     )
     
     # Usage tracking
@@ -649,6 +673,10 @@ class CustomFoodIngredient(models.Model):
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
+        # A food with ingredients is a recipe.
+        if self.custom_food.kind != CustomFood.KIND_RECIPE:
+            CustomFood.objects.filter(pk=self.custom_food_id).update(kind=CustomFood.KIND_RECIPE)
+            self.custom_food.kind = CustomFood.KIND_RECIPE
 
     def __str__(self):
         source = self.fineli_food or self.source_custom_food

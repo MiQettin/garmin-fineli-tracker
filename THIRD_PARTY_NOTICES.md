@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-HealthManager's own code is MIT-licensed (see [LICENSE](LICENSE)). It relies on the third-party software and data below, each under its own license. None of the libraries are copied into this repository - Python packages are installed from PyPI via `requirements.txt`, and frontend libraries load from the jsDelivr CDN.
+HealthManager's own code is licensed under the PolyForm Noncommercial License 1.0.0 (see [LICENSE](LICENSE)); that license does not change the licenses of the third-party software and data listed here. It relies on the third-party software and data below, each under its own license. None of the libraries are copied into this repository - Python packages are installed from PyPI via `requirements.txt`, and frontend libraries load from the jsDelivr CDN.
 
 ## Data sources
 

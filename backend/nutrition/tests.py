@@ -1176,8 +1176,9 @@ class SourceModelUnknownVsZeroTests(TestCase):
 
 
 class AddFineliEntryNullVsZeroTests(TestCase):
-    """Regression coverage for the search/quick-add round trip: a JSON null
-    for a nutrient must reach MealEntry as None, not a fabricated 0."""
+    """Regression coverage for the quick-add round trip: an unknown (None)
+    nutrient must reach MealEntry as None, not a fabricated 0. Values come
+    from the stored Fineli food since 2026-10-12, not from the request."""
 
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="fineliaddnullzerotest", password="x")
@@ -1186,11 +1187,13 @@ class AddFineliEntryNullVsZeroTests(TestCase):
 
     def _post(self, protein):
         import json as _json
+        FineliFood.objects.create(
+            fineli_id=999, name_fi="RoundTrip Food", energy_kcal=100, protein_g=protein, carbs_g=10,
+            sugar_g=1, fat_g=2, sat_fat_g=1, fiber_g=1, salt_g=0.5,
+        )
         payload = {
             "date": "2026-08-21", "fineli_id": 999, "name": "RoundTrip Food",
             "meal_type": "snack", "portion_grams": 100,
-            "energy_kcal": 100, "protein": protein, "carbs": 10,
-            "sugar": 1, "fat": 2, "sat_fat": 1, "fiber": 1, "salt": 0.5,
         }
         self.client.post(self.url, data=_json.dumps(payload), content_type="application/json")
         return MealEntry.objects.get(daily_log__date="2026-08-21", food_name="RoundTrip Food")
@@ -2187,9 +2190,9 @@ class CustomFoodOwnershipTests(TestCase):
             "date": "2026-09-01", "source": "custom", "custom_food_id": self.food_b.id,
             "name": "Protein Bar", "meal_type": "snack", "portion_grams": 100,
         }
-        self.client.post(reverse("add_fineli_entry"), data=_json.dumps(payload), content_type="application/json")
-        entry = MealEntry.objects.get(daily_log__date="2026-09-01", food_name="Protein Bar")
-        self.assertIsNone(entry.custom_food)
+        resp = self.client.post(reverse("add_fineli_entry"), data=_json.dumps(payload), content_type="application/json")
+        self.assertEqual(resp.status_code, 404)
+        self.assertFalse(MealEntry.objects.filter(daily_log__date="2026-09-01").exists())
 
     def test_user_a_can_quick_add_own_custom_food(self):
         import json as _json
@@ -2509,17 +2512,22 @@ class CustomFoodAuxiliaryPropagationTests(TestCase):
         self._post(self.food_a.id, portion_grams=50, date="2026-09-20")
         self.assertEqual(self.food_a.nutrients.get(nutrient_key="sodium").value, 10)  # unscaled, unmutated
 
+    def _post_rejected(self, food_id, date):
+        import json as _json
+        resp = self.client.post(reverse("add_fineli_entry"), data=_json.dumps({
+            "date": date, "source": "custom", "custom_food_id": food_id,
+            "name": "Not mine", "meal_type": "snack", "portion_grams": 100,
+        }), content_type="application/json")
+        self.assertEqual(resp.status_code, 404)
+        self.assertFalse(MealEntry.objects.filter(daily_log__date=date).exists())
+
     def test_user_a_cannot_quick_add_user_b_custom_food(self):
         self.client.force_login(self.user_a)
-        entry = self._post(self.food_b.id, date="2026-09-21")
-        self.assertIsNone(entry.custom_food)
-        self.assertFalse(entry.nutrients.exists())
+        self._post_rejected(self.food_b.id, "2026-09-21")
 
     def test_legacy_custom_food_cannot_be_quick_added(self):
         self.client.force_login(self.user_a)
-        entry = self._post(self.legacy_food.id, date="2026-09-22")
-        self.assertIsNone(entry.custom_food)
-        self.assertFalse(entry.nutrients.exists())
+        self._post_rejected(self.legacy_food.id, "2026-09-22")
 
     def test_no_client_auxiliary_payload_required(self):
         self.client.force_login(self.user_a)
@@ -3568,9 +3576,10 @@ class RecipeCompositionUITests(TestCase):
     def test_fineli_search_renders_food_portion_units(self):
         self.client.force_login(self.user_a)
         resp = self.client.get(self._recipe_url(), {"q": "Oats"})
+        # The result row carries its units; the amount panel builds the
+        # unit <select name="unit"> from them when the food is chosen.
         self.assertContains(resp, 'name="unit"')
-        self.assertContains(resp, 'value="DL"')
-        self.assertContains(resp, "dl")
+        self.assertContains(resp, 'data-units="DL|dl|')
 
     def test_auxiliary_nutrient_labels_follow_fineli_source_language(self):
         CustomFoodNutrient.objects.create(
@@ -3747,12 +3756,12 @@ class RecipeProductFlowUITests(TestCase):
 
     # --- MY FOODS CHOICES ---
 
-    def test_my_foods_exposes_add_product_and_create_recipe(self):
+    def test_my_foods_exposes_add_product_and_recipes_link(self):
+        # Recipes have their own page (with Create Recipe) since 2026-10-12.
         self.client.force_login(self.user_a)
         resp = self.client.get(reverse("manage_custom_foods"))
         self.assertContains(resp, "Add Product")
-        self.assertContains(resp, "Create Recipe")
-        self.assertContains(resp, reverse("create_recipe"))
+        self.assertContains(resp, reverse("recipe_list"))
 
     # --- CREATE RECIPE ---
 
@@ -4168,6 +4177,744 @@ class EditCustomFoodPageTests(TestCase):
         self.assertEqual((self.food.energy_kcal_per_100g, self.food.protein_per_100g, self.food.default_portion_g), (65, 11, 250))
 
     def test_invalid_save_shows_error(self):
-        resp = self.client.post(self.url, {"name": "Rahka", "energy_kcal_per_100g": "65"})
+        resp = self.client.post(self.url, {
+            "name": "Rahka", "energy_kcal_per_100g": "65", "package_amount": "2", "package_unit": "DL",
+            "nutrition_basis": "G",
+        })
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "errorlist")
+
+    def test_package_size_can_be_cleared(self):
+        self.food.package_amount = 200
+        self.food.save()
+        resp = self.client.post(self.url, {
+            "name": "Rahka", "energy_kcal_per_100g": "60", "package_amount": "", "package_unit": "G",
+            "nutrition_basis": "G", "default_portion_g": "200",
+        })
+        self.assertRedirects(resp, reverse("manage_custom_foods"))
+        self.food.refresh_from_db()
+        self.assertIsNone(self.food.package_amount)
+
+
+class OptionalPackageSizeTests(TestCase):
+    """Package size is optional - e.g. syrup is measured, not eaten by the
+    package. Without one the product is logged by weight or volume."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="optionalpackage", password="x")
+        self.client.force_login(self.user)
+
+    def _create(self, **fields):
+        data = {"name": "Vaahterasiirappi", "brand": "Änglamark", "energy_kcal_per_100g": "270",
+                "carbs_per_100g": "67", "sugar_per_100g": "66", "salt_per_100g": "0.03",
+                "package_amount": "", "package_unit": "G", "nutrition_basis": "G",
+                # The browser always posts the hidden field, empty for a new product.
+                "default_portion_g": ""}
+        data.update(fields)
+        return self.client.post(reverse("manage_custom_foods"), data)
+
+    def test_product_without_package_size_saves(self):
+        resp = self._create()
+        self.assertRedirects(resp, reverse("manage_custom_foods"))
+        food = CustomFood.objects.get(name="Vaahterasiirappi")
+        self.assertIsNone(food.package_amount)
+        self.assertEqual(food.energy_kcal_per_100g, 270)
+
+    def test_per_100ml_product_without_package_size_saves(self):
+        self._create(nutrition_basis="ML", package_unit="ML")
+        food = CustomFood.objects.get(name="Vaahterasiirappi")
+        self.assertIsNone(food.package_amount)
+        self.assertEqual(food.nutrition_basis, "ML")
+
+    def test_package_unit_ignored_when_no_package(self):
+        # A leftover "ml" selector with no size must not trip the
+        # per-100 g basis/unit check.
+        self._create(package_unit="ML")
+        self.assertTrue(CustomFood.objects.filter(name="Vaahterasiirappi").exists())
+
+    def test_basis_unit_mismatch_still_rejected_with_package(self):
+        resp = self._create(package_amount="189", package_unit="ML", nutrition_basis="G")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "give the package size in grams")
+        self.assertFalse(CustomFood.objects.filter(name="Vaahterasiirappi").exists())
+
+    def test_legacy_add_endpoint_shows_errors_instead_of_crashing(self):
+        resp = self.client.post(reverse("add_custom_food"), {
+            "name": "X", "energy_kcal_per_100g": "1", "package_amount": "189",
+            "package_unit": "ML", "nutrition_basis": "G",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "give the package size in grams")
+
+    def test_no_package_product_logged_by_volume(self):
+        import json as _json
+        self._create(nutrition_basis="ML", package_unit="ML")
+        food = CustomFood.objects.get(name="Vaahterasiirappi")
+        resp = self.client.post(reverse("add_fineli_entry"), data=_json.dumps({
+            "date": "2026-10-11", "source": "custom", "custom_food_id": food.id, "name": food.name,
+            "meal_type": "breakfast", "amount": 15, "unit": "ML", "portion_grams": 15,
+        }), content_type="application/json")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertTrue(resp.json().get("success"), resp.json())
+        entry = MealEntry.objects.get(custom_food=food)
+        self.assertEqual(entry.portion_grams, 15)
+        self.assertEqual(entry.portion_label, "15 × ml")
+
+    def test_api_reports_no_package(self):
+        self._create()
+        foods = self.client.get(reverse("list_custom_foods_api")).json()["results"]
+        self.assertIsNone(foods[0]["package_amount"])
+
+    def test_form_label_says_optional(self):
+        resp = self.client.get(reverse("manage_custom_foods"))
+        self.assertContains(resp, "Package size (optional)")
+
+
+class NonAsciiNameSearchTests(TestCase):
+    """SQLite's LIKE folds case for ASCII only - "vehnäjauho" must still find
+    Fineli's upper-case "VEHNÄJAUHO", in every food search."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="nonasciisearch", password="x")
+        self.client.force_login(self.user)
+        self.flour = FineliFood.objects.create(fineli_id=34249, name_fi="JAUHO, ERIKOISVEHNÄJAUHO, VÄHITTÄISKAUPPA", energy_kcal=350)
+        self.recipe = CustomFood.objects.create(user=self.user, name="Pannukakku")
+
+    def test_recipe_page_search_matches_lowercase_umlauts(self):
+        resp = self.client.get(reverse("recipe_detail", args=[self.recipe.id]), {"q": "vehnäjauho"})
+        self.assertEqual(list(resp.context["fineli_results"]), [self.flour])
+
+    def test_diary_search_api_matches_lowercase_umlauts(self):
+        for query in ("vehnäjauho", "Vehnäjauho", "VEHNÄJAUHO", "vähittäis"):
+            with self.subTest(query=query):
+                results = self.client.get(reverse("search_fineli_api"), {"q": query}).json()["results"]
+                self.assertEqual([r["id"] for r in results], [34249])
+
+    def test_custom_food_search_matches_umlauts(self):
+        CustomFood.objects.create(user=self.user, name="Vaahterasiirappi", brand="Änglamark", energy_kcal_per_100g=270)
+        for query in ("änglamark", "ÄNGLAMARK", "Änglamark"):
+            with self.subTest(query=query):
+                results = self.client.get(reverse("list_custom_foods_api"), {"q": query}).json()["results"]
+                self.assertEqual([r["name"] for r in results], ["Vaahterasiirappi"])
+
+    def test_ascii_search_still_case_insensitive(self):
+        results = self.client.get(reverse("search_fineli_api"), {"q": "jauho"}).json()["results"]
+        self.assertEqual([r["id"] for r in results], [34249])
+
+    def test_recipe_page_has_live_search(self):
+        resp = self.client.get(reverse("recipe_detail", args=[self.recipe.id]))
+        self.assertContains(resp, 'id="fineliSearchInput"')
+        self.assertContains(resp, reverse("search_fineli_api"))
+        self.assertContains(resp, reverse("add_recipe_fineli_ingredient", args=[self.recipe.id]))
+
+    def test_every_word_must_match_in_any_order(self):
+        FineliFood.objects.create(fineli_id=10, name_fi="MAITO, KEVYTMAITO, LAKTOOSITON MAITOJUOMA", energy_kcal=40)
+        FineliFood.objects.create(fineli_id=11, name_fi="MAITO, KEVYTMAITO", energy_kcal=40)
+        FineliFood.objects.create(fineli_id=12, name_fi="JOGURTTI, LAKTOOSITON", energy_kcal=60)
+        for query in ("maito lak", "lak maito", "Maito, laktoositon", "kevyt LAKTOOS"):
+            with self.subTest(query=query):
+                results = self.client.get(reverse("search_fineli_api"), {"q": query}).json()["results"]
+                self.assertEqual([r["id"] for r in results], [10])
+        resp = self.client.get(reverse("recipe_detail", args=[self.recipe.id]), {"q": "maito lak"})
+        self.assertEqual([f.fineli_id for f in resp.context["fineli_results"]], [10])
+
+    def test_custom_food_search_multiple_words(self):
+        CustomFood.objects.create(user=self.user, name="Vaahterasiirappi", brand="Änglamark", energy_kcal_per_100g=270)
+        CustomFood.objects.create(user=self.user, name="Vaahterasiirappi", brand="Rainbow", energy_kcal_per_100g=270)
+        results = self.client.get(reverse("list_custom_foods_api"), {"q": "siirappi änglamark"}).json()["results"]
+        self.assertEqual([r["brand"] for r in results], ["Änglamark"])
+
+    def test_best_match_ranked_first(self):
+        FineliFood.objects.create(fineli_id=1, name_fi="(ARC)PAAHTOLEIPÄ, FAZER, VEHNÄJAUHO", energy_kcal=250)
+        FineliFood.objects.create(fineli_id=2, name_fi="JAUHO, VEHNÄJAUHO, PUOLIKARKEA", energy_kcal=340)
+        FineliFood.objects.create(fineli_id=3, name_fi="BANAANILASTU, KUIVATTU BANAANI", energy_kcal=500)
+        FineliFood.objects.create(fineli_id=4, name_fi="BANAANI, KUORITTU", energy_kcal=90)
+        resp = self.client.get(reverse("recipe_detail", args=[self.recipe.id]), {"q": "vehnäjauho"})
+        self.assertEqual(resp.context["fineli_results"][0].fineli_id, 2)
+        results = self.client.get(reverse("search_fineli_api"), {"q": "banaani"}).json()["results"]
+        self.assertEqual([r["id"] for r in results], [4, 3])
+
+    def test_diary_search_keeps_most_used_first(self):
+        FineliFood.objects.create(fineli_id=4, name_fi="BANAANI, KUORITTU", energy_kcal=90)
+        FineliFood.objects.create(fineli_id=3, name_fi="BANAANILASTU, KUIVATTU BANAANI", energy_kcal=500, usage_count=5)
+        results = self.client.get(reverse("search_fineli_api"), {"q": "banaani"}).json()["results"]
+        self.assertEqual([r["id"] for r in results], [3, 4])
+
+
+class RecipePickerTests(TestCase):
+    """Recipe page pickers: choose a food from a list (Fineli suggestions,
+    Fineli favorites, My Foods), then set the amount in a panel whose fields
+    post to the existing add-ingredient endpoints."""
+
+    def setUp(self):
+        from .models import FineliFoodUnit
+        self.user = get_user_model().objects.create_user(username="recipepicker", password="x")
+        self.client.force_login(self.user)
+        self.recipe = CustomFood.objects.create(user=self.user, name="Pannukakku")
+        self.flour = FineliFood.objects.create(fineli_id=2, name_fi="JAUHO, VEHNÄJAUHO", energy_kcal=340)
+        FineliFoodUnit.objects.create(fineli_food=self.flour, unit_code="DL", mass_g=60)
+        FavoriteFood.objects.create(user=self.user, fineli_food=self.flour)
+        self.syrup = CustomFood.objects.create(user=self.user, name="Vaahterasiirappi", brand="Änglamark", use_count=3)
+        self.url = reverse("recipe_detail", args=[self.recipe.id])
+
+    def test_favorites_listed_with_their_portion_units(self):
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.context["favorite_fineli_foods"], [self.flour])
+        self.assertContains(resp, 'data-pick="fineli" data-id="2"')
+        self.assertContains(resp, 'data-units="DL|dl|60.0"')
+
+    def test_other_users_favorites_not_listed(self):
+        other = get_user_model().objects.create_user(username="otherpicker", password="x")
+        oats = FineliFood.objects.create(fineli_id=3, name_fi="KAURAHIUTALE", energy_kcal=380)
+        FavoriteFood.objects.create(user=other, fineli_food=oats)
+        self.assertEqual(self.client.get(self.url).context["favorite_fineli_foods"], [self.flour])
+
+    def test_favorites_hidden_while_showing_search_results(self):
+        resp = self.client.get(self.url, {"q": "jauho"})
+        self.assertContains(resp, 'id="fineliFavorites" hidden')
+
+    def test_own_foods_are_a_searchable_pick_list(self):
+        resp = self.client.get(self.url)
+        self.assertContains(resp, 'id="ownFoodSearch"')
+        self.assertContains(resp, 'data-search="vaahterasiirappi änglamark"')
+        self.assertNotContains(resp, f'data-pick="own" data-id="{self.recipe.id}"')  # never itself
+
+    def test_own_foods_most_used_first(self):
+        CustomFood.objects.create(user=self.user, name="Aaa-tuote", use_count=0)
+        names = [f.name for f in self.client.get(self.url).context["own_foods"]]
+        self.assertEqual(names, ["Vaahterasiirappi", "Aaa-tuote"])
+
+    def test_amount_panels_post_expected_fields(self):
+        resp = self.client.get(self.url)
+        self.assertContains(resp, reverse("add_recipe_fineli_ingredient", args=[self.recipe.id]))
+        self.assertContains(resp, 'name="fineli_id"')
+        self.assertContains(resp, 'name="amount"')
+        self.assertContains(resp, 'name="unit"')
+        self.assertContains(resp, reverse("add_recipe_custom_ingredient", args=[self.recipe.id]))
+        self.assertContains(resp, 'name="source_custom_food_id"')
+        self.assertContains(resp, 'name="amount_grams"')
+
+    def test_adding_favorite_by_portion_unit(self):
+        self.client.post(reverse("add_recipe_fineli_ingredient", args=[self.recipe.id]),
+                         {"fineli_id": 2, "amount": "2", "unit": "DL"})
+        self.assertEqual(self.recipe.ingredients.get().amount_grams, 120)
+
+
+class FavoritesPageTests(TestCase):
+    """Nutrition -> Favorites: the user's own starred foods, searchable to add more."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="favpage", password="x")
+        self.client.force_login(self.user)
+        self.flour = FineliFood.objects.create(fineli_id=2, name_fi="JAUHO, VEHNÄJAUHO", energy_kcal=340)
+        self.syrup = CustomFood.objects.create(user=self.user, name="Vaahterasiirappi", brand="Änglamark")
+        FavoriteFood.objects.create(user=self.user, fineli_food=self.flour)
+        FavoriteFood.objects.create(user=self.user, custom_food=self.syrup)
+        self.url = reverse("manage_favorites")
+
+    def test_lists_own_fineli_and_custom_favorites(self):
+        resp = self.client.get(self.url)
+        self.assertContains(resp, 'data-kind="fineli" data-id="2"')
+        self.assertContains(resp, f'data-kind="custom" data-id="{self.syrup.id}"')
+        self.assertContains(resp, "Änglamark")
+
+    def test_other_users_favorites_not_shown(self):
+        other = get_user_model().objects.create_user(username="favother", password="x")
+        oats = FineliFood.objects.create(fineli_id=3, name_fi="KAURAHIUTALE", energy_kcal=380)
+        FavoriteFood.objects.create(user=other, fineli_food=oats)
+        self.assertNotContains(self.client.get(self.url), "KAURAHIUTALE")
+
+    def test_page_uses_favorites_api(self):
+        resp = self.client.get(self.url)
+        self.assertContains(resp, reverse("add_favorite_food"))
+        self.assertContains(resp, reverse("remove_favorite_food"))
+
+    def test_menu_has_favorites_entry(self):
+        resp = self.client.get(reverse("food_diary"))
+        self.assertContains(resp, f'href="{self.url}"')
+
+    def test_requires_login(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+
+
+class RecipeAutoRecalculateTests(TestCase):
+    """Adding or removing an ingredient recalculates the recipe at once and
+    tells the user; saves show a confirmation."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="autorecalc", password="x")
+        self.client.force_login(self.user)
+        self.recipe = CustomFood.objects.create(user=self.user, name="Pannukakku")
+        self.oats = FineliFood.objects.create(fineli_id=153, name_fi="KAURAHIUTALE", energy_kcal=380, protein_g=13)
+
+    def _add_oats(self, grams="100"):
+        return self.client.post(reverse("add_recipe_fineli_ingredient", args=[self.recipe.id]),
+                                {"fineli_id": 153, "amount": grams, "unit": "G"}, follow=True)
+
+    def test_adding_ingredient_recalculates(self):
+        resp = self._add_oats()
+        self.recipe.refresh_from_db()
+        self.assertEqual(self.recipe.energy_kcal_per_100g, 380)
+        self.assertIn("Added KAURAHIUTALE (100 g) - nutrition values recalculated.",
+                      [str(m) for m in resp.context["messages"]])
+
+    def test_removing_ingredient_recalculates(self):
+        self._add_oats()
+        ingredient = self.recipe.ingredients.get()
+        resp = self.client.post(reverse("remove_recipe_ingredient", args=[self.recipe.id, ingredient.id]), follow=True)
+        self.recipe.refresh_from_db()
+        self.assertIsNone(self.recipe.energy_kcal_per_100g)
+        self.assertIn("Removed KAURAHIUTALE - nutrition values recalculated.", [str(m) for m in resp.context["messages"]])
+
+    def test_adding_custom_ingredient_recalculates(self):
+        quark = CustomFood.objects.create(user=self.user, name="Rahka", energy_kcal_per_100g=60, protein_per_100g=10)
+        self.client.post(reverse("add_recipe_custom_ingredient", args=[self.recipe.id]),
+                         {"source_custom_food_id": quark.id, "amount_grams": "200"})
+        self.recipe.refresh_from_db()
+        self.assertEqual(self.recipe.energy_kcal_per_100g, 60)
+
+    def test_saving_final_values_confirms(self):
+        resp = self.client.post(reverse("save_recipe_final_values", args=[self.recipe.id]),
+                                {"energy_kcal_per_100g": "250"}, follow=True)
+        self.assertIn("Final nutrition values saved.", [str(m) for m in resp.context["messages"]])
+
+    def test_messages_rendered_as_escaped_toasts(self):
+        evil = FineliFood.objects.create(fineli_id=999, name_fi="<b>X</b>", energy_kcal=1)
+        resp = self.client.post(reverse("add_recipe_fineli_ingredient", args=[self.recipe.id]),
+                                {"fineli_id": 999, "amount": "1", "unit": "G"}, follow=True)
+        self.assertContains(resp, "showToast(")
+        self.assertNotContains(resp, 'showToast("Added <b>')
+
+
+class RecipeListPageTests(TestCase):
+    """Nutrition -> Recipes lists only recipes (with ingredients, or a fresh
+    empty recipe shell) as cards, with Create Recipe."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="recipelist", password="x")
+        self.client.force_login(self.user)
+        oats = FineliFood.objects.create(fineli_id=153, name_fi="KAURAHIUTALE", energy_kcal=380)
+        self.recipe = CustomFood.objects.create(user=self.user, name="Puuro", energy_kcal_per_100g=120)
+        CustomFoodIngredient.objects.create(custom_food=self.recipe, fineli_food=oats, amount_grams=60)
+        self.shell = CustomFood.objects.create(user=self.user, name="Uusi resepti", kind=CustomFood.KIND_RECIPE)
+        self.product = CustomFood.objects.create(user=self.user, name="Rahka", energy_kcal_per_100g=60)
+        self.url = reverse("recipe_list")
+
+    def test_lists_recipes_not_products(self):
+        names = [r.name for r in self.client.get(self.url).context["recipes"]]
+        self.assertEqual(names, ["Puuro", "Uusi resepti"])
+
+    def test_card_shows_summary_and_details(self):
+        resp = self.client.get(self.url)
+        self.assertContains(resp, "1 ingredient &middot; 60 g total")
+        self.assertContains(resp, "<summary>Show details</summary>", html=False)
+        self.assertContains(resp, "KAURAHIUTALE")
+        self.assertContains(resp, reverse("recipe_detail", args=[self.recipe.id]))
+
+    def test_create_recipe_form_on_page(self):
+        resp = self.client.get(self.url)
+        self.assertContains(resp, f'action="{reverse("create_recipe")}"')
+        resp = self.client.post(reverse("create_recipe"), {"name": "Pannukakku", "brand": ""})
+        created = CustomFood.objects.get(name="Pannukakku")
+        self.assertRedirects(resp, reverse("recipe_detail", args=[created.id]))
+        self.assertIn("Pannukakku", [r.name for r in self.client.get(self.url).context["recipes"]])
+
+    def test_other_users_recipes_hidden(self):
+        other = get_user_model().objects.create_user(username="recipeother", password="x")
+        CustomFood.objects.create(user=other, name="Vieras resepti")
+        self.assertNotContains(self.client.get(self.url), "Vieras resepti")
+
+    def test_menu_recipes_link_points_to_list(self):
+        self.assertContains(self.client.get(reverse("food_diary")), f'href="{self.url}"')
+
+    def test_delete_url_get_redirects_instead_of_crashing(self):
+        resp = self.client.get(reverse("delete_custom_food", args=[self.product.id]))
+        self.assertRedirects(resp, reverse("manage_custom_foods"))
+        self.assertTrue(CustomFood.objects.filter(pk=self.product.pk).exists())
+
+
+class RecipeKindAndYieldTests(TestCase):
+    """Products and recipes are separate (CustomFood.kind); recipes have an
+    optional servings count and finished-dish weight, and can be renamed,
+    duplicated and deleted."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="recipekind", password="x")
+        self.client.force_login(self.user)
+        self.oats = FineliFood.objects.create(fineli_id=153, name_fi="KAURAHIUTALE", energy_kcal=380, protein_g=13)
+        self.client.post(reverse("create_recipe"), {"name": "Puuro", "brand": ""})
+        self.recipe = CustomFood.objects.get(name="Puuro")
+        self.client.post(reverse("add_recipe_fineli_ingredient", args=[self.recipe.id]),
+                         {"fineli_id": 153, "amount": "200", "unit": "G"})
+        self.product = CustomFood.objects.create(user=self.user, name="Rahka", energy_kcal_per_100g=60)
+        self.recipe.refresh_from_db()
+
+    def _settings(self, **fields):
+        data = {"name": self.recipe.name, "brand": "", "servings": "", "cooked_weight_g": ""}
+        data.update(fields)
+        return self.client.post(reverse("update_recipe_settings", args=[self.recipe.id]), data, follow=True)
+
+    def _log(self, food, unit, amount):
+        import json as _json
+        return self.client.post(reverse("add_fineli_entry"), data=_json.dumps({
+            "date": "2026-10-12", "source": "custom", "custom_food_id": food.id, "name": food.name,
+            "meal_type": "breakfast", "amount": amount, "unit": unit, "portion_grams": 1,
+            "energy_kcal": food.energy_kcal_per_100g,
+        }), content_type="application/json")
+
+    # --- product / recipe split ---
+    def test_create_recipe_marks_kind_recipe(self):
+        self.assertEqual(self.recipe.kind, CustomFood.KIND_RECIPE)
+        self.assertEqual(self.product.kind, CustomFood.KIND_PRODUCT)
+
+    def test_adding_an_ingredient_makes_a_food_a_recipe(self):
+        CustomFoodIngredient.objects.create(custom_food=self.product, fineli_food=self.oats, amount_grams=10)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.kind, CustomFood.KIND_RECIPE)
+
+    def test_foods_page_lists_products_only(self):
+        names = {f.name for f in self.client.get(reverse("manage_custom_foods")).context["custom_foods"]}
+        self.assertEqual(names, {"Rahka"})
+
+    def test_recipes_page_lists_recipes_only(self):
+        names = [r.name for r in self.client.get(reverse("recipe_list")).context["recipes"]]
+        self.assertEqual(names, ["Puuro"])
+
+    def test_diary_api_flags_recipes_by_kind(self):
+        flags = {f["name"]: f["is_recipe"] for f in self.client.get(reverse("list_custom_foods_api")).json()["results"]}
+        self.assertEqual(flags, {"Puuro": True, "Rahka": False})
+
+    # --- servings: optional, both ways of logging ---
+    def test_without_servings_only_grams(self):
+        api = {f["name"]: f for f in self.client.get(reverse("list_custom_foods_api")).json()["results"]}
+        self.assertIsNone(api["Puuro"]["serving_grams"])
+        self.assertEqual(self._log(self.recipe, "SERV", 1).status_code, 400)
+        self.assertEqual(self._log(self.recipe, "G", 150).status_code, 200)
+
+    def test_servings_allow_logging_one_serving_or_grams(self):
+        self._settings(servings="4")  # 200 g recipe -> 50 g per serving
+        api = {f["name"]: f for f in self.client.get(reverse("list_custom_foods_api")).json()["results"]}
+        self.assertEqual(api["Puuro"]["serving_grams"], 50)
+        self.assertEqual(self._log(self.recipe, "SERV", 2).status_code, 200)
+        entry = MealEntry.objects.get(source_unit="SERV")
+        self.assertEqual(entry.portion_grams, 100)
+        self.assertEqual(entry.portion_label, "2 × annos")
+        self.assertEqual(self._log(self.recipe, "G", 30).status_code, 200)
+
+    def test_products_cannot_be_logged_as_servings(self):
+        self.assertEqual(self._log(self.product, "SERV", 1).status_code, 400)
+
+    # --- finished dish weight ---
+    def test_cooked_weight_changes_per_100g_basis(self):
+        self.assertAlmostEqual(self.recipe.energy_kcal_per_100g, 380)
+        resp = self._settings(cooked_weight_g="400")  # porridge doubles with water
+        self.recipe.refresh_from_db()
+        self.assertAlmostEqual(self.recipe.energy_kcal_per_100g, 190)
+        self.assertIn("Recipe details saved - nutrition values recalculated.",
+                      [str(m) for m in resp.context["messages"]])
+
+    def test_serving_uses_cooked_weight(self):
+        self._settings(cooked_weight_g="400", servings="4")
+        api = {f["name"]: f for f in self.client.get(reverse("list_custom_foods_api")).json()["results"]}
+        self.assertEqual(api["Puuro"]["serving_grams"], 100)
+
+    def test_rename_and_clear_yield(self):
+        self._settings(name="Kaurapuuro", servings="2", cooked_weight_g="400")
+        self.recipe.refresh_from_db()
+        self._settings(name="Kaurapuuro")
+        self.recipe.refresh_from_db()
+        self.assertEqual(self.recipe.name, "Kaurapuuro")
+        self.assertIsNone(self.recipe.servings)
+        self.assertIsNone(self.recipe.cooked_weight_g)
+        self.assertAlmostEqual(self.recipe.energy_kcal_per_100g, 380)
+
+    def test_invalid_yield_rejected(self):
+        resp = self._settings(servings="0", cooked_weight_g="-5")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("servings", resp.context["settings_form"].errors)
+        self.assertIn("cooked_weight_g", resp.context["settings_form"].errors)
+
+    # --- duplicate / delete ---
+    def test_duplicate_copies_ingredients_and_values(self):
+        self._settings(servings="4")
+        resp = self.client.post(reverse("duplicate_recipe", args=[self.recipe.id]))
+        copy = CustomFood.objects.get(name="Puuro (copy)")
+        self.assertRedirects(resp, reverse("recipe_detail", args=[copy.id]))
+        self.assertEqual(copy.kind, CustomFood.KIND_RECIPE)
+        self.assertEqual(copy.servings, 4)
+        self.assertEqual(copy.ingredients.get().amount_grams, 200)
+        self.assertAlmostEqual(copy.energy_kcal_per_100g, 380)
+        self.assertEqual(self.recipe.ingredients.count(), 1)
+
+    def test_delete_recipe_keeps_logged_diary_entries(self):
+        self._log(self.recipe, "G", 100)
+        resp = self.client.post(reverse("delete_recipe", args=[self.recipe.id]))
+        self.assertRedirects(resp, reverse("recipe_list"))
+        self.assertFalse(CustomFood.objects.filter(pk=self.recipe.pk).exists())
+        entry = MealEntry.objects.get()
+        self.assertIsNone(entry.custom_food)
+        self.assertAlmostEqual(entry.calories, 380)
+
+    def test_food_used_in_another_recipe_cannot_be_deleted(self):
+        other = CustomFood.objects.create(user=self.user, name="Iso puuro", kind=CustomFood.KIND_RECIPE)
+        CustomFoodIngredient.objects.create(custom_food=other, source_custom_food=self.recipe, amount_grams=50)
+        CustomFoodIngredient.objects.create(custom_food=other, source_custom_food=self.product, amount_grams=50)
+        resp = self.client.post(reverse("delete_recipe", args=[self.recipe.id]), follow=True)
+        self.assertTrue(CustomFood.objects.filter(pk=self.recipe.pk).exists())
+        self.assertIn("Puuro is an ingredient in Iso puuro - remove it there first.",
+                      [str(m) for m in resp.context["messages"]])
+        self.client.post(reverse("delete_custom_food", args=[self.product.id]))
+        self.assertTrue(CustomFood.objects.filter(pk=self.product.pk).exists())
+        self.assertEqual(other.ingredients.count(), 2)
+
+    def test_cannot_delete_or_duplicate_other_users_recipe(self):
+        other = get_user_model().objects.create_user(username="recipekindother", password="x")
+        self.client.force_login(other)
+        self.assertEqual(self.client.post(reverse("delete_recipe", args=[self.recipe.id])).status_code, 404)
+        self.assertEqual(self.client.post(reverse("duplicate_recipe", args=[self.recipe.id])).status_code, 404)
+
+    def test_recipe_page_has_details_form_and_actions(self):
+        resp = self.client.get(reverse("recipe_detail", args=[self.recipe.id]))
+        self.assertContains(resp, reverse("update_recipe_settings", args=[self.recipe.id]))
+        self.assertContains(resp, 'name="servings"')
+        self.assertContains(resp, 'name="cooked_weight_g"')
+        self.assertContains(resp, 'data-confirm="Click again to delete"')
+
+
+class LocalDateTests(TestCase):
+    """'Today' follows Finnish time, not UTC: 22:30 UTC on 12.10. is already
+    01:30 on 13.10. in Helsinki, and food logged then belongs to the 13th."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="localdate", password="x")
+        self.client.force_login(self.user)
+
+    def _at_utc(self, *args):
+        import datetime as _dt
+        from unittest import mock
+        moment = _dt.datetime(*args, tzinfo=_dt.timezone.utc)
+        return mock.patch("django.utils.timezone.now", return_value=moment)
+
+    def test_diary_opens_local_today_after_midnight(self):
+        import datetime as _dt
+        with self._at_utc(2026, 10, 12, 22, 30):
+            resp = self.client.get(reverse("food_diary"))
+        self.assertEqual(resp.context["current_date"], _dt.date(2026, 10, 13))
+        self.assertTrue(resp.context["is_today"])
+
+    def test_entry_without_date_goes_to_local_today(self):
+        import json as _json
+        with self._at_utc(2026, 10, 12, 22, 30):
+            self.client.post(reverse("add_fineli_entry"), data=_json.dumps({
+                "name": "Iltapala", "meal_type": "snack", "portion_grams": 100, "energy_kcal": 100,
+            }), content_type="application/json")
+        self.assertEqual(str(MealEntry.objects.get().daily_log.date), "2026-10-13")
+
+
+class DiaryResultMarkupTests(TestCase):
+    """Result rows must not inline the food as JSON in a quoted onclick
+    attribute - a name with an apostrophe (MCDONALD'S) broke it."""
+
+    def test_results_reference_foods_by_index(self):
+        user = get_user_model().objects.create_user(username="diarymarkup", password="x")
+        self.client.force_login(user)
+        resp = self.client.get(reverse("food_diary"))
+        self.assertNotContains(resp, "JSON.stringify(food)})'")
+        self.assertContains(resp, "shownFoods[${foodRef(food)}]")
+        self.assertContains(resp, "function escapeHtml(")
+        self.assertContains(resp, "serving_grams: food.serving_grams")
+
+    def test_apostrophe_names_are_searchable(self):
+        FineliFood.objects.create(fineli_id=34395, name_fi="HAMPURILAINEN, MCDONALD'S", energy_kcal=250)
+        results = self.client.get(reverse("search_fineli_api"), {"q": "mcdonald's"}).json()["results"]
+        self.assertEqual([r["name"] for r in results], ["HAMPURILAINEN, MCDONALD'S"])
+
+
+class EditMealEntryTests(TestCase):
+    """Diary entries can be edited: grams or the portion count change the
+    nutrient values proportionally (including micronutrients and the day's
+    totals) unless the values are corrected by hand."""
+
+    def setUp(self):
+        from .models import FineliFoodUnit
+        self.user = get_user_model().objects.create_user(username="editentry", password="x")
+        self.client.force_login(self.user)
+        self.banana = FineliFood.objects.create(fineli_id=11049, name_fi="BANAANI, KUORITTU", energy_kcal=90, protein_g=1.2)
+        FineliFoodNutrient.objects.create(fineli_food=self.banana, nutrient_key="potassium", value=360, unit="mg")
+        FineliFoodUnit.objects.create(fineli_food=self.banana, unit_code="KPL_L", mass_g=150)
+        import json as _json
+        self.client.post(reverse("add_fineli_entry"), data=_json.dumps({
+            "date": "2026-10-12", "fineli_id": 11049, "name": "BANAANI, KUORITTU", "meal_type": "snack",
+            "amount": 2, "unit": "KPL_L", "energy_kcal": 90, "protein": 1.2,
+        }), content_type="application/json")
+        self.entry = MealEntry.objects.get()
+        self.url = reverse("edit_meal_entry", args=[self.entry.id])
+
+    def _post(self, **fields):
+        data = {
+            "food_name": self.entry.food_name, "meal_type": self.entry.meal_type,
+            "portion_grams": repr(self.entry.portion_grams), "portion_amount": "",
+            "notes": self.entry.notes or "",
+        }
+        for name in ("calories", "protein_g", "carbs_g", "sugar_g", "fat_g", "sat_fat_g", "fiber_g", "salt_g"):
+            value = getattr(self.entry, name)
+            data[name] = "" if value is None else repr(value)
+        data.update(fields)
+        resp = self.client.post(self.url, data)
+        self.entry.refresh_from_db()
+        return resp
+
+    def test_edit_page_renders(self):
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Amount (× iso (kpl))")
+        self.assertContains(resp, 'step="any"')
+
+    def test_diary_has_edit_link(self):
+        self.assertContains(self.client.get(reverse("food_diary"), {"date": "2026-10-12"}), self.url)
+
+    def test_changing_grams_scales_values_and_clears_portion(self):
+        self.assertEqual((self.entry.portion_grams, self.entry.calories), (300, 270))
+        resp = self._post(portion_grams="150", portion_amount="2")
+        self.assertRedirects(resp, reverse("food_diary") + "?date=2026-10-12")
+        self.assertEqual(self.entry.portion_grams, 150)
+        self.assertAlmostEqual(self.entry.calories, 135)
+        self.assertAlmostEqual(self.entry.protein_g, 1.8)
+        self.assertEqual(self.entry.portion_label, "")
+        self.assertAlmostEqual(self.entry.nutrients.get(nutrient_key="potassium").value, 540)
+        self.assertEqual(self.entry.daily_log.calories_in, 135)
+
+    def test_changing_portion_count_keeps_unit(self):
+        self._post(portion_amount="3")
+        self.assertEqual(self.entry.portion_grams, 450)
+        self.assertAlmostEqual(self.entry.calories, 405)
+        self.assertEqual(self.entry.portion_label, "3 × iso (kpl)")
+
+    def test_hand_corrected_values_are_kept(self):
+        self._post(portion_grams="150", calories="200")
+        self.assertAlmostEqual(self.entry.calories, 200)
+        self.assertAlmostEqual(self.entry.protein_g, 3.6)  # submitted unchanged, not scaled
+
+    def test_unknown_value_stays_unknown(self):
+        self._post(portion_grams="150")
+        self.assertIsNone(self.entry.fat_g)
+
+    def test_meal_and_name_only(self):
+        self._post(meal_type="dinner", food_name="Banaani")
+        self.assertEqual((self.entry.meal_type, self.entry.food_name, self.entry.calories), ("dinner", "Banaani", 270))
+        self.assertEqual(self.entry.portion_label, "2 × iso (kpl)")
+
+    def test_imported_meal_name_is_accepted(self):
+        MealEntry.objects.filter(pk=self.entry.pk).update(meal_type="Herkku")
+        self.entry.refresh_from_db()
+        resp = self._post()
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(self.entry.meal_type, "Herkku")
+
+    def test_other_user_cannot_edit(self):
+        other = get_user_model().objects.create_user(username="editentryother", password="x")
+        self.client.force_login(other)
+        self.assertEqual(self.client.get(self.url).status_code, 404)
+
+    def test_delete_url_get_redirects(self):
+        resp = self.client.get(reverse("delete_meal_entry", args=[self.entry.id]))
+        self.assertRedirects(resp, reverse("food_diary") + "?date=2026-10-12")
+        self.assertTrue(MealEntry.objects.filter(pk=self.entry.pk).exists())
+
+
+class ServerSideEntryValuesTests(TestCase):
+    """Diary entries take per-100 g values from the database, not from the
+    browser's (possibly stale) copy; unknown Fineli ids are rejected."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="serverside", password="x")
+        self.client.force_login(self.user)
+        self.oats = FineliFood.objects.create(fineli_id=153, name_fi="KAURAHIUTALE", energy_kcal=380, protein_g=13)
+        self.quark = CustomFood.objects.create(user=self.user, name="Rahka", brand="Valio",
+                                               energy_kcal_per_100g=60, protein_per_100g=10)
+
+    def _post(self, **payload):
+        import json as _json
+        data = {"date": "2026-10-12", "meal_type": "snack", "portion_grams": 200}
+        data.update(payload)
+        return self.client.post(reverse("add_fineli_entry"), data=_json.dumps(data), content_type="application/json")
+
+    def test_fineli_values_come_from_database(self):
+        self._post(fineli_id=153, name="Fake", energy_kcal=9999, protein=0)
+        entry = MealEntry.objects.get()
+        self.assertEqual((entry.food_name, entry.calories, entry.protein_g), ("KAURAHIUTALE", 760, 26))
+
+    def test_custom_values_come_from_database(self):
+        # The browser still had old values (e.g. opened before an edit).
+        self._post(source="custom", custom_food_id=self.quark.id, name="Rahka", energy_kcal=50, protein=8)
+        entry = MealEntry.objects.get()
+        self.assertEqual((entry.food_name, entry.calories, entry.protein_g), ("Rahka (Valio)", 120, 20))
+
+    def test_unknown_fineli_id_rejected_and_not_created(self):
+        resp = self._post(fineli_id=424242, name="Injected", energy_kcal=1)
+        self.assertEqual(resp.status_code, 404)
+        self.assertFalse(FineliFood.objects.filter(fineli_id=424242).exists())
+        self.assertFalse(MealEntry.objects.exists())
+
+
+class DependentRecipeRecalculationTests(TestCase):
+    """When a food changes, every recipe using it - also through another
+    recipe - is recalculated, ingredients before the recipes using them."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="dependents", password="x")
+        self.client.force_login(self.user)
+        self.oats = FineliFood.objects.create(fineli_id=153, name_fi="KAURAHIUTALE", energy_kcal=400)
+        self.quark = CustomFood.objects.create(user=self.user, name="Rahka", energy_kcal_per_100g=60)
+        # Puuro = 100 g oats + 100 g quark; Aamiainen = 100 g Puuro + 100 g quark
+        self.porridge = CustomFood.objects.create(user=self.user, name="Puuro", kind=CustomFood.KIND_RECIPE)
+        CustomFoodIngredient.objects.create(custom_food=self.porridge, fineli_food=self.oats, amount_grams=100)
+        CustomFoodIngredient.objects.create(custom_food=self.porridge, source_custom_food=self.quark, amount_grams=100)
+        self.breakfast = CustomFood.objects.create(user=self.user, name="Aamiainen", kind=CustomFood.KIND_RECIPE)
+        CustomFoodIngredient.objects.create(custom_food=self.breakfast, source_custom_food=self.porridge, amount_grams=100)
+        CustomFoodIngredient.objects.create(custom_food=self.breakfast, source_custom_food=self.quark, amount_grams=100)
+        self.client.post(reverse("recalculate_recipe", args=[self.breakfast.id]))
+        self._refresh()
+
+    def _refresh(self):
+        for food in (self.quark, self.porridge, self.breakfast):
+            food.refresh_from_db()
+
+    def test_starting_values(self):
+        self.assertAlmostEqual(self.porridge.energy_kcal_per_100g, 230)    # (400 + 60) / 2
+        self.assertAlmostEqual(self.breakfast.energy_kcal_per_100g, 145)   # (230 + 60) / 2
+
+    def test_editing_a_product_updates_recipes_using_it(self):
+        resp = self.client.post(reverse("edit_custom_food", args=[self.quark.id]), {
+            "name": "Rahka", "brand": "", "energy_kcal_per_100g": "100",
+            "package_amount": "", "package_unit": "G", "nutrition_basis": "G", "default_portion_g": "100",
+        }, follow=True)
+        self._refresh()
+        self.assertAlmostEqual(self.porridge.energy_kcal_per_100g, 250)    # (400 + 100) / 2
+        self.assertAlmostEqual(self.breakfast.energy_kcal_per_100g, 175)   # (250 + 100) / 2, uses fresh Puuro
+        self.assertIn("Also recalculated the recipes that use Rahka: Puuro, Aamiainen.",
+                      [str(m) for m in resp.context["messages"]])
+
+    def test_changing_a_recipe_updates_recipes_using_it(self):
+        self.client.post(reverse("add_recipe_fineli_ingredient", args=[self.porridge.id]),
+                         {"fineli_id": 153, "amount": "100", "unit": "G"})
+        self._refresh()
+        self.assertAlmostEqual(self.porridge.energy_kcal_per_100g, (800 + 60) / 3)
+        self.assertAlmostEqual(self.breakfast.energy_kcal_per_100g, ((800 + 60) / 3 + 60) / 2)
+
+    def test_manual_final_values_reach_recipes_using_it(self):
+        self.client.post(reverse("save_recipe_final_values", args=[self.porridge.id]), {"energy_kcal_per_100g": "300"})
+        self._refresh()
+        self.assertAlmostEqual(self.breakfast.energy_kcal_per_100g, 180)   # (300 + 60) / 2
+
+    def test_unrelated_recipes_untouched(self):
+        other = CustomFood.objects.create(user=self.user, name="Muu", kind=CustomFood.KIND_RECIPE,
+                                          energy_kcal_per_100g=999)
+        CustomFoodIngredient.objects.create(custom_food=other, fineli_food=self.oats, amount_grams=10)
+        CustomFood.objects.filter(pk=other.pk).update(energy_kcal_per_100g=999)
+        from .recipe_persistence import recalculate_dependent_recipes
+        self.assertEqual([r.name for r in recalculate_dependent_recipes(self.quark)], ["Puuro", "Aamiainen"])
+        other.refresh_from_db()
+        self.assertEqual(other.energy_kcal_per_100g, 999)
+

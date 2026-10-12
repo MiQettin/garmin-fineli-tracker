@@ -46,9 +46,10 @@
                 🍽️ Nutrition
               </a>
               <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-lg-end">
-                <li><a class="dropdown-item{% if '/food-diary/' in request.path and '/custom-foods/' not in request.path %} active{% endif %}" href="/food-diary/">🍽️ Diary</a></li>
-                <li><a class="dropdown-item{% if '/custom-foods/' in request.path %} active{% endif %}" href="/food-diary/custom-foods/">📝 Foods</a></li>
-                <li><a class="dropdown-item" href="/food-diary/custom-foods/">🧪 Recipes</a></li>
+                <li><a class="dropdown-item{% if '/food-diary/' in request.path and '/custom-foods/' not in request.path and '/favorites/' not in request.path and '/recipes/' not in request.path %} active{% endif %}" href="/food-diary/">🍽️ Diary</a></li>
+                <li><a class="dropdown-item{% if '/custom-foods/' in request.path and '/recipe' not in request.path %} active{% endif %}" href="/food-diary/custom-foods/">📝 Foods</a></li>
+                <li><a class="dropdown-item{% if '/food-diary/favorites/' in request.path %} active{% endif %}" href="{% url 'manage_favorites' %}">⭐ Favorites</a></li>
+                <li><a class="dropdown-item{% if '/recipe' in request.path %} active{% endif %}" href="{% url 'recipe_list' %}">🧪 Recipes</a></li>
               </ul>
             </li>
             <li class="nav-item">
@@ -117,6 +118,31 @@
           setTimeout(() => removeToast(toast), duration);
         }
       }
+
+      // Server-side messages (django.contrib.messages) shown as toasts. The
+      // text is HTML-escaped first because showToast() inserts HTML.
+      {% if messages %}
+      document.addEventListener('DOMContentLoaded', () => {
+        {% for message in messages %}
+        showToast("{{ message|escape|escapejs }}", "{% if message.tags == 'error' or message.tags == 'warning' or message.tags == 'success' %}{{ message.tags }}{% else %}info{% endif %}");
+        {% endfor %}
+      });
+      {% endif %}
+
+      // Two-click confirmation without browser pop-ups: the first click on a
+      // [data-confirm] submit button arms it for 3 s, the second submits.
+      document.addEventListener('click', (e) => {
+        const button = e.target.closest('button[data-confirm]');
+        if (!button || button.dataset.armed === '1') return;
+        e.preventDefault();
+        const original = button.innerHTML;
+        button.dataset.armed = '1';
+        button.textContent = button.dataset.confirm;
+        setTimeout(() => {
+          button.dataset.armed = '';
+          button.innerHTML = original;
+        }, 3000);
+      });
 
       function removeToast(toast) {
         toast.classList.add('removing');

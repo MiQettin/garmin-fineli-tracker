@@ -45,12 +45,35 @@
   {{ form.salt_per_100g }}{{ form.salt_per_100g.errors }}
 </div>
 <div class="form-group">
-  <label for="id_package_amount">Package size *</label>
+  <label for="id_package_amount">Package size (optional)</label>
   <div class="input-group">
     {{ form.package_amount }}
     {{ form.package_unit }}
   </div>
   {{ form.package_amount.errors }}{{ form.package_unit.errors }}
   {{ form.default_portion_g }}
-  <small class="info-text">For example 55 g, 2 dl, or 1 l. The food diary will offer one package.</small>
+  <small class="info-text">For example 55 g, 2 dl, or 1 l. When set, the food diary also offers "1 × pakkaus". Leave empty for foods you measure, such as syrup.</small>
 </div>
+<script>
+// Package size is optional. When given, its unit must match the nutrition
+// basis - grams can't be converted to millilitres without the density - so
+// the unit list only offers matching units: per 100 g -> g, per 100 ml ->
+// ml/dl/l. The server validates the same rule.
+(function () {
+  const basis = document.getElementById('id_nutrition_basis');
+  const unit = document.getElementById('id_package_unit');
+  if (!basis || !unit) return;
+  const sync = () => {
+    const perMl = basis.value === 'ML';
+    for (const option of unit.options) {
+      const volume = option.value !== 'G';
+      option.hidden = option.disabled = perMl ? !volume : volume;
+    }
+    if (unit.selectedOptions[0] && unit.selectedOptions[0].disabled) {
+      unit.value = perMl ? 'ML' : 'G';
+    }
+  };
+  basis.addEventListener('change', sync);
+  sync();
+})();
+</script>

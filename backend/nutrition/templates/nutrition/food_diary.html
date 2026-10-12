@@ -88,7 +88,8 @@
                         <span>F: {{ entry.fat_g|floatformat:1 }}g</span>
                     </div>
                     <div class="food-actions">
-                        <button onclick="deleteEntry({{ entry.id }})" class="delete-btn">🗑️</button>
+                        <a href="{% url 'edit_meal_entry' entry.id %}" class="edit-btn" title="Edit" aria-label="Edit {{ entry.food_name }}">✏️</a>
+                        <button onclick="deleteEntry({{ entry.id }})" class="delete-btn" title="Delete" aria-label="Delete {{ entry.food_name }}">🗑️</button>
                     </div>
                 </div>
                 {% endif %}
@@ -493,6 +494,19 @@
 
 .delete-btn:hover {
     background: var(--error);
+    transform: scale(1.1);
+}
+
+.food-actions { display: flex; gap: 6px; align-items: center; }
+.edit-btn {
+    background: var(--bg-hover);
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+.edit-btn:hover {
+    background: var(--primary);
     transform: scale(1.1);
 }
 
@@ -974,13 +988,28 @@ function renderMyFoods(foods) {
     resultsDiv.innerHTML = foods.map(food => formatCustomFoodResult(food)).join('');
 }
 
+// Foods shown in the result lists are kept here and referenced by index
+// from onclick. Inlining them as JSON in a quoted attribute broke for names
+// with an apostrophe (e.g. 48 Fineli foods like MCDONALD'S), so they could
+// not be selected. Names are HTML-escaped for the same reason.
+const shownFoods = [];
+function foodRef(food) {
+    shownFoods.push(food);
+    return shownFoods.length - 1;
+}
+function escapeHtml(text) {
+    return String(text ?? '').replace(/[&<>"']/g, (c) => (
+        {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]
+    ));
+}
+
 function formatCustomFoodResult(food) {
-    const brandInfo = food.brand ? ` <span style="color: var(--gray-500);">(${food.brand})</span>` : '';
+    const brandInfo = food.brand ? ` <span style="color: var(--gray-500);">(${escapeHtml(food.brand)})</span>` : '';
     return `
-        <div class="search-result" onclick='selectCustomFood(${JSON.stringify(food)})'>
+        <div class="search-result" onclick="selectCustomFood(shownFoods[${foodRef(food)}])">
             <button type="button" class="favorite-star" title="Add to favorites"
-                    onclick='event.stopPropagation(); favoriteFood({custom_food_id: ${food.id}})'>☆</button>
-            <div class="result-name">⭐ ${food.name}${brandInfo}</div>
+                    onclick="event.stopPropagation(); favoriteFood({custom_food_id: ${Number(food.id)}})">☆</button>
+            <div class="result-name">⭐ ${escapeHtml(food.name)}${brandInfo}</div>
             <div class="result-macros">
                 ${fmtNutrient(food.energy_kcal, 0)} kcal |
                 P: ${fmtNutrient(food.protein, 1)}g |
@@ -1022,14 +1051,14 @@ function unfavoriteFood(payload) {
 
 function formatFavoriteResult(food) {
     const isCustom = food.source === 'custom';
-    const payload = isCustom ? { custom_food_id: food.id } : { fineli_id: food.id };
+    const payloadKey = isCustom ? 'custom_food_id' : 'fineli_id';
     const selectFn = isCustom ? 'selectCustomFood' : 'selectFineliFood';
     const label = isCustom ? `${food.name}${food.brand ? ' (' + food.brand + ')' : ''}` : food.name;
     return `
-        <div class="search-result" onclick='${selectFn}(${JSON.stringify(food)})'>
+        <div class="search-result" onclick="${selectFn}(shownFoods[${foodRef(food)}])">
             <button type="button" class="favorite-star" title="Remove from favorites"
-                    onclick='event.stopPropagation(); unfavoriteFood(${JSON.stringify(payload)})'>★</button>
-            <div class="result-name">${label}</div>
+                    onclick="event.stopPropagation(); unfavoriteFood({${payloadKey}: ${Number(food.id)}})">★</button>
+            <div class="result-name">${escapeHtml(label)}</div>
             <div class="result-macros">
                 ${fmtNutrient(food.energy_kcal, 0)} kcal |
                 P: ${fmtNutrient(food.protein, 1)}g |
@@ -1104,6 +1133,7 @@ function selectCustomFood(food) {
         source: 'custom',
         custom_food_id: food.id,
         is_recipe: food.is_recipe,
+        serving_grams: food.serving_grams,
         default_portion: food.default_portion,
         package_amount: food.package_amount,
         package_unit: food.package_unit,
@@ -1115,10 +1145,10 @@ function selectCustomFood(food) {
 function formatFoodResult(food) {
     const favoriteIcon = food.is_favorite ? '⭐ ' : '';
     return `
-        <div class="search-result" onclick='selectFineliFood(${JSON.stringify(food)})'>
+        <div class="search-result" onclick="selectFineliFood(shownFoods[${foodRef(food)}])">
             <button type="button" class="favorite-star" title="Add to favorites"
-                    onclick='event.stopPropagation(); favoriteFood({fineli_id: ${food.id}})'>☆</button>
-            <div class="result-name">${favoriteIcon}${food.name}</div>
+                    onclick="event.stopPropagation(); favoriteFood({fineli_id: ${Number(food.id)}})">☆</button>
+            <div class="result-name">${favoriteIcon}${escapeHtml(food.name)}</div>
             <div class="result-macros">
                 ${fmtNutrient(food.energy_kcal, 0)} kcal |
                 P: ${fmtNutrient(food.protein, 1)}g |
@@ -1133,7 +1163,7 @@ function formatFoodResult(food) {
 function selectFineliFood(food) {
     selectedFood = food;
     document.getElementById('portionFoodName').textContent = food.name;
-    if (food.source === 'custom' && !food.is_recipe && food.package_amount) {
+    if (food.source === 'custom' && !food.is_recipe) {
         const packageUnit = food.package_unit || 'G';
         const volumeUnits = [
             {code: 'ML', label: 'ml', grams: 1, display_unit: 'ml'},
@@ -1145,13 +1175,19 @@ function selectFineliFood(food) {
             : [GRAM_UNIT];
         const packageMultiplier = packageUnit === 'DL' ? 100 : packageUnit === 'L' ? 1000 : 1;
         const packagePreviewUnit = packageUnit === 'G' ? 'g' : 'ml';
-        fillPortionUnits([
-            {code: 'PKG', label: 'pakkaus', grams: food.package_amount * packageMultiplier, display_unit: packagePreviewUnit},
-            ...directUnits
-        ]);
+        // Package size is optional - without one the product is logged by
+        // weight (per 100 g) or volume (per 100 ml) only.
+        const packageUnits = food.package_amount
+            ? [{code: 'PKG', label: 'pakkaus', grams: food.package_amount * packageMultiplier, display_unit: packagePreviewUnit}]
+            : [];
+        fillPortionUnits([...packageUnits, ...directUnits]);
     } else if (food.source === 'custom') {
-        // Recipes: grams eaten (values are per 100 g of the recipe).
-        fillPortionUnits([GRAM_UNIT]);
+        // Recipes: servings when the recipe has them (optional), and grams
+        // (values are per 100 g of the recipe).
+        const servingUnits = food.serving_grams
+            ? [{code: 'SERV', label: 'annos', grams: food.serving_grams}]
+            : [];
+        fillPortionUnits([...servingUnits, GRAM_UNIT]);
     } else {
         // Fineli foods: grams plus the food's own Fineli portion sizes.
         fillPortionUnits([GRAM_UNIT].concat(food.units || []));

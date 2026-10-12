@@ -1,12 +1,21 @@
 # Food Diary - User Guide
 
-Last updated: 2026-10-11
+Last updated: 2026-10-12
 
 ## Overview
 
-The Food Diary logs what you eat against the **locally imported** Fineli food database. There is no live Fineli API call - search, portions and nutrient values all come from the SQLite database, so the diary works fully offline once Fineli has been imported (see [First-time setup](#first-time-setup)).
+The food diary logs what you eat against the **locally imported** Fineli food database. There is no live Fineli API call - search, portion sizes and nutrient values all come from the SQLite database, so the diary works offline once Fineli has been imported (see [First-time setup](#first-time-setup)).
 
-The diary requires login. Meal entries, custom foods/recipes and favorites belong to the logged-in user.
+Everything requires login. Diary entries, your own products and recipes, and favorites belong to the logged-in user. "Today" follows Finnish time.
+
+The Nutrition menu has four pages:
+
+| Page | Address | For |
+| --- | --- | --- |
+| Diary | `/food-diary/` | Logging food day by day |
+| Foods | `/food-diary/custom-foods/` | Your own products (values from the label) |
+| Recipes | `/food-diary/recipes/` | Your recipes (values calculated from ingredients) |
+| Favorites | `/food-diary/favorites/` | Starred foods for quick logging |
 
 ## First-time setup
 
@@ -26,69 +35,121 @@ The diary requires login. Meal entries, custom foods/recipes and favorites belon
    ```
    Expected: about 4,238 foods. **If this prints 0, food search returns nothing.**
 
-## Daily use
+## Logging food
 
-1. Open http://127.0.0.1:8000/food-diary/ and log in.
-2. Pick a date (date picker or previous/next buttons). Today is the default.
-3. Click **+ Add Food** on a meal section: Breakfast, Lunch, Dinner, Snack, Evening Snack. Imported diaries can add extra sections (see [Diary CSV import](#diary-csv-import)).
-4. Choose a tab in the Add Food dialog, pick a food, enter the portion.
-5. Day and meal totals, and the dashboard's `DailyLog`, update automatically.
+1. Open **Nutrition → Diary**. Today is selected; change the day with the date picker or the previous/next buttons.
+2. Click **+ Add Food** on a meal: Breakfast, Lunch, Dinner, Snack, Evening Snack. Diary CSV imports can add their own meal sections (e.g. *Herkku*).
+3. Choose a tab, pick a food, set the portion, and confirm.
+
+The meal and day totals update at once. They only count your own entries.
 
 ### Add Food tabs
 
 | Tab | What it does |
 | --- | --- |
-| 🔍 Search Fineli | Type 2+ characters. Searches Finnish, Swedish and English names in the local database (top 20 matches, most-used first). An empty search lists your most-used Fineli foods. |
-| ⭐ My Foods | Your own custom foods and recipes. |
-| ★ Favorites | Foods you have starred. Favorites are explicit - star a food to add it, unstar to remove it. |
+| 🔍 Search Fineli | Type 2+ characters. Searches Finnish, Swedish and English names. Case and ä/ö/å don't matter, and every word must match in any order - "maito lak" finds *MAITO, …, LAKTOOSITON*. Shows the top 20: your most-used foods first, then the best matches (*BANAANI, KUORITTU* before *BANAANILASTU*). An empty search lists your most-used Fineli foods. |
+| ⭐ My Foods | Your own products and recipes. |
+| ★ Favorites | Foods you have starred (☆ on a search result). |
 | 🕒 Recent | Foods you logged most recently. |
 | 🔁 Frequent | Foods you log most often. |
-| 📥 Diary CSV | Bulk import of Fineli diary exports. |
-| ✏️ Manual Entry | One-off food with values typed in. |
+| 📥 Diary CSV | Bulk import of Fineli diary exports - see [Diary CSV import](#diary-csv-import). |
+| ✏️ Manual Entry | A one-off food with its values typed in. |
 
 ### Portion units
 
-Every entry is stored in grams; nutrient values are per 100 g.
+Every entry is stored in grams (or millilitres for per-100 ml products). The portion picker offers the units that make sense for the food and shows the resulting grams:
 
-**Fineli foods** offer grams plus the food's own Fineli portion sizes, with the grams shown in the list - for example *peeled banana*: pieni (kpl) 100 g, keskikokoinen (kpl) 125 g, iso (kpl) 150 g, pieni / keskikokoinen / iso annos, and dl, rkl or tl where Fineli gives them. Pick a unit, enter how many (e.g. 2 × iso (kpl)), and the dialog shows the total grams. The server recalculates the grams from the stored Fineli size, and the diary shows the entry as e.g. "2 × iso (kpl) · 300g". Entries imported from a Fineli diary CSV show their portion the same way.
+| Food | Units |
+| --- | --- |
+| Fineli food | grams, plus the food's own Fineli portion sizes - e.g. *peeled banana*: pieni (kpl) 100 g, keskikokoinen (kpl) 125 g, iso (kpl) 150 g, pieni/keskikokoinen/iso annos, and dl, rkl or tl where Fineli gives them |
+| Product, values per 100 g | grams, plus **pakkaus** if it has a package size |
+| Product, values per 100 ml | ml, dl, l, plus **pakkaus** if it has a package size |
+| Recipe | grams, plus **annos** if it has a servings count |
 
-Portion sizes come from `foodaddunit.csv` in the Fineli package and are loaded by `import_fineli_csv`. A database imported before 2026-10-11 has none - re-run the import with `--update-existing`.
+The server converts units to grams from the stored sizes, and the diary shows the entry as e.g. "2 × iso (kpl) · 300g". Fineli portion sizes come from `foodaddunit.csv` and are loaded by `import_fineli_csv`; a database imported before 2026-10-11 has none - re-run the import with `--update-existing`.
 
-**Custom products** (e.g. a protein quark) offer **pakkaus** - one package, using the product's *Package size (g)* - plus grams. Enter the values from the label per 100 g and the package size once; then log "1 × pakkaus" (or 0.5) in the diary.
-
-**Recipes** have no Fineli portion data, so they are logged in grams only - no guessed units. A recipe's page shows its total ingredient mass ("Total ingredient mass"), and its nutrient values are per 100 g, so you just enter how many grams you ate (e.g. half of an 800 g recipe = 400 g).
-
-Editing an entry's grams by hand removes its recorded portion, since it no longer matches.
+Nutrient values are taken from the database when you log the food, so an entry always uses the food's current values. An entry keeps those values afterwards, even if the food or recipe changes later.
 
 ### Manual entry
 
-For a food not in Fineli and not worth saving as a custom food. Food name, portion (g), calories, protein and carbs are required; other fields are optional. **Values are for the whole portion, not per 100 g.**
+For a food that is not in Fineli and not worth saving as a product. Food name, portion (g), calories, protein and carbs are required; the rest are optional. **Values are for the whole portion, not per 100 g.**
+
+### Editing an entry
+
+Click ✏️ on an entry. You can change the meal, the name and the amount:
+
+- **Grams** - the calories, macros and micronutrients follow the new amount. An entry logged as "2 × iso (kpl)" becomes a plain gram amount.
+- **Portion count** (entries logged in portion units) - "2 × iso (kpl)" → 3 recalculates the grams and keeps the unit.
+- **Edit nutrition values** - only to correct a value by hand; corrected values are kept as typed. Leave a field empty if the value is unknown.
+
+The date of an entry can't be changed - delete it and add it again on the right day.
 
 ### Deleting an entry
 
 Click 🗑️, then click it again within 3 seconds. There are no browser pop-ups; feedback is shown as toast messages.
 
-## Custom foods and recipes
+## Products (Nutrition → Foods)
 
-Manage at http://127.0.0.1:8000/food-diary/custom-foods/ (Nutrition → Foods).
+Products are foods you enter yourself from the label, e.g. a protein quark or a maple syrup.
 
-- **Custom food**: your own product with nutrient values per 100 g (as printed on the package) and a **Package size (g)**, so the diary can log "1 × pakkaus".
-- **Recipe**: a custom food built from ingredients (Fineli foods and/or your other custom foods). **Recalculate recipe** computes per-100 g values from the ingredients. You can also edit the final values by hand. A blank value means *unknown* and is never treated as zero.
+- **Nutrition values per**: *100 g* or *100 ml*, as printed on the package. Enter the values with up to two decimals; leave a value empty if the label doesn't give it (it stays unknown, never zero).
+- **Package size (optional)**: e.g. 200 g, or 1 l for a liquid. When set, the diary also offers "1 × pakkaus" (or 0.5). Leave it empty for foods you measure, such as syrup. The package unit must match the nutrition basis - grams for per 100 g, ml/dl/l for per 100 ml - because grams and millilitres can't be converted without the food's density; the form only offers matching units.
+- **Edit** a product to fix its values. Every recipe that uses it is recalculated automatically, and a message names them. Entries already in the diary keep their values.
+- **Delete** removes the product. Diary entries keep their values. A product that is an ingredient of a recipe can't be deleted until it is removed from that recipe.
+
+## Recipes (Nutrition → Recipes)
+
+A recipe is a dish built from ingredients - Fineli foods and your own products or other recipes. Its values per 100 g are calculated from the ingredients.
+
+### The Recipes page
+
+Each recipe is a card with energy and macros per 100 g, the ingredient count and total mass, and - when set - servings and the size and energy of one serving. **Show details** expands the ingredient list and all values. Each card has **Open recipe**, **Duplicate** and **Delete**. Search appears when you have more than six recipes. **+ Create Recipe** asks for a name and opens the new recipe.
+
+### Building a recipe
+
+On a recipe's page:
+
+1. **Add from Fineli** - start typing; suggestions appear as you type (best match first). With an empty search box, your starred Fineli favorites are listed for quick adding.
+2. **Add from My Foods** - search your products and recipes; your most-used foods are shown first.
+3. Tap a food, then set the amount in the panel that opens - grams, or a Fineli portion size with the resulting grams shown - and press **Add to recipe**.
+
+Adding or removing an ingredient recalculates the recipe at once and confirms it with a message. A value stays empty (unknown) when any ingredient doesn't report it.
+
+### Recipe details
+
+- **Name** and **Brand / note**.
+- **Servings** (optional) - how many servings the recipe makes. The diary can then log "1 × annos" as well as grams.
+- **Finished dish weight** (optional) - weigh the cooked dish. Values per 100 g are then based on it, so water lost or gained in cooking is accounted for; otherwise the ingredients' total mass is used. Example: 200 g of oats cooked into 400 g of porridge gives 190 kcal per 100 g instead of 380.
+- **Duplicate** copies the recipe (ingredients, servings, values) as a starting point for a variation.
+- **Delete** (click twice) removes the recipe. Diary entries keep their values. A recipe used inside another recipe can't be deleted until it is removed there.
+
+### Final values and recalculation
+
+**Final nutrition values per 100 g** shows the stored values and lets you correct them by hand; saving confirms with a message. Corrected values stay until the recipe's ingredients change. **Recalculate recipe** discards manual corrections and calculates the values from the ingredients again.
+
+Recipes never go stale: when a product or recipe changes - edited, recalculated, or its final values saved - every recipe that uses it, also through another recipe, is recalculated, and a message names them.
+
+## Favorites (Nutrition → Favorites)
+
+Lists your starred Fineli foods and own foods; tap ★ to remove one. **Add favorites** searches Fineli and your own foods - tap ☆ to star. Favorites appear in the diary's ★ Favorites tab and at the top of a recipe's Fineli search.
 
 ## Diary CSV import
 
 Imports food-level rows from Fineli diary CSV exports (from the Fineli website's diary).
 
-1. Food Diary → **📥 Import CSV** (or the Diary CSV tab).
+1. Diary → **📥 Import CSV** (or the Diary CSV tab).
 2. Select one or more CSV files and click **Import**.
 3. The page refreshes when done.
 
 Behavior:
-- Each food row becomes a meal entry with calories, protein, carbs, fat, saturated fat, sugar, fiber, salt and the auxiliary micronutrients, plus the original Fineli source details.
+
+- Each food row becomes a diary entry with calories, protein, carbs, fat, saturated fat, sugar, fiber, salt and the micronutrients, plus the original Fineli source details.
 - Energy is converted from kJ to kcal. Below-detection-limit values (`<0.1`) are kept as such, not rounded to a plain number.
 - The 5 standard Finnish meal names map to Breakfast/Lunch/Dinner/Snack/Evening Snack. Any other meal name (e.g. `Herkku`) gets its own section using the CSV's own name.
-- Re-importing a file adds only missing food rows and updates matching **CSV-imported** rows. Existing rows that are absent from a later file are preserved, and entries you added by hand are never touched.
-- All selected files are validated before any database write. If one file is invalid, the complete upload is rejected. Each diary day is locked during import to prevent simultaneous uploads from creating duplicates. If pre-existing duplicate CSV rows are detected, the import stops without changing anything.
+- Re-importing a file adds only missing food rows and updates matching **CSV-imported** rows. Rows missing from a later file are kept, and entries you added by hand are never touched. Nothing is deleted.
+- All selected files are validated before anything is saved. If one file is invalid, the whole upload is rejected. Each diary day is locked during the import so simultaneous uploads can't create duplicates. If existing duplicate CSV rows are found, the import stops without changing anything.
+
+Import with your own account - entries belong to the user who imports them.
 
 Endpoint: `POST /food-diary/api/bulk-import/` (login required).
 
@@ -96,16 +157,25 @@ Endpoint: `POST /food-diary/api/bulk-import/` (login required).
 
 **Search returns nothing.** The Fineli table is empty - run `import_fineli_csv` (see [First-time setup](#first-time-setup)).
 
-**Fineli calories look about 4x too high.** The Fineli database was imported before the 2026-10-11 kJ→kcal fix. Re-run the import with `--update-existing`. Meal entries logged before the fix keep their stored values.
+**Fineli calories look about 4× too high.** The Fineli database was imported before the 2026-10-11 kJ→kcal fix. Re-run the import with `--update-existing`. Entries logged before the fix keep their stored values.
 
 **My entries disappeared.** Entries belong to the user who created them. Check which account you are logged in as (shown on the Log out button).
 
-**Redirected to the admin login page.** Expected - the app uses Django admin's login.
+**Food logged just after midnight is on the previous day.** That happened before 2026-10-12, when the server used UTC. Delete the entry and add it again on the right day.
+
+**"Give the package size in grams" error.** The product's values are per 100 g but the package size is in ml (or the other way round). Give the package in grams, switch the values to per 100 ml, or leave the package size empty.
+
+**"… is an ingredient in …" when deleting.** Remove the food from the recipes named in the message first.
+
+**A recipe value is empty.** One of its ingredients doesn't report that nutrient, so the total is unknown. Enter it by hand under Final nutrition values if you know it.
+
+**Redirected to the admin login page.** Expected - the app uses Django admin's login. After logging in you land on the Dashboard; the admin site is only opened by going to `/admin/`.
 
 ## Data and privacy
 
 - Everything is stored in the local SQLite database. Nothing is sent to Fineli or anywhere else.
-- Day totals in the diary and on the dashboard count only the logged-in user's own entries, so another account logging (or importing) food on the same date can't change them.
+- Day totals in the diary and on the dashboard count only your own entries, so another account logging or importing food on the same date can't change them.
+- How the data is stored, backed up and checked: [database_guide.md](database_guide.md).
 
 ## Attribution
 

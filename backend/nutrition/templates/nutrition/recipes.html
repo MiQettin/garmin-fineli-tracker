@@ -1,0 +1,174 @@
+{% extends "core/base.html" %}
+
+{% block title %}Recipes - HealthManager{% endblock %}
+
+{% block extra_css %}
+<style>
+  .recipes-page { max-width: 1100px; margin: 24px auto; }
+  .recipes-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  .recipes-head h1 { font-size: 1.35em; color: var(--gray-900); margin: 0; }
+  .create-panel { background: var(--bg-card); border: 1px solid var(--primary); border-radius: 14px; padding: 14px; margin-bottom: 16px; }
+  .create-panel form { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+  .create-panel label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82em; color: var(--gray-500); }
+  .create-panel input { font-size: 16px; min-height: 44px; }
+  .create-panel .btn { min-height: 44px; }
+  .recipe-search { margin-bottom: 12px; }
+  .recipe-search input { font-size: 16px; min-height: 44px; max-width: 420px; }
+  .recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .recipe-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .recipe-card[hidden] { display: none; }
+  .recipe-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .recipe-title { font-weight: 800; color: var(--gray-900); font-size: 1.05em; overflow-wrap: anywhere; }
+  .recipe-title small { display: block; font-weight: 500; color: var(--gray-500); font-size: 0.78em; }
+  .recipe-kcal { text-align: right; flex-shrink: 0; }
+  .recipe-kcal strong { display: block; font-size: 1.4em; color: var(--gray-900); line-height: 1; }
+  .recipe-kcal span { font-size: 0.72em; color: var(--gray-500); }
+  .recipe-macros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .recipe-macro { background: var(--bg-hover); border-radius: 10px; padding: 8px; text-align: center; }
+  .recipe-macro strong { display: block; color: var(--gray-800); }
+  .recipe-macro span { font-size: 0.7em; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.04em; }
+  .recipe-meta { font-size: 0.8em; color: var(--gray-500); }
+  .recipe-card details { border-top: 1px solid var(--border-light); padding-top: 8px; }
+  .recipe-card summary { cursor: pointer; color: var(--primary-light, var(--primary)); font-size: 0.88em; font-weight: 600; min-height: 32px; display: flex; align-items: center; }
+  .recipe-detail-table { width: 100%; font-size: 0.85em; margin-top: 6px; }
+  .recipe-detail-table td { padding: 4px 0; border-bottom: 1px solid var(--border-light); color: var(--gray-700); }
+  .recipe-detail-table td:last-child { text-align: right; white-space: nowrap; padding-left: 10px; }
+  .recipe-detail-title { font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); margin-top: 10px; }
+  .unknown { color: var(--gray-500); font-style: italic; }
+  .recipe-actions { margin-top: auto; }
+  .recipe-actions { display: flex; flex-direction: column; gap: 8px; }
+  .recipe-actions .btn { width: 100%; min-height: 44px; }
+  .recipe-actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .recipe-actions-row form { margin: 0; }
+  .empty-state { color: var(--gray-500); padding: 14px 0; }
+  @media (max-width: 576px) {
+    .recipes-page { margin: 12px 0; }
+    .create-panel form { grid-template-columns: 1fr; }
+    .recipe-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="recipes-page">
+  <div class="recipes-head">
+    <h1>🧪 Recipes</h1>
+    <button type="button" class="btn btn-success" id="toggleCreate" aria-expanded="false" aria-controls="createPanel">+ Create Recipe</button>
+  </div>
+
+  <div class="create-panel" id="createPanel" hidden>
+    <form method="post" action="{% url 'create_recipe' %}">
+      {% csrf_token %}
+      <label>Recipe name *
+        <input class="form-control" type="text" name="name" maxlength="200" required placeholder="e.g. Pannukakku">
+      </label>
+      <label>Brand / note (optional)
+        <input class="form-control" type="text" name="brand" maxlength="100">
+      </label>
+      <button type="submit" class="btn btn-primary">Create and add ingredients</button>
+    </form>
+  </div>
+
+  {% if recipes %}
+  {% if recipes|length > 6 %}
+  <div class="recipe-search">
+    <input class="form-control" type="search" id="recipeSearch" placeholder="Search recipes" autocomplete="off" aria-label="Search recipes">
+  </div>
+  {% endif %}
+  <div class="recipe-grid">
+    {% for recipe in recipes %}
+    <article class="recipe-card" data-search="{{ recipe.name|lower }} {{ recipe.brand|lower }}">
+      <div class="recipe-card-head">
+        <div class="recipe-title">{{ recipe.name }}{% if recipe.brand %}<small>{{ recipe.brand }}</small>{% endif %}</div>
+        <div class="recipe-kcal">
+          {% if recipe.energy_kcal_per_100g is not None %}<strong>{{ recipe.energy_kcal_per_100g|floatformat:0 }}</strong>{% else %}<strong class="unknown">–</strong>{% endif %}
+          <span>kcal / 100 g</span>
+        </div>
+      </div>
+      <div class="recipe-macros">
+        <div class="recipe-macro"><strong>{% if recipe.protein_per_100g is not None %}{{ recipe.protein_per_100g|floatformat:1 }} g{% else %}–{% endif %}</strong><span>Protein</span></div>
+        <div class="recipe-macro"><strong>{% if recipe.carbs_per_100g is not None %}{{ recipe.carbs_per_100g|floatformat:1 }} g{% else %}–{% endif %}</strong><span>Carbs</span></div>
+        <div class="recipe-macro"><strong>{% if recipe.fat_per_100g is not None %}{{ recipe.fat_per_100g|floatformat:1 }} g{% else %}–{% endif %}</strong><span>Fat</span></div>
+      </div>
+      <div class="recipe-meta">
+        {% if recipe.ingredient_list %}{{ recipe.ingredient_list|length }} ingredient{{ recipe.ingredient_list|length|pluralize }} &middot; {{ recipe.total_grams|floatformat:"-1" }} g total{% else %}No ingredients yet{% endif %}
+        {% if recipe.use_count %} &middot; logged {{ recipe.use_count }}&times;{% endif %}
+        {% if recipe.servings %}<br>{{ recipe.servings|floatformat:"-1" }} serving{{ recipe.servings|pluralize }}{% if recipe.serving_g %} &middot; 1 serving &asymp; {{ recipe.serving_g|floatformat:0 }} g{% if recipe.serving_kcal is not None %} ({{ recipe.serving_kcal|floatformat:0 }} kcal){% endif %}{% endif %}{% endif %}
+      </div>
+      <details>
+        <summary>Show details</summary>
+        {% if recipe.ingredient_list %}
+        <div class="recipe-detail-title">Ingredients</div>
+        <table class="recipe-detail-table">
+          {% for ing in recipe.ingredient_list %}
+          <tr>
+            <td>{% if ing.fineli_food %}{{ ing.fineli_food.name_fi }}{% else %}{{ ing.source_custom_food.name }}{% endif %}</td>
+            <td>{{ ing.amount_grams|floatformat:"-1" }} g</td>
+          </tr>
+          {% endfor %}
+        </table>
+        {% endif %}
+        <div class="recipe-detail-title">Per 100 g{% if recipe.cooked_weight_g %} of the finished dish ({{ recipe.cooked_weight_g|floatformat:"-1" }} g){% endif %}</div>
+        <table class="recipe-detail-table">
+          <tr><td>Energy</td><td>{% if recipe.energy_kcal_per_100g is not None %}{{ recipe.energy_kcal_per_100g|floatformat:"-1" }} kcal{% else %}<span class="unknown">unknown</span>{% endif %}</td></tr>
+          <tr><td>Protein</td><td>{% if recipe.protein_per_100g is not None %}{{ recipe.protein_per_100g|floatformat:"-2" }} g{% else %}<span class="unknown">unknown</span>{% endif %}</td></tr>
+          <tr><td>Carbohydrates</td><td>{% if recipe.carbs_per_100g is not None %}{{ recipe.carbs_per_100g|floatformat:"-2" }} g{% else %}<span class="unknown">unknown</span>{% endif %}</td></tr>
+          <tr><td>&nbsp;&nbsp;of which sugars</td><td>{% if recipe.sugar_per_100g is not None %}{{ recipe.sugar_per_100g|floatformat:"-2" }} g{% else %}<span class="unknown">unknown</span>{% endif %}</td></tr>
+          <tr><td>Fat</td><td>{% if recipe.fat_per_100g is not None %}{{ recipe.fat_per_100g|floatformat:"-2" }} g{% else %}<span class="unknown">unknown</span>{% endif %}</td></tr>
+          <tr><td>&nbsp;&nbsp;of which saturated</td><td>{% if recipe.sat_fat_per_100g is not None %}{{ recipe.sat_fat_per_100g|floatformat:"-2" }} g{% else %}<span class="unknown">unknown</span>{% endif %}</td></tr>
+          <tr><td>Fiber</td><td>{% if recipe.fiber_per_100g is not None %}{{ recipe.fiber_per_100g|floatformat:"-2" }} g{% else %}<span class="unknown">unknown</span>{% endif %}</td></tr>
+          <tr><td>Salt</td><td>{% if recipe.salt_per_100g is not None %}{{ recipe.salt_per_100g|floatformat:"-2" }} g{% else %}<span class="unknown">unknown</span>{% endif %}</td></tr>
+        </table>
+      </details>
+      <div class="recipe-actions">
+        <a class="btn btn-primary" href="{% url 'recipe_detail' recipe.id %}">Open recipe</a>
+        <div class="recipe-actions-row">
+          <form method="post" action="{% url 'duplicate_recipe' recipe.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-light">⧉ Duplicate</button>
+          </form>
+          <form method="post" action="{% url 'delete_recipe' recipe.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger" data-confirm="Click again to delete">🗑️ Delete</button>
+          </form>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  <p class="empty-state" id="recipeSearchEmpty" hidden>No recipes matched.</p>
+  {% else %}
+  <p class="empty-state">No recipes yet - press <strong>+ Create Recipe</strong> to make your first one.</p>
+  {% endif %}
+</div>
+{% include "nutrition/_fineli_attribution.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const toggle = document.getElementById('toggleCreate');
+  const panel = document.getElementById('createPanel');
+  toggle.addEventListener('click', () => {
+    panel.hidden = !panel.hidden;
+    toggle.setAttribute('aria-expanded', String(!panel.hidden));
+    if (!panel.hidden) panel.querySelector('input[name=name]').focus();
+  });
+
+  const search = document.getElementById('recipeSearch');
+  if (!search) return;
+  const cards = Array.from(document.querySelectorAll('.recipe-card'));
+  const empty = document.getElementById('recipeSearchEmpty');
+  search.addEventListener('input', () => {
+    const words = search.value.toLocaleLowerCase('fi').split(/\s+/).filter(Boolean);
+    let shown = 0;
+    for (const card of cards) {
+      const match = words.every((w) => card.dataset.search.includes(w));
+      card.hidden = !match;
+      if (match) shown++;
+    }
+    empty.hidden = shown > 0;
+  });
+})();
+</script>
+{% endblock %}

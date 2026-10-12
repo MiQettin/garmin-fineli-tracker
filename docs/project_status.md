@@ -4,96 +4,98 @@ Last updated: 2026-10-12
 
 ## Current Phase
 
-- Phase: 4 - Nutrition depth (recipes, provenance-aware diary import) and Garmin health metrics
-- Dashboard settings include a manual Garmin calorie adjustment. It is added to the displayed daily expenditure without changing the raw imported Garmin value; warning thresholds can be automatic or use the user-entered custom threshold.
-- Status: In development; the food diary is in daily use on the owner's Raspberry Pi server (since 2026-10-11). The dev machine's database is a copy.
+- Phase: 4 - Nutrition depth (products and recipes, provenance-aware diary import) and Garmin health metrics.
+- Status: in daily use. The food diary runs on the owner's Raspberry Pi server (since 2026-10-11); a development machine has a copy of the database.
 - Current focus:
-  - Develop the public `garmin-fineli-tracker` release: changes are made and tested in the private repo, then published.
-  - Keep Garmin CSV regeneration reliable with the current `garminconnect` login flow.
+  - Ship the 2026-10-12 nutrition work to the server (migrations `core/0006`-`0007`, `nutrition/0018`-`0020`) - see [deployment.md](deployment.md).
+  - Publish tested changes to the public `garmin-fineli-tracker` repository.
   - Running analytics improvements.
 
 ## What Works Right Now
 
-- Django app split into domain apps:
-  - `core`: dashboard, week view, settings, `DailyLog`, `UserSettings` (singleton), base templates, shared template tags, the `/sync-garmin/` endpoint.
-  - `activities`: activity list/detail pages, laps, running analytics.
-  - `nutrition`: food diary, Fineli foods, custom foods and recipes, meal entries, favorites.
-  - `health`: Garmin health/recovery metrics - sleep, HRV, stress, Body Battery, respiration, SpO2 - and the `/api/health/` analytics endpoints.
-- Dashboard:
-  - Weekly energy balance, macro goals, recovery indicators, recent activities.
-  - The 7-day window ends **yesterday** (today is still incomplete). The Daily Breakdown table always shows all 7 calendar days, but empty days are left out of the averages. There is a per-day "vs 7-day average" comparison.
-  - Garmin sync endpoint at `/sync-garmin/` (`core.views.sync_garmin`, `@require_POST`, login required - anonymous gets a JSON 401). The **Sync Garmin** button and last-sync time are in the shared nav on every page (`core.context_processors.garmin_sync_status`).
-  - Sync button uses the browser CSRF cookie and global `showToast(message, type)` API.
-- Garmin import - two data paths from one script run:
-  - `get_garmindata.py` fetches from Garmin Connect and:
-    - Writes `garmin_daily.csv` and `garmin_activities.csv`/`garmin_activity_laps.csv` to `backend/data/`, which then need `python manage.py import_garmin_csv` to land in the DB (`DailyLog`, `Activity`, `ActivityLap`).
-    - Also calls `health.garmin_sync.sync_health_responses()` directly per day, which parses and upserts `DailyHealth`, `SleepSummary`, and `HrvSummary` straight into the DB in the same run - no separate import step for health data.
-  - Uses `garminconnect>=0.3.6`, stores reusable tokens in `.garmintokens/`, and supports date-range backfills (`--start-date`/`--end-date`/`--days`).
-  - `backend/tools/inspect_garmin_health.py` is a manual, read-only discovery utility for capturing raw Garmin health responses to local JSON - not wired into the app.
-  - The activity-level `duration_minutes` now prefers Garmin's elapsed `duration` field over `movingDuration`, so a manual time correction made in Garmin Connect (e.g. matching an official race time) is respected instead of silently overridden (fixed 2026-09-21).
-- Activities:
-  - Activity list and detail views for running and other activity types.
-  - Garmin-style lap grouping for warm-up, run, recovery, cool-down, rest, and other laps.
-  - A lap's `step_type` is now only ever set from an explicit Garmin signal (structured workout step type, or lap split type/intensity); a lap with no such signal defaults to `run` instead of being guessed from pace/duration/position (fixed 2026-09-21 - the old heuristic mislabeled the first 1-2 laps of any run as "warmup" and short trailing laps as "interval").
-  - Pace displays use centisecond precision (`MM:SS.xx`) to avoid rounding drift.
-- Run analytics:
-  - Dedicated page at `/analytics/running/`.
-  - Chart.js trends for pace, heart rate, distance, and lap count.
-  - Workout filters: All, VK, PK, Pitka.
-  - Lap inclusion filters: Intervals, Warm-up, Cool-down.
-  - Defaults include `run` and `interval` laps only; warm-up and cool-down are opt-in.
-  - Recovery/rest/other laps remain excluded from analytics pace stats.
-  - Average pace is weighted by total lap time divided by total lap distance.
-- Health metrics (`health` app):
-  - `DailyHealth` (stress, respiration, SpO2, Body Battery), `SleepSummary` (per sleep session), `HrvSummary` (nightly) - all global/unscoped, no `user` field.
-  - `health/analytics.py` computes rolling trends/averages for the `/health/` page and `/api/health/` endpoints.
-- Food diary:
-  - Fineli database search, custom foods, recipes (ingredients from Fineli or other custom foods, recalculated composition), manual entries, favorites, recent/frequent foods, and bulk diary CSV import.
-  - `MealEntry`, `CustomFood`, and `FavoriteFood` are scoped to `user` (added since the previous status update); `DailyLog`, `UserSettings`, and all Garmin/health/activity data are **not** user-scoped and remain global/shared regardless of who is logged in.
-  - `DailyLog`'s stored nutrition totals (`DailyLog.recalculate_from_meals()`) sum **all** users' `MealEntry` rows for that date, so they are never shown as anyone's intake. The dashboard (intake, balance, macros, Daily Breakdown, nutrition summary) and the food diary's day summary compute each user's own totals from their `MealEntry` rows (`nutrition.aggregation.user_daily_totals()`, `weekly_macro_summary(user, ...)`, `logged_nutrition_days_count(user, ...)`). Fixed 2026-10-12 after a second account's CSV import of the same diary doubled the totals from 2026-09-01.
-  - Bulk diary CSV import (`nutrition.views.bulk_import_diary_csv`, POST `/food-diary/api/bulk-import/`, login required):
-    - Parses food-level rows (not meal-subtotal or daily-total rows) from a Fineli diary export, including per-nutrient qualifiers (`exact` vs `lt` for a below-detection-limit `<0.1` value) and original source provenance (Fineli food id, amount, unit, classification).
-    - The diary's own meal-slot name (e.g. `Aamiainen`, `Herkku`, a custom renamed slot) is used as `MealEntry.meal_type` largely verbatim: the 5 standard Finnish names map onto the app's Breakfast/Lunch/Dinner/Snack/Evening Snack buckets; anything else is stored and displayed as its own section using the CSV's own text, rather than being forced into one of the 5 (fixed 2026-09-21).
-    - Deduplicates overlapping uploads and upserts matching CSV-imported rows, preserving rows that are absent from a later file; manual/Fineli/custom entries are untouched.
-    - All files are validated before any write (one bad file rejects the whole upload), each diary day is row-locked during import, and pre-existing ambiguous duplicates stop the import without partial changes (fixed 2026-10-12: the old import deleted and recreated a date's rows, so repeated imports could lose data).
-    - Uses `bulk_create()` for `MealEntryNutrient` rows - a ~400-row file imports in about a second (fixed 2026-09-21).
-  - Fineli catalog import via `python manage.py import_fineli_csv --data-folder ...` - **required** for food search (search is local-only). `ENERC` is converted from kJ to kcal (fixed 2026-10-11).
-  - Meal changes still refresh `DailyLog`'s shared (all-users) totals through `DailyLog.recalculate_from_meals()`; displays use per-user totals instead.
-
-- Access control:
-  - Every page view in `core`, `activities`, `health` and `nutrition` is `@login_required` and redirects to the Django admin login (`LOGIN_URL = '/admin/login/'`). Logging out returns to `/admin/login/?next=/`, so signing in again opens the Dashboard rather than the admin index; the admin site is only reached by going to `/admin/` directly.
-  - JSON endpoints called by `fetch()` (`/sync-garmin/`, `/api/health/...`, `add_fineli_entry`, `bulk_import_diary_csv`, favorites) check authentication themselves and return a JSON 401, because the frontend can't parse a redirect as JSON.
-  - New meal entries always get `user=request.user`. Anonymous `user=None` writes are gone.
-- Database portability:
-  - `DATABASE_PATH` env var overrides the SQLite location (default `backend/db.sqlite3`).
-  - `python manage.py backup_db [--output FILE]` writes a consistent, integrity-checked snapshot using SQLite's online backup API, and refuses to run with unapplied migrations.
-  - `STATIC_ROOT = backend/staticfiles` for `collectstatic`; whitenoise serves it when `DEBUG=False`, and gunicorn is the server's app server (`requirements.txt`, Linux only).
+- **Apps:** `core` (dashboard, settings, `DailyLog`, `UserSettings`, base template, `backup_db`, `/sync-garmin/`), `activities` (activities, laps, running analytics), `nutrition` (Fineli catalog, diary, products, recipes, favorites), `health` (sleep, HRV, stress, Body Battery, respiration, SpO2 and `/api/health/`). Models and rules: [database_guide.md](database_guide.md).
+- **Dashboard:**
+  - The 7-day window ends **yesterday** (today is still incomplete). The Daily Breakdown table shows all 7 days; empty days are left out of the averages. Per-day comparison against the 7-day average.
+  - Energy balance against the fitness goal (preset or **custom** kcal/day). The **Avg daily balance** row is colored by how far below the goal the average is: green on track → yellow at the warning threshold → red at twice the threshold (blue for a surplus on cut goals), with the goal and thresholds shown. Thresholds are automatic or a custom value.
+  - A manual **Garmin calorie adjustment** (kcal/day) is added to Garmin's expenditure in every calculation (average balance, Daily Breakdown, per-day comparison, training share); the imported Garmin value is not changed.
+  - Intake, macros and nutrition coverage count **only the logged-in user's** diary entries.
+  - Macro goals, recovery (resting-HR baseline), recent activities, Sync Garmin button in the shared nav.
+- **Food diary** ([food_diary_guide.md](food_diary_guide.md)):
+  - Fineli search (local; ä/ö/å-safe, all words in any order, ranked), favorites, recent, frequent, manual entry, diary CSV import.
+  - Portion units: Fineli portion sizes, "pakkaus" (product package), ml/dl/l (per-100 ml products), "annos" (recipe servings), grams.
+  - Values are taken from the database when logging and frozen on the entry. Entries can be edited (✏️ - values follow grams or portion count) and deleted (two clicks).
+  - "Today" follows Finnish time (`TIME_ZONE = 'Europe/Helsinki'`).
+- **Products** (Nutrition → Foods): values per 100 g or 100 ml, optional package size. Editing a product recalculates the recipes that use it.
+- **Recipes** (Nutrition → Recipes): cards with expandable details, Create, Duplicate, Delete (two clicks; refused while used in another recipe). Two-step ingredient pickers with live Fineli suggestions, Fineli favorites and My Foods search. Optional servings and finished-dish weight. Recalculated automatically when ingredients - or the foods they use - change.
+- **Favorites** (Nutrition → Favorites): list, remove, search Fineli and own foods to star.
+- **Diary CSV import:** food-level rows with qualifiers and provenance; adds missing rows and updates matching imported rows, never deletes; all files validated first; each day locked during import; meal-slot names kept verbatim.
+- **Garmin import:** `get_garmindata.py` (unofficial `garminconnect`, token reuse, date-range backfills) writes daily/activity CSVs for `import_garmin_csv` and writes health metrics straight to the database. Activity duration prefers Garmin's elapsed `duration`; lap `step_type` comes only from explicit Garmin signals.
+- **Running analytics:** `/analytics/running/` with Chart.js trends, workout and lap filters, weighted pace (`MM:SS.xx`).
+- **Access control:** every page requires login (Django admin login, `LOGIN_URL = '/admin/login/'`); logging out returns to `/admin/login/?next=/` so signing in opens the Dashboard. JSON endpoints answer 401 when logged out and 404 for other users' foods.
+- **Database operations:** `DATABASE_PATH` for the file location, `backup_db` for consistent snapshots, tests on an in-memory database, read-only health checks ([database_guide.md](database_guide.md#health-checks)).
+- **Serving:** gunicorn + whitenoise on the Pi, home network only ([deployment.md](deployment.md)).
 
 ## Recent Changes
 
+### 2026-10-12
+
+Data fixes (approved by the owner, done on the development copy):
+
+- Rolled back a faulty diary CSV re-import and removed 827 duplicate entries that a second account (admin) had imported from the same diary; daily totals recalculated and verified. Snapshots were taken before each step.
+
+Database changes (approved by the owner):
+
+- `core/0007` - `UserSettings.custom_goal_kcal`: a **Custom** fitness goal besides the presets. `goal_adjustment_kcal()` is the single source of the goal for the dashboard, settings and macro recommendations.
+- `nutrition/0020` - `CustomFood.kind` (`product`/`recipe`; existing foods classified by whether they have ingredients), `servings` and `cooked_weight_g` (both optional).
+
+Diary and dashboard:
+
+- **Per-user nutrition totals.** `DailyLog` is one row per date shared by all users, and its stored totals summed every account's entries - a second account's import doubled intake from 2026-09-01. The dashboard and diary now compute totals from the user's own entries (`nutrition.aggregation.user_daily_totals()`, `weekly_macro_summary(user, ...)`, `logged_nutrition_days_count(user, ...)`).
+- **Diary CSV re-import is safe.** It used to delete and recreate a date's rows; it now adds missing rows, updates matching imported rows and keeps the rest; validates all files before writing; locks each day; stops on pre-existing ambiguous duplicates.
+- **Local time.** `TIME_ZONE = 'Europe/Helsinki'` and `timezone.localdate()`: with UTC, food logged between midnight and ~03:00 landed on the previous day.
+- **Entry editing** (the edit page was missing): meal, name, grams or portion count; nutrients and micronutrients scale with the amount unless corrected by hand.
+- **Values from the database.** Logging takes per-100 g values from `FineliFood`/`CustomFood`, not from the browser's copy; unknown Fineli ids and other users' foods are rejected (no more catalog rows created from requests).
+- **Names with an apostrophe** (48 Fineli foods, e.g. MCDONALD'S) could not be selected in the diary - result rows now reference foods by index and escape names.
+- **Search:** ä/ö/å match case-insensitively (SQLite's `LIKE` only folds ASCII, so "vehnäjauho" found nothing); every word must match in any order; results ranked by relevance (`name_search()`, `ranked_fineli_search()`).
+- Dashboard balance status coloring (green → yellow → red), Daily Breakdown balance includes the Garmin adjustment.
+- Login after logout opens the Dashboard instead of the admin index.
+- Tests use an explicit in-memory database.
+
+Products and recipes:
+
+- Products and recipes are separate (Foods / Recipes pages). Recipe cards, Create, rename, Duplicate, Delete (two clicks).
+- Two-step ingredient pickers (list → amount panel) with live Fineli suggestions, Fineli favorites and searchable My Foods.
+- Recipes recalculate automatically when ingredients are added or removed, and every recipe using a changed product or recipe is recalculated too (`recalculate_dependent_recipes()`).
+- Optional servings ("× annos" in the diary) and finished-dish weight (per-100 g basis).
+- Package size is optional for products; package unit follows the nutrition basis; ml/l portions display correctly.
+- Deleting a food that another recipe uses is refused (the database would silently drop the ingredient).
+- Favorites page; save confirmations shown as toasts (`django.contrib.messages`); two-click delete confirmation (`data-confirm`).
+- Fixed crashes: saving a product without a package size, invalid input to the legacy add-product URL, GET on delete URLs.
+
+License: HealthManager's own code moved from MIT to the [PolyForm Noncommercial License 1.0.0](../LICENSE) - commercial use is no longer permitted. Versions already published under MIT keep that license for those copies.
+
+Documentation: rewrote [database_guide.md](database_guide.md) (all models, safe operations, health checks, restore), [food_diary_guide.md](food_diary_guide.md) and [ui_guidelines.md](ui_guidelines.md); [deployment.md](deployment.md) covers replacing the server database with a fresh copy.
+
 ### 2026-10-11 (evening) - Fineli portion sizes
 
-- **Database change (approved by owner):** migration `nutrition.0018_fineli_food_units` adds the `FineliFoodUnit` table (food, Fineli unit code, grams). It only creates a table - existing tables and entries are untouched (the two `MealEntry` help-text changes are SQL no-ops).
-- `import_fineli_csv` now loads `foodaddunit.csv` (about 20,000 portion sizes for 4,232 foods).
-- Food diary portion picker offers each Fineli food's own sizes (e.g. peeled banana: small 100 g / medium 125 g / large 150 g) instead of fixed estimates; grams are recomputed server-side from the unit. Custom products can be logged as "1 × pakkaus" (their `default_portion_g`, labelled *Package size (g)*) or in grams; recipes in grams only (the old guessed dl/kpl/rkl/tl conversions are gone).
-- Fixed: the **edit custom food** page rendered fields that no longer exist on the form, so nutrient values couldn't be edited and saving silently failed. Add and edit forms now share one field template and show validation errors. The logged portion is stored in `MealEntry.source_amount`/`source_unit` (the same fields the diary CSV import already uses) and shown as "1 × iso (kpl) · 150g".
-- Fixed: adding a **custom food** from the diary sent its id as a Fineli id, so the entry could be linked to an unrelated Fineli food (wrong micronutrients) or create a bogus Fineli row.
-- Fixed: the food diary page crashed (HTTP 500) when an entry had an unknown nutrient - e.g. any of the 51 Fineli foods without saturated fat.
-- **To deploy on the Pi:** `backup_db`, `git pull`, `migrate`, then `import_fineli_csv --data-folder <Fineli folder> --update-existing` (the Fineli folder must be copied to the Pi; it is not in Git).
+- **Database change (approved by owner):** migration `nutrition.0018_fineli_food_units` adds the `FineliFoodUnit` table (food, Fineli unit code, grams). It only creates a table.
+- `import_fineli_csv` loads `foodaddunit.csv` (about 20,000 portion sizes for 4,232 foods); the diary's portion picker offers each food's own sizes instead of fixed estimates, and grams are recomputed server-side.
+- `nutrition/0019`: custom products get a package size and a per-100 g or per-100 ml basis.
+- Fixed: the edit custom food page rendered fields that no longer existed, so saving silently failed.
+- Fixed: adding a custom food from the diary sent its id as a Fineli id.
+- Fixed: the diary crashed when an entry had an unknown nutrient.
+- Fixed: stale CSRF token on logout (403).
+- `core/0006`: Garmin calorie adjustment; the custom warning threshold is visible in settings.
 
 ### 2026-10-11
 
-- Login required across the whole app (see "What Works Right Now" → Access control).
-- Dashboard window ends yesterday. Full 7-day Daily Breakdown table, per-day comparison against the 7-day average, Sync Garmin button moved into the shared nav.
+- Login required across the whole app.
+- **Fixed `import_fineli_csv` storing Fineli `ENERC` (kJ) directly as `energy_kcal`** - every Fineli food showed about 4.2× its real calories. Re-run the import with `--update-existing` on any database imported before this fix. Diary CSV imports were not affected.
+- Dashboard window ends yesterday; full 7-day Daily Breakdown; per-day comparison against the 7-day average; Sync Garmin button in the shared nav.
 - Mobile layout fixes on food diary, recipe, custom food, activity and health pages.
-- **Fixed `import_fineli_csv` storing Fineli `ENERC` (kJ) directly as `energy_kcal`** - every Fineli food showed about 4.2x its real calories. The value is now divided by 4.184. Re-run the import with `--update-existing` on any database imported before this fix. Diary CSV imports were not affected (they already converted).
-- Fixed management commands crashing with `UnicodeEncodeError` on Windows when output is redirected (emoji under cp1252). `manage.py` now forces UTF-8 stdout/stderr.
-- Recipe final-value inputs show "Unknown" as placeholder for blank (unknown) values.
-- Updated stale nav/health tests to the Bootstrap navbar markup. The full suite passes again (previously 2 failures + 12 errors).
-- Added `DATABASE_PATH`, `backup_db`, `STATIC_ROOT` and [deployment.md](deployment.md).
-- `requirements.txt`: added `whitenoise` and `gunicorn` (Linux only); removed the unused `fitparse` and the deprecated `dotenv` wrapper package (`python-dotenv` is the real one).
-- Licensing for the public repo: MIT [LICENSE](../LICENSE), [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) (libraries, Fineli CC BY 4.0, Garmin trademark/unofficial-API notice), Fineli credit footer on the food diary, custom foods and recipe pages (`nutrition/_fineli_attribution.html`), and a README notice that the Garmin features are for personal use and will be generalized later. Pinned Chart.js to 4.5.1.
-- Rewrote [food_diary_guide.md](food_diary_guide.md). The old guide described a live Fineli API search and automatic favorites, neither of which exists.
+- Management commands no longer crash with `UnicodeEncodeError` on Windows when output is redirected.
+- Added `DATABASE_PATH`, `backup_db`, `STATIC_ROOT` and [deployment.md](deployment.md); `requirements.txt` gained `whitenoise` and `gunicorn` (Linux only).
+- Licensing for the public repo: MIT license (replaced by PolyForm Noncommercial on 2026-10-12), [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md), Fineli credit footer, README notice about the personal-use Garmin features. Pinned Chart.js to 4.5.1.
 
 ### 2026-09-21
 
@@ -164,42 +166,41 @@ Accepted date formats:
 
 ## Current Focus
 
-1. Server copy of the database + production serving setup (see [deployment.md](deployment.md)).
-2. Running analytics:
-   - Add workout comparison/reference tables.
-   - Add HR zone distribution charts using `hr_zone*_seconds`.
-   - Add date range filtering when needed.
-3. Documentation:
-   - Keep `/docs` aligned when views, scripts, or data contracts change.
+1. Ship the 2026-10-12 work to the Pi ([deployment.md](deployment.md#replacing-the-server-database-with-a-fresh-copy) - the owner is replacing the server database with the cleaned-up copy).
+2. Running analytics: workout comparison/reference tables, HR zone distribution charts (`hr_zone*_seconds`), date range filtering.
+3. Keep `/docs` aligned when views, scripts or data contracts change.
 
 ## Future Work
 
+- Recipe book (phase 3 of the recipe work, deferred 2026-10-12): preparation instructions and notes, preparation time, tags (breakfast, dessert, gluten-free, ...) for filtering, and later a photo.
 - Side-by-side workout comparison.
 - Personal records and improvement tracking.
 - Training load and recovery balance.
-- Public repository cleanup when ready.
 
 ## Decisions And Conventions
 
-- **Database locked (2026-10-11):** no schema changes (models/migrations) and no data writes to the database without the owner's explicit approval - a copy is moving to a server.
-- **Private repo for development, public for releases:** all work happens in the private repo. Tested changes are published to the public `MiQettin/garmin-fineli-tracker` as one release commit per publish, on top of the public history - private history is never pushed there.
-- SQLite stays local-first.
-- Raw exports and account tokens stay out of Git.
-- Derived values should be computed in code unless there is a clear reason to persist them.
-- Pace should be formatted as `MM:SS.xx` when displaying lap or analytics values.
-- Group/average pace should be weighted by total time and total distance.
-- Running analytics excludes recovery/rest/other laps by design.
-- Toast notifications use `showToast(message, type, duration)`.
-- `UserSettings` is treated as a singleton through `UserSettings.get_settings()`.
-- `DailyLog.calories_in` and macro totals are recalculated from every user's `MealEntry` rows; never display them as one user's intake - use `user_daily_totals()`.
-- A Garmin lap's `step_type` is only ever set from an explicit Garmin signal; never inferred from pace/duration/position.
-- A diary CSV import's own meal-slot name is used verbatim when it isn't one of the 5 standard Finnish names, rather than being coerced into one of the 5.
+- **Database locked (2026-10-11):** no schema changes and no data writes to the database without the owner's explicit approval; the real database is on the Pi.
+- **Private repo for development, public for releases:** tested changes are published to `MiQettin/garmin-fineli-tracker` as one release commit per publish; private history is never pushed there.
+- SQLite stays local-first; raw exports, account tokens and databases stay out of Git.
+- **Unknown is not zero:** a nutrient a source doesn't report is stored as `None`; sums skip it and coverage is reported, never a fabricated 0.
+- **Diary entries are snapshots:** values are taken from the database when logged and stored on the entry; later food or recipe changes don't rewrite history.
+- **Products vs recipes:** `CustomFood.kind`; adding an ingredient makes a food a recipe.
+- **Recipes never stale:** any change to a recipe or to a food it uses recalculates the recipes affected (ingredients first).
+- **Per-user display:** `DailyLog`'s stored nutrition totals are a shared all-users cache - never shown as one person's intake; use `user_daily_totals()`.
+- **Server is the source of truth:** grams of a portion, nutrient values and recipe values are computed server-side, never taken from the browser.
+- **Local time:** "today" is `timezone.localdate()` (Europe/Helsinki).
+- `UserSettings` is a singleton (`UserSettings.get_settings()`); the goal value comes from `goal_adjustment_kcal()`.
+- Pace is formatted `MM:SS.xx`; group pace is weighted by total time and distance; running analytics excludes recovery/rest/other laps.
+- A Garmin lap's `step_type` is only set from an explicit Garmin signal.
+- A diary CSV import's own meal-slot name is used verbatim when it isn't one of the 5 standard Finnish names.
+- UI: no browser dialogs, toasts for feedback, two-click confirmation, no data inlined in HTML attributes ([ui_guidelines.md](ui_guidelines.md)).
 
 ## Known Issues
 
-- **Data model is inconsistently multi-user.** Only `MealEntry`, `CustomFood`, and `FavoriteFood` have a `user` FK. `DailyLog`, `UserSettings` (a singleton), and all of `Activity`/`ActivityLap`/`DailyHealth`/`SleepSummary`/`HrvSummary` are global/shared regardless of who's logged in. Nutrition totals shown in the UI are per user (fixed 2026-10-12), but a second real user still shares settings/goals and sees the first user's Garmin data as if it were their own. Harmless with one person using the app. Needs a deliberate decision before adding a second user: stay single-user (and remove the partial `user` fields) or go fully multi-user (and scope everything).
-- Activities app has thin test coverage (~120 lines vs. nutrition's ~3700) despite being where the Garmin step-type heuristic bug lived - the app's most heuristic-heavy code has the least coverage.
-- Home-network deployment only: runs on gunicorn + whitenoise over plain HTTP. Internet exposure needs HTTPS first (see [deployment.md](deployment.md)). `DEBUG` defaults to `True` and `SECRET_KEY` falls back to an insecure default if `.env` is missing - the server's `.env` must set both.
-- The full test suite takes about 15 minutes on Windows.
+- **Multi-user is partial.** Only `MealEntry`, `CustomFood` and `FavoriteFood` have a `user`. `DailyLog`, `UserSettings` and all Garmin/activity/health data are shared: a second account shares settings and goals and sees the first user's Garmin data. Diary totals shown are per user. Fine for one person; needs a decision before adding a real second user.
+- **Per-100 ml products as recipe ingredients:** the amount is entered in grams while the product's values are per 100 ml, so dense liquids are off by their density (syrup about 1.33).
+- **Small issues from the 2026-10-12 code review:** malformed JSON or dates sent to the diary's JSON endpoints give HTTP 500 instead of a 400 message; logging a zero-calorie own food counts it twice in `use_count`; the Foods page's Delete button still uses a browser `confirm()` (and breaks for names with an apostrophe); saving a recipe's final values rounds them to two decimals.
+- Activities app has thin test coverage compared to nutrition.
+- Home-network deployment only: gunicorn + whitenoise over plain HTTP. Internet exposure needs HTTPS first. `DEBUG` defaults to `True` and `SECRET_KEY` falls back to an insecure default if `.env` is missing - the server's `.env` must set both.
+- The full test suite takes about 5-6 minutes on Windows (591 tests).
 - Garmin full credential login can trigger Garmin/Cloudflare HTTP 429; token reuse reduces this.
-- Several older docs and comments may still mention historical API exploration scripts that are no longer part of the active workflow.

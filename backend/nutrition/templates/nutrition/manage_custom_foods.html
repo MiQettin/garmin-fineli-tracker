@@ -141,13 +141,13 @@
   </div>
   
   <p class="info-text">
-    Create custom foods for items not in the Fineli database (imported products, homemade recipes, restaurant meals).
-    Enter nutrition values per 100 g or per 100 ml. Use two decimal places when needed.
+    Add products that are not in the Fineli database, with the nutrition values from the label per 100 g or per 100 ml.
+    Homemade dishes built from ingredients are on the <a href="{% url 'recipe_list' %}">Recipes</a> page.
   </p>
 
   <div class="header-row" style="gap: 10px; justify-content: flex-start;">
     <a href="#add-product-form" class="btn btn-success">➕ Add Product</a>
-    <a href="{% url 'create_recipe' %}" class="btn btn-success">🧪 Create Recipe</a>
+    <a href="{% url 'recipe_list' %}" class="btn btn-outline-light">🧪 Recipes</a>
   </div>
 
   <!-- Add Product Form -->
@@ -196,11 +196,10 @@
         </div>
       </div>
       
-      <div class="portion-info">Package: {{ food.package_amount|floatformat:"-2" }} {{ food.get_package_unit_display }}</div>
+      {% if food.package_amount %}<div class="portion-info">Package: {{ food.package_amount|floatformat:"-2" }} {{ food.get_package_unit_display }}</div>{% endif %}
       
       <div class="food-actions">
         <a href="{% url 'edit_custom_food' food.id %}" class="btn btn-primary">✏️ Edit</a>
-        <a href="{% url 'recipe_detail' food.id %}" class="btn btn-primary">🧪 Recipe</a>
         <form method="post" action="{% url 'delete_custom_food' food.id %}" style="margin: 0;">
           {% csrf_token %}
           <button type="submit" class="btn btn-danger" onclick="return confirm('Delete {{ food.name }}?')">🗑️ Delete</button>

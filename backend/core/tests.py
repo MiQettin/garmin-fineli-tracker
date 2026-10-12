@@ -4,7 +4,7 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
-from django.utils.timezone import now
+from django.utils.timezone import localdate, now
 
 from core.models import DailyLog, UserSettings
 from nutrition.models import MealEntry
@@ -53,7 +53,7 @@ class NavigationDomainGroupingTests(TestCase):
         # The dashboard's energy-balance hero section only renders when the
         # current week has at least one day with real data.
         # The window ends yesterday (today is still incomplete).
-        DailyLog.objects.create(date=now().date() - timedelta(days=1), calories_in=2000, calories_out=2200)
+        DailyLog.objects.create(date=localdate() - timedelta(days=1), calories_in=2000, calories_out=2200)
         self.resp = self.client.get(reverse("week_view"))
         self.content = self.resp.content.decode()
         # Scope nav-structure assertions to the <nav> block itself, since the
@@ -130,7 +130,7 @@ class DashboardNutritionSummaryTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="dashtest", password="pw12345")
         self.client.force_login(self.user)
-        self.today = now().date() - timedelta(days=1)
+        self.today = localdate() - timedelta(days=1)
 
     def _day(self, offset, **daily_log_kwargs):
         return DailyLog.objects.create(date=self.today - timedelta(days=offset), **daily_log_kwargs)
@@ -305,6 +305,50 @@ class DashboardNutritionSummaryTests(TestCase):
         self.assertEqual(day["nutrition"]["calories_in"], 2000)
         self.assertEqual(day["balance_kcal"], -500)
 
+    def _balance_status(self, intake, expenditure):
+        user_settings = UserSettings.get_settings()
+        user_settings.fitness_goal = "lean_bulk"  # target +250 kcal/day
+        user_settings.use_auto_thresholds = False
+        user_settings.max_daily_deficit = 100  # warning below +150, alert below +50
+        user_settings.save()
+        self._eat(self._day(0, calories_out=expenditure), intake)
+        return self.client.get(reverse("week_view"))
+
+    def test_balance_below_alert_threshold_is_highlighted_red(self):
+        resp = self._balance_status(2546, 2500)  # +46 kcal
+        self.assertEqual(resp.context["energy"]["status"], "aggressive")
+        self.assertContains(resp, "balance-status balance-aggressive")
+        self.assertEqual(resp.context["energy"]["ok_low"], 150)
+        self.assertEqual(resp.context["energy"]["alert_low"], 50)
+
+    def test_balance_between_thresholds_is_warning(self):
+        resp = self._balance_status(2600, 2500)  # +100 kcal
+        self.assertContains(resp, "balance-status balance-moderate")
+
+    def test_balance_on_track_is_green(self):
+        resp = self._balance_status(2750, 2500)  # +250 kcal
+        self.assertContains(resp, "balance-status balance-good")
+
+    def test_balance_colour_slides_from_green_to_red(self):
+        # lean_bulk target +250, warning 100 -> full red at 200 below target.
+        cases = [(2750, 145), (2700, 96), (2650, 48), (2600, 24), (2550, 0), (2400, 0)]
+        for intake, hue in cases:
+            with self.subTest(balance=intake - 2500):
+                MealEntry.objects.all().delete()
+                DailyLog.objects.all().delete()
+                resp = self._balance_status(intake, 2500)
+                self.assertEqual(resp.context["energy"]["status_hue"], hue)
+                self.assertContains(resp, f"--status: hsl({hue}, 78%, 58%)")
+
+    def test_surplus_on_cut_goal_keeps_blue(self):
+        user_settings = UserSettings.get_settings()
+        user_settings.fitness_goal = "moderate_cut"  # target -300
+        user_settings.save()
+        self._eat(self._day(0, calories_out=2500), 2500)  # 0 kcal, > -300 + 100
+        resp = self.client.get(reverse("week_view"))
+        self.assertEqual(resp.context["energy"]["status"], "surplus")
+        self.assertNotContains(resp, "--status: hsl(")
+
     def test_daily_breakdown_balance_includes_garmin_adjustment(self):
         user_settings = UserSettings.get_settings()
         user_settings.garmin_calorie_adjustment = 200
@@ -314,6 +358,71 @@ class DashboardNutritionSummaryTests(TestCase):
         day = resp.context["full_week_days"][-1]
         self.assertEqual(day["calories_out"], 2700)
         self.assertEqual(day["balance_kcal"], -500)
+
+
+class CustomFitnessGoalTests(TestCase):
+    """A Custom fitness goal uses the user's own kcal/day target everywhere
+    the preset goals are used (dashboard status, settings target calories,
+    recommended macros)."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="goaltest", password="pw12345")
+        self.client.force_login(self.user)
+
+    def _post_settings(self, **overrides):
+        data = {
+            "weight_kg": "70", "height_cm": "170", "age": "40", "sex": "F", "activity_level": "1.725",
+            "fitness_goal": "custom", "custom_goal_kcal": "100", "max_daily_deficit": "100",
+            "garmin_calorie_adjustment": "0", "min_daily_calories": "1500", "max_daily_calories": "3000",
+            "protein_goal_g": "100", "carbs_goal_g": "250", "fat_goal_g": "70", "week_start_day": "0",
+        }
+        data.update(overrides)
+        return self.client.post(reverse("settings"), data)
+
+    def test_preset_goals_keep_their_values(self):
+        s = UserSettings.get_settings()
+        for goal, kcal in UserSettings.GOAL_ADJUSTMENTS.items():
+            s.fitness_goal = goal
+            self.assertEqual(s.goal_adjustment_kcal(), kcal)
+
+    def test_custom_goal_is_saved_and_used(self):
+        resp = self._post_settings(custom_goal_kcal="100")
+        self.assertEqual(resp.status_code, 302)
+        s = UserSettings.get_settings()
+        self.assertEqual((s.fitness_goal, s.custom_goal_kcal), ("custom", 100))
+        self.assertEqual(s.goal_adjustment_kcal(), 100)
+        self.assertAlmostEqual(s.calculate_target_calories(), s.calculate_tdee() + 100)
+
+    def test_custom_goal_requires_a_value(self):
+        resp = self._post_settings(custom_goal_kcal="")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("custom_goal_kcal", resp.context["form"].errors)
+        self.assertNotEqual(UserSettings.get_settings().fitness_goal, "custom")
+
+    def test_custom_goal_out_of_range_rejected(self):
+        resp = self._post_settings(custom_goal_kcal="5000")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("custom_goal_kcal", resp.context["form"].errors)
+
+    def test_negative_custom_goal_is_treated_as_cut_for_macros(self):
+        self._post_settings(custom_goal_kcal="-350")
+        s = UserSettings.get_settings()
+        self.assertEqual(s.calculate_recommended_macros()["protein_g"], round(70 * 2.2, 1))
+
+    def test_dashboard_uses_custom_goal(self):
+        self._post_settings(custom_goal_kcal="100")
+        log = DailyLog.objects.create(date=localdate() - timedelta(days=1), calories_out=2500)
+        MealEntry.objects.create(
+            daily_log=log, user=self.user, food_name="Meal", meal_type="lunch", portion_grams=100, calories=2546,
+        )
+        energy = self.client.get(reverse("week_view")).context["energy"]
+        self.assertEqual(energy["target_balance"], 100)
+        self.assertEqual(energy["status"], "good")  # +46 is within 100 of +100
+
+    def test_settings_page_shows_custom_goal_field(self):
+        resp = self.client.get(reverse("settings"))
+        self.assertContains(resp, 'id="id_custom_goal_kcal"')
+        self.assertContains(resp, 'value="custom"')
 
 
 class PersonalDataAccessControlTests(TestCase):

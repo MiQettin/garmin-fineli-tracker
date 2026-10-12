@@ -129,7 +129,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# Local time: "today" in the diary and dashboard must follow the user's
+# clock - with UTC, food logged after midnight Finnish time landed on the
+# previous day. Datetimes are still stored in UTC (USE_TZ).
+TIME_ZONE = 'Europe/Helsinki'
 
 USE_I18N = True
 

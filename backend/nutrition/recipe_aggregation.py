@@ -74,6 +74,24 @@ def total_recipe_grams(custom_food) -> float:
     return sum(ing.amount_grams for ing in custom_food.ingredients.all())
 
 
+def recipe_yield_grams(custom_food) -> float:
+    """The mass the recipe's per-100 g values refer to: the finished dish's
+    weight when known (cooking loses or gains water), otherwise the
+    ingredients' total mass."""
+    if custom_food.cooked_weight_g and custom_food.cooked_weight_g > 0:
+        return custom_food.cooked_weight_g
+    return total_recipe_grams(custom_food)
+
+
+def serving_grams(custom_food) -> float | None:
+    """Grams in one serving, or None when the recipe has no servings set
+    (servings are optional - the recipe can always be logged in grams)."""
+    if not custom_food.servings or custom_food.servings <= 0:
+        return None
+    total = recipe_yield_grams(custom_food)
+    return total / custom_food.servings if total > 0 else None
+
+
 def recipe_nutrient_result(custom_food, nutrient_key: str) -> RecipeNutrientResult:
     """Aggregate one nutrient across all of custom_food's ingredients.
 

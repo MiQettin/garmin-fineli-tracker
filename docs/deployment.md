@@ -1,6 +1,6 @@
 # Moving the Database to a Server
 
-Last updated: 2026-10-11
+Last updated: 2026-10-12
 
 How to give a server its own copy of the database, keep developing on this machine in Git, and later ship code changes to the server without touching its data.
 
@@ -10,7 +10,7 @@ How to give a server its own copy of the database, keep developing on this machi
 - **Data** lives in one SQLite file per machine. After the first copy, the server's database is the real one and your dev database is just a dev copy. The two diverge from then on.
 - **Schema changes** travel as Django migrations in Git. Running `python manage.py migrate` on the server applies them to the server's data in place.
 
-Never copy the dev database over the server's database after the first move - that would overwrite everything logged on the server.
+Don't copy the dev database over the server's database by accident after the first move - that would overwrite everything logged on the server since. If you want to do it on purpose (for example after fixing data on the dev machine), follow [Replacing the server database with a fresh copy](#replacing-the-server-database-with-a-fresh-copy).
 
 ## 1. Snapshot the database (dev machine)
 
@@ -127,6 +127,45 @@ sudo systemctl restart healthmanager
 ```
 
 If a migration goes wrong, stop the app and copy the snapshot back over `DATABASE_PATH`.
+
+Migrations that need to reach the server, newest last: `core/0006` (Garmin calorie adjustment), `core/0007` (custom fitness goal), `nutrition/0018` (Fineli portion sizes), `nutrition/0019` (package size, per-100 ml basis), `nutrition/0020` (product/recipe kind, servings, finished weight). `migrate` applies whichever are missing; `python manage.py showmigrations core nutrition` lists them.
+
+After a release that changes the Fineli import (as on 2026-10-11), also run `python manage.py import_fineli_csv --data-folder <Fineli folder> --update-existing`. The Fineli folder is not in Git; copy it to the server.
+
+## Replacing the server database with a fresh copy
+
+Do this only on purpose - for example when the dev machine's copy has been cleaned up and the server has nothing newer that you want to keep. Anything logged on the server after the copy was taken is lost.
+
+On the **dev machine**:
+
+```bash
+cd backend
+python manage.py migrate                                   # the copy must match the code the server will run
+python manage.py backup_db --output healthmanager-server.sqlite3
+```
+
+The code on the server must be the same version (or newer) as on the dev machine - push it first, so the server can `git pull` it.
+
+On the **server**:
+
+```bash
+sudo systemctl stop healthmanager
+cd healthmanager/backend
+python manage.py backup_db --output ~/server-before-replace.sqlite3   # keep the old one, just in case
+git pull
+pip install -r ../requirements.txt
+# copy healthmanager-server.sqlite3 over the DATABASE_PATH file, e.g. /srv/healthmanager/db.sqlite3
+rm -f /srv/healthmanager/db.sqlite3-journal /srv/healthmanager/db.sqlite3-wal
+python manage.py migrate                                   # no-op when the copy is current
+python manage.py check
+sudo systemctl start healthmanager
+```
+
+Then run the read-only [health checks](database_guide.md#health-checks) against the server file and open the app. The file must stay writable by the service user (`sudo chown <user> /srv/healthmanager/db.sqlite3`).
+
+## Time zone
+
+`TIME_ZONE` is `Europe/Helsinki` (since 2026-10-12): "today" in the diary and on the dashboard follows Finnish time on any server, whatever the server's own clock zone is. Datetimes are still stored in UTC.
 
 ## Rules while developing
 

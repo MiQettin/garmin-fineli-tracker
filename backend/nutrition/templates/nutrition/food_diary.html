@@ -25,32 +25,32 @@
     <div class="daily-summary">
         <div class="summary-card">
             <div class="summary-label">Calories In</div>
-            <div class="summary-value">{{ daily_log.calories_in|floatformat:0 }}</div>
+            <div class="summary-value">{{ day_totals.calories_in|floatformat:0 }}</div>
             <div class="summary-unit">kcal</div>
         </div>
         <div class="summary-card">
             <div class="summary-label">Protein</div>
-            <div class="summary-value">{{ daily_log.protein_g|floatformat:0 }}</div>
+            <div class="summary-value">{{ day_totals.protein_g|floatformat:0 }}</div>
             <div class="summary-unit">g</div>
         </div>
         <div class="summary-card">
             <div class="summary-label">Carbs</div>
-            <div class="summary-value">{{ daily_log.carbs_g|floatformat:0 }}</div>
-            <div class="summary-unit">g (sugar: {{ daily_log.sugar_g|floatformat:0 }}g)</div>
+            <div class="summary-value">{{ day_totals.carbs_g|floatformat:0 }}</div>
+            <div class="summary-unit">g (sugar: {{ day_totals.sugar_g|floatformat:0 }}g)</div>
         </div>
         <div class="summary-card">
             <div class="summary-label">Fat</div>
-            <div class="summary-value">{{ daily_log.fat_g|floatformat:0 }}</div>
-            <div class="summary-unit">g (sat: {{ daily_log.sat_fat_g|floatformat:0 }}g)</div>
+            <div class="summary-value">{{ day_totals.fat_g|floatformat:0 }}</div>
+            <div class="summary-unit">g (sat: {{ day_totals.sat_fat_g|floatformat:0 }}g)</div>
         </div>
         <div class="summary-card">
             <div class="summary-label">Fiber</div>
-            <div class="summary-value">{{ daily_log.fiber_g|floatformat:1 }}</div>
+            <div class="summary-value">{{ day_totals.fiber_g|floatformat:1 }}</div>
             <div class="summary-unit">g</div>
         </div>
         <div class="summary-card">
             <div class="summary-label">Salt</div>
-            <div class="summary-value">{{ daily_log.salt_g|floatformat:1 }}</div>
+            <div class="summary-value">{{ day_totals.salt_g|floatformat:1 }}</div>
             <div class="summary-unit">g</div>
         </div>
     </div>

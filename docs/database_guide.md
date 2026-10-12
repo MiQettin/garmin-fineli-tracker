@@ -33,6 +33,7 @@ Key fields:
 - `activity_level`
 - `fitness_goal`
 - `min_daily_calories`, `max_daily_calories`, `max_daily_deficit`
+- `garmin_calorie_adjustment` (manual kcal/day correction applied to Garmin expenditure)
 - `protein_goal_g`, `carbs_goal_g`, `fat_goal_g`
 - `last_garmin_sync`
 
@@ -69,6 +70,8 @@ balance = log.balance_kcal  # calories_in - calories_out
 ```
 
 Rule: do not manually maintain `calories_in` or macro totals. Create/update `MealEntry` rows, then call `log.recalculate_from_meals()` when needed.
+
+DailyLog has no user: its stored nutrition totals (and `balance_kcal`) include every user's `MealEntry` rows for that date. Never display them as one user's intake - use `nutrition.aggregation.user_daily_totals(user, start, end)`, which sums only that user's entries.
 
 ## Activities Models
 

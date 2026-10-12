@@ -319,14 +319,14 @@
         {% for item in full_week_days %}
         <tr>
           <td><strong>{{ item.date|date:"D d.m" }}</strong></td>
-          <td>{{ item.log.calories_in|default:"-" }}</td>
-          <td>{{ item.log.calories_out|default:"-" }}</td>
-          <td class="{% if item.log and item.log.balance_kcal > 0 %}text-success{% elif item.log and item.log.balance_kcal %}text-error{% endif %}">
-            {{ item.log.balance_kcal|default:"-" }}
+          <td>{{ item.nutrition.calories_in|default:"-" }}</td>
+          <td>{{ item.calories_out|default:"-" }}</td>
+          <td class="{% if item.balance_kcal > 0 %}text-success{% elif item.balance_kcal %}text-error{% endif %}">
+            {{ item.balance_kcal|default:"-" }}
           </td>
-          <td>{{ item.log.protein_g|floatformat:0|default:"-" }}</td>
-          <td>{{ item.log.carbs_g|floatformat:0|default:"-" }}</td>
-          <td>{{ item.log.fat_g|floatformat:0|default:"-" }}</td>
+          <td>{{ item.nutrition.protein_g|floatformat:0|default:"-" }}</td>
+          <td>{{ item.nutrition.carbs_g|floatformat:0|default:"-" }}</td>
+          <td>{{ item.nutrition.fat_g|floatformat:0|default:"-" }}</td>
         </tr>
         {% endfor %}
       </table>

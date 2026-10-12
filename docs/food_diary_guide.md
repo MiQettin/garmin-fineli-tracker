@@ -87,7 +87,8 @@ Behavior:
 - Each food row becomes a meal entry with calories, protein, carbs, fat, saturated fat, sugar, fiber, salt and the auxiliary micronutrients, plus the original Fineli source details.
 - Energy is converted from kJ to kcal. Below-detection-limit values (`<0.1`) are kept as such, not rounded to a plain number.
 - The 5 standard Finnish meal names map to Breakfast/Lunch/Dinner/Snack/Evening Snack. Any other meal name (e.g. `Herkku`) gets its own section using the CSV's own name.
-- Re-importing a date replaces only that date's earlier **CSV-imported** rows. Entries you added by hand are never touched.
+- Re-importing a file adds only missing food rows and updates matching **CSV-imported** rows. Existing rows that are absent from a later file are preserved, and entries you added by hand are never touched.
+- All selected files are validated before any database write. If one file is invalid, the complete upload is rejected. Each diary day is locked during import to prevent simultaneous uploads from creating duplicates. If pre-existing duplicate CSV rows are detected, the import stops without changing anything.
 
 Endpoint: `POST /food-diary/api/bulk-import/` (login required).
 
@@ -104,7 +105,7 @@ Endpoint: `POST /food-diary/api/bulk-import/` (login required).
 ## Data and privacy
 
 - Everything is stored in the local SQLite database. Nothing is sent to Fineli or anywhere else.
-- `DailyLog` daily totals currently sum every user's meal entries for a date. With a single person using the app this makes no difference. See "Known Issues" in [project_status.md](project_status.md).
+- Day totals in the diary and on the dashboard count only the logged-in user's own entries, so another account logging (or importing) food on the same date can't change them.
 
 ## Attribution
 

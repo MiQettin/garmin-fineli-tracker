@@ -1,10 +1,11 @@
 # Project Status - HealthManager
 
-Last updated: 2026-10-11
+Last updated: 2026-10-12
 
 ## Current Phase
 
 - Phase: 4 - Nutrition depth (recipes, provenance-aware diary import) and Garmin health metrics
+- Dashboard settings include a manual Garmin calorie adjustment. It is added to the displayed daily expenditure without changing the raw imported Garmin value; warning thresholds can be automatic or use the user-entered custom threshold.
 - Status: In development; the food diary is in daily use on the owner's Raspberry Pi server (since 2026-10-11). The dev machine's database is a copy.
 - Current focus:
   - Develop the public `garmin-fineli-tracker` release: changes are made and tested in the private repo, then published.
@@ -49,16 +50,18 @@ Last updated: 2026-10-11
 - Food diary:
   - Fineli database search, custom foods, recipes (ingredients from Fineli or other custom foods, recalculated composition), manual entries, favorites, recent/frequent foods, and bulk diary CSV import.
   - `MealEntry`, `CustomFood`, and `FavoriteFood` are scoped to `user` (added since the previous status update); `DailyLog`, `UserSettings`, and all Garmin/health/activity data are **not** user-scoped and remain global/shared regardless of who is logged in.
-  - `DailyLog.recalculate_from_meals()` sums calories/macros across **all** users' `MealEntry` rows for that date, not just one user's - a multi-user deployment will show each user inflated/wrong daily totals including other users' food. See "Known Issues".
+  - `DailyLog`'s stored nutrition totals (`DailyLog.recalculate_from_meals()`) sum **all** users' `MealEntry` rows for that date, so they are never shown as anyone's intake. The dashboard (intake, balance, macros, Daily Breakdown, nutrition summary) and the food diary's day summary compute each user's own totals from their `MealEntry` rows (`nutrition.aggregation.user_daily_totals()`, `weekly_macro_summary(user, ...)`, `logged_nutrition_days_count(user, ...)`). Fixed 2026-10-12 after a second account's CSV import of the same diary doubled the totals from 2026-09-01.
   - Bulk diary CSV import (`nutrition.views.bulk_import_diary_csv`, POST `/food-diary/api/bulk-import/`, login required):
     - Parses food-level rows (not meal-subtotal or daily-total rows) from a Fineli diary export, including per-nutrient qualifiers (`exact` vs `lt` for a below-detection-limit `<0.1` value) and original source provenance (Fineli food id, amount, unit, classification).
     - The diary's own meal-slot name (e.g. `Aamiainen`, `Herkku`, a custom renamed slot) is used as `MealEntry.meal_type` largely verbatim: the 5 standard Finnish names map onto the app's Breakfast/Lunch/Dinner/Snack/Evening Snack buckets; anything else is stored and displayed as its own section using the CSV's own text, rather than being forced into one of the 5 (fixed 2026-09-21).
-    - Uses `bulk_create()` for both `MealEntry` and `MealEntryNutrient` rows - a ~400-row file imports in under a second (previously 2+ minutes with one `.create()` call per row/nutrient, which made the import look hung; fixed 2026-09-21).
+    - Deduplicates overlapping uploads and upserts matching CSV-imported rows, preserving rows that are absent from a later file; manual/Fineli/custom entries are untouched.
+    - All files are validated before any write (one bad file rejects the whole upload), each diary day is row-locked during import, and pre-existing ambiguous duplicates stop the import without partial changes (fixed 2026-10-12: the old import deleted and recreated a date's rows, so repeated imports could lose data).
+    - Uses `bulk_create()` for `MealEntryNutrient` rows - a ~400-row file imports in about a second (fixed 2026-09-21).
   - Fineli catalog import via `python manage.py import_fineli_csv --data-folder ...` - **required** for food search (search is local-only). `ENERC` is converted from kJ to kcal (fixed 2026-10-11).
-  - Meal totals update `DailyLog` through `DailyLog.recalculate_from_meals()`.
+  - Meal changes still refresh `DailyLog`'s shared (all-users) totals through `DailyLog.recalculate_from_meals()`; displays use per-user totals instead.
 
 - Access control:
-  - Every page view in `core`, `activities`, `health` and `nutrition` is `@login_required` and redirects to the Django admin login (`LOGIN_URL = '/admin/login/'`).
+  - Every page view in `core`, `activities`, `health` and `nutrition` is `@login_required` and redirects to the Django admin login (`LOGIN_URL = '/admin/login/'`). Logging out returns to `/admin/login/?next=/`, so signing in again opens the Dashboard rather than the admin index; the admin site is only reached by going to `/admin/` directly.
   - JSON endpoints called by `fetch()` (`/sync-garmin/`, `/api/health/...`, `add_fineli_entry`, `bulk_import_diary_csv`, favorites) check authentication themselves and return a JSON 401, because the frontend can't parse a redirect as JSON.
   - New meal entries always get `user=request.user`. Anonymous `user=None` writes are gone.
 - Database portability:
@@ -188,13 +191,13 @@ Accepted date formats:
 - Running analytics excludes recovery/rest/other laps by design.
 - Toast notifications use `showToast(message, type, duration)`.
 - `UserSettings` is treated as a singleton through `UserSettings.get_settings()`.
-- `DailyLog.calories_in` and macro totals are recalculated from `MealEntry` rows (currently across all users - see "Known Issues").
+- `DailyLog.calories_in` and macro totals are recalculated from every user's `MealEntry` rows; never display them as one user's intake - use `user_daily_totals()`.
 - A Garmin lap's `step_type` is only ever set from an explicit Garmin signal; never inferred from pace/duration/position.
 - A diary CSV import's own meal-slot name is used verbatim when it isn't one of the 5 standard Finnish names, rather than being coerced into one of the 5.
 
 ## Known Issues
 
-- **Data model is inconsistently multi-user.** Only `MealEntry`, `CustomFood`, and `FavoriteFood` have a `user` FK. `DailyLog`, `UserSettings` (a singleton), and all of `Activity`/`ActivityLap`/`DailyHealth`/`SleepSummary`/`HrvSummary` are global/shared regardless of who's logged in - `DailyLog.recalculate_from_meals()` in particular sums every user's `MealEntry` rows together for a given date. A second real user will get wrong daily totals and see the first user's Garmin data as if it were their own. Harmless with one person using the app. Needs a deliberate decision before adding a second user: stay single-user (and remove the partial `user` fields) or go fully multi-user (and scope everything).
+- **Data model is inconsistently multi-user.** Only `MealEntry`, `CustomFood`, and `FavoriteFood` have a `user` FK. `DailyLog`, `UserSettings` (a singleton), and all of `Activity`/`ActivityLap`/`DailyHealth`/`SleepSummary`/`HrvSummary` are global/shared regardless of who's logged in. Nutrition totals shown in the UI are per user (fixed 2026-10-12), but a second real user still shares settings/goals and sees the first user's Garmin data as if it were their own. Harmless with one person using the app. Needs a deliberate decision before adding a second user: stay single-user (and remove the partial `user` fields) or go fully multi-user (and scope everything).
 - Activities app has thin test coverage (~120 lines vs. nutrition's ~3700) despite being where the Garmin step-type heuristic bug lived - the app's most heuristic-heavy code has the least coverage.
 - Home-network deployment only: runs on gunicorn + whitenoise over plain HTTP. Internet exposure needs HTTPS first (see [deployment.md](deployment.md)). `DEBUG` defaults to `True` and `SECRET_KEY` falls back to an insecure default if `.env` is missing - the server's `.env` must set both.
 - The full test suite takes about 15 minutes on Windows.

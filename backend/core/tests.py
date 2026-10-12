@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils.timezone import now
 
-from core.models import DailyLog
+from core.models import DailyLog, UserSettings
 from nutrition.models import MealEntry
 
 
@@ -128,36 +128,52 @@ class DashboardNutritionSummaryTests(TestCase):
     every existing test's relative offsets to still line up."""
 
     def setUp(self):
-        user = get_user_model().objects.create_user(username="dashtest", password="pw12345")
-        self.client.force_login(user)
+        self.user = get_user_model().objects.create_user(username="dashtest", password="pw12345")
+        self.client.force_login(self.user)
         self.today = now().date() - timedelta(days=1)
 
     def _day(self, offset, **daily_log_kwargs):
         return DailyLog.objects.create(date=self.today - timedelta(days=offset), **daily_log_kwargs)
 
+    def _eat(self, log, calories, user=None):
+        """Intake comes from the user's own MealEntry rows, not DailyLog."""
+        return MealEntry.objects.create(
+            daily_log=log, user=user or self.user, food_name="Meal", meal_type="lunch",
+            portion_grams=100, calories=calories,
+        )
+
     def test_existing_energy_intake_expenditure_present(self):
-        self._day(0, calories_in=2200, calories_out=2500)
-        self._day(1, calories_in=1800, calories_out=2400)
+        self._eat(self._day(0, calories_out=2500), 2200)
+        self._eat(self._day(1, calories_out=2400), 1800)
         resp = self.client.get(reverse("week_view"))
         self.assertEqual(resp.context["summary"]["calories_in"], 4000)
         self.assertEqual(resp.context["summary"]["calories_out"], 4900)
 
     def test_existing_balance_convention_unchanged(self):
-        self._day(0, calories_in=2200, calories_out=2500)
+        self._eat(self._day(0, calories_out=2500), 2200)
         resp = self.client.get(reverse("week_view"))
         # Documented existing convention: balance = intake - expenditure.
         self.assertEqual(resp.context["summary"]["balance_kcal"], 2200 - 2500)
         self.assertEqual(resp.context["energy"]["avg_balance"], -300)
 
+    def test_garmin_calorie_adjustment_changes_dashboard_expenditure(self):
+        user_settings = UserSettings.get_settings()
+        user_settings.garmin_calorie_adjustment = 200
+        user_settings.save()
+        self._eat(self._day(0, calories_out=2500), 2200)
+        resp = self.client.get(reverse("week_view"))
+        self.assertEqual(resp.context["summary"]["calories_out"], 2700)
+        self.assertEqual(resp.context["summary"]["balance_kcal"], -500)
+
     def test_dashboard_weekly_energy_balance_still_rendered(self):
-        self._day(0, calories_in=2200, calories_out=2500)
+        self._eat(self._day(0, calories_out=2500), 2200)
         resp = self.client.get(reverse("week_view"))
         self.assertContains(resp, "Avg daily balance")
 
     def test_macro_kcal_uses_4_4_9_factors(self):
         log = self._day(0, calories_in=1, calories_out=1)
         MealEntry.objects.create(
-            daily_log=log, food_name="X", meal_type="snack", portion_grams=100,
+            daily_log=log, user=self.user, food_name="X", meal_type="snack", portion_grams=100,
             protein_g=10, carbs_g=20, fat_g=5,
         )
         resp = self.client.get(reverse("week_view"))
@@ -169,7 +185,7 @@ class DashboardNutritionSummaryTests(TestCase):
     def test_macro_percentages_based_on_kcal_not_grams(self):
         log = self._day(0, calories_in=1, calories_out=1)
         MealEntry.objects.create(
-            daily_log=log, food_name="X", meal_type="snack", portion_grams=100,
+            daily_log=log, user=self.user, food_name="X", meal_type="snack", portion_grams=100,
             protein_g=10, carbs_g=20, fat_g=5,
         )
         resp = self.client.get(reverse("week_view"))
@@ -183,7 +199,7 @@ class DashboardNutritionSummaryTests(TestCase):
     def test_macro_percentages_sum_to_100_when_complete(self):
         log = self._day(0, calories_in=1, calories_out=1)
         MealEntry.objects.create(
-            daily_log=log, food_name="X", meal_type="snack", portion_grams=100,
+            daily_log=log, user=self.user, food_name="X", meal_type="snack", portion_grams=100,
             protein_g=10, carbs_g=20, fat_g=5,
         )
         resp = self.client.get(reverse("week_view"))
@@ -196,7 +212,7 @@ class DashboardNutritionSummaryTests(TestCase):
         log2 = self._day(1, calories_in=1, calories_out=1)
         for log in (log1, log2):
             MealEntry.objects.create(
-                daily_log=log, food_name="X", meal_type="snack", portion_grams=100,
+                daily_log=log, user=self.user, food_name="X", meal_type="snack", portion_grams=100,
                 protein_g=10, carbs_g=20, fat_g=5,
             )
         resp = self.client.get(reverse("week_view"))
@@ -210,7 +226,7 @@ class DashboardNutritionSummaryTests(TestCase):
         self._day(0, calories_in=0, calories_out=0)  # Garmin-only/empty day, no MealEntry at all
         log = self._day(1, calories_in=1, calories_out=1)
         MealEntry.objects.create(
-            daily_log=log, food_name="X", meal_type="snack", portion_grams=100, protein_g=10,
+            daily_log=log, user=self.user, food_name="X", meal_type="snack", portion_grams=100, protein_g=10,
         )
         resp = self.client.get(reverse("week_view"))
         self.assertEqual(resp.context["nutrition_summary"]["logged_days"], 1)
@@ -218,7 +234,7 @@ class DashboardNutritionSummaryTests(TestCase):
     def test_explicit_zero_macro_is_known_zero(self):
         log = self._day(0, calories_in=1, calories_out=1)
         MealEntry.objects.create(
-            daily_log=log, food_name="X", meal_type="snack", portion_grams=100,
+            daily_log=log, user=self.user, food_name="X", meal_type="snack", portion_grams=100,
             protein_g=0, carbs_g=20, fat_g=5,
         )
         resp = self.client.get(reverse("week_view"))
@@ -229,11 +245,11 @@ class DashboardNutritionSummaryTests(TestCase):
     def test_unknown_macro_is_not_converted_to_zero(self):
         log = self._day(0, calories_in=1, calories_out=1)
         MealEntry.objects.create(
-            daily_log=log, food_name="A", meal_type="snack", portion_grams=100,
+            daily_log=log, user=self.user, food_name="A", meal_type="snack", portion_grams=100,
             protein_g=10, carbs_g=20, fat_g=5,
         )
         MealEntry.objects.create(
-            daily_log=log, food_name="B", meal_type="snack", portion_grams=100,
+            daily_log=log, user=self.user, food_name="B", meal_type="snack", portion_grams=100,
             protein_g=10, carbs_g=20, fat_g=None,  # unknown, not zero
         )
         resp = self.client.get(reverse("week_view"))
@@ -244,11 +260,11 @@ class DashboardNutritionSummaryTests(TestCase):
     def test_incomplete_macro_data_does_not_produce_exact_percentages(self):
         log = self._day(0, calories_in=1, calories_out=1)
         MealEntry.objects.create(
-            daily_log=log, food_name="A", meal_type="snack", portion_grams=100,
+            daily_log=log, user=self.user, food_name="A", meal_type="snack", portion_grams=100,
             protein_g=10, carbs_g=20, fat_g=5,
         )
         MealEntry.objects.create(
-            daily_log=log, food_name="B", meal_type="snack", portion_grams=100,
+            daily_log=log, user=self.user, food_name="B", meal_type="snack", portion_grams=100,
             protein_g=10, carbs_g=20, fat_g=None,
         )
         resp = self.client.get(reverse("week_view"))
@@ -260,12 +276,44 @@ class DashboardNutritionSummaryTests(TestCase):
         for offset in (0, 2, 5):
             log = self._day(offset, calories_in=1, calories_out=1)
             MealEntry.objects.create(
-                daily_log=log, food_name="X", meal_type="snack", portion_grams=100, protein_g=10,
+                daily_log=log, user=self.user, food_name="X", meal_type="snack", portion_grams=100, protein_g=10,
             )
         resp = self.client.get(reverse("week_view"))
         ns = resp.context["nutrition_summary"]
         self.assertEqual(ns["logged_days"], 3)
         self.assertEqual(ns["window_days"], 7)
+
+
+    def test_other_users_entries_do_not_count_on_shared_day(self):
+        """Regression: DailyLog is one shared row per date. Another account
+        logging the same food on the same day must not double this user's
+        intake, macros or daily breakdown."""
+        other = get_user_model().objects.create_user(username="other", password="pw12345")
+        log = self._day(0, calories_out=2500)
+        self._eat(log, 2000)
+        self._eat(log, 2000, user=other)
+        MealEntry.objects.create(
+            daily_log=log, user=other, food_name="Other", meal_type="snack",
+            portion_grams=100, protein_g=50, carbs_g=50, fat_g=50,
+        )
+        resp = self.client.get(reverse("week_view"))
+        self.assertEqual(resp.context["summary"]["calories_in"], 2000)
+        self.assertEqual(resp.context["summary"]["balance_kcal"], 2000 - 2500)
+        self.assertEqual(resp.context["summary"]["protein_g"], 0)
+        self.assertEqual(resp.context["nutrition_summary"]["logged_days"], 1)
+        day = resp.context["full_week_days"][-1]
+        self.assertEqual(day["nutrition"]["calories_in"], 2000)
+        self.assertEqual(day["balance_kcal"], -500)
+
+    def test_daily_breakdown_balance_includes_garmin_adjustment(self):
+        user_settings = UserSettings.get_settings()
+        user_settings.garmin_calorie_adjustment = 200
+        user_settings.save()
+        self._eat(self._day(0, calories_out=2500), 2200)
+        resp = self.client.get(reverse("week_view"))
+        day = resp.context["full_week_days"][-1]
+        self.assertEqual(day["calories_out"], 2700)
+        self.assertEqual(day["balance_kcal"], -500)
 
 
 class PersonalDataAccessControlTests(TestCase):

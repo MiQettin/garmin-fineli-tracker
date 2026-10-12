@@ -16,7 +16,7 @@ from django.core.management import call_command
 from .models import DailyLog, UserSettings
 from .forms import UserSettingsForm
 from activities.models import Activity
-from nutrition.aggregation import logged_nutrition_days_count, weekly_macro_summary
+from nutrition.aggregation import logged_nutrition_days_count, user_daily_totals, weekly_macro_summary
 
 
 def calculate_hr_baseline(recent_days, current_day):
@@ -83,8 +83,22 @@ def week_view(request):
     qs = DailyLog.objects.filter(date__range=[start_date, end_date]).order_by("date")
     all_days = list(qs)
 
+    # DailyLog is shared between users (one row per date, with the Garmin
+    # data), so its stored nutrition totals would include every user's
+    # entries. Intake and macros come from this user's own MealEntry rows.
+    nutrition_by_date = user_daily_totals(request.user, start_date, end_date)
+    no_nutrition = {key: 0 for key in ('calories_in', 'protein_g', 'carbs_g', 'fat_g', 'sat_fat_g')}
+
+    def intake(day):
+        return nutrition_by_date.get(day.date, no_nutrition)
+
     # Filter out days with BOTH calories_in = 0 AND calories_out = 0 (completely empty days)
-    days = [d for d in all_days if (d.calories_in or 0) > 0 or (d.calories_out or 0) > 0]
+    calorie_adjustment = user_settings.garmin_calorie_adjustment
+    days = [d for d in all_days if intake(d)['calories_in'] > 0 or (d.calories_out or 0) > 0]
+    adjusted_balance = {
+        d.pk: intake(d)['calories_in'] - ((d.calories_out or 0) + calorie_adjustment)
+        for d in days
+    }
     num_days = len(days)
 
     # Daily Breakdown table always shows every calendar day in the 7-day
@@ -93,18 +107,30 @@ def week_view(request):
     # empty days from the averages so they don't skew avg_balance etc.
     # This is presentation-only: it never feeds any calculation.
     all_days_by_date = {d.date: d for d in all_days}
-    full_week_days = [
-        {"date": start_date + timedelta(days=i), "log": all_days_by_date.get(start_date + timedelta(days=i))}
-        for i in range(7)
-    ]
-    
+    full_week_days = []
+    for i in range(7):
+        date = start_date + timedelta(days=i)
+        log = all_days_by_date.get(date)
+        nutrition = nutrition_by_date.get(date)
+        full_week_days.append({
+            "date": date,
+            "log": log,
+            "nutrition": nutrition,
+            "calories_out": (log.calories_out or 0) + calorie_adjustment if log else None,
+            "balance_kcal": (
+                (nutrition or no_nutrition)['calories_in']
+                - ((log.calories_out or 0) + calorie_adjustment)
+                if log else None
+            ),
+        })
+
     summary = {
-        'calories_in': sum(d.calories_in or 0 for d in days),
-        'calories_out': sum(d.calories_out or 0 for d in days),
-        'protein_g': sum(d.protein_g or 0 for d in days),
-        'carbs_g': sum(d.carbs_g or 0 for d in days),
-        'fat_g': sum(d.fat_g or 0 for d in days),
-        'sat_fat_g': sum(d.sat_fat_g or 0 for d in days),
+        'calories_in': sum(intake(d)['calories_in'] for d in days),
+        'calories_out': sum((d.calories_out or 0) + calorie_adjustment for d in days),
+        'protein_g': sum(intake(d)['protein_g'] for d in days),
+        'carbs_g': sum(intake(d)['carbs_g'] for d in days),
+        'fat_g': sum(intake(d)['fat_g'] for d in days),
+        'sat_fat_g': sum(intake(d)['sat_fat_g'] for d in days),
     }
     summary['balance_kcal'] = summary['calories_in'] - summary['calories_out']
     
@@ -183,8 +209,8 @@ def week_view(request):
         # 3-day trend (compare last 3 days avg to previous 3 days avg)
         days_sorted = sorted(days, key=lambda x: x.date, reverse=True)
         if len(days_sorted) >= 6:
-            last_3 = sum(d.balance_kcal or 0 for d in days_sorted[:3]) / 3
-            prev_3 = sum(d.balance_kcal or 0 for d in days_sorted[3:6]) / 3
+            last_3 = sum(adjusted_balance[d.pk] for d in days_sorted[:3]) / 3
+            prev_3 = sum(adjusted_balance[d.pk] for d in days_sorted[3:6]) / 3
             if last_3 > prev_3 + 50:
                 energy['trend'] = 'improving'
                 energy['trend_text'] = 'Intake improving'
@@ -195,17 +221,17 @@ def week_view(request):
                 energy['trend'] = 'stable'
                 energy['trend_text'] = 'Stable pattern'
         elif len(days_sorted) >= 3:
-            last_3 = sum(d.balance_kcal or 0 for d in days_sorted[:3]) / 3
+            last_3 = sum(adjusted_balance[d.pk] for d in days_sorted[:3]) / 3
             energy['trend'] = 'stable'
             energy['trend_text'] = f'{round(last_3, 0):+.0f} kcal (3-day avg)'
         
         # Best and worst days
-        days_with_balance = [d for d in days if d.balance_kcal is not None]
+        days_with_balance = [d for d in days if adjusted_balance[d.pk] is not None]
         if days_with_balance:
-            best_day = max(days_with_balance, key=lambda x: x.balance_kcal)
-            worst_day = min(days_with_balance, key=lambda x: x.balance_kcal)
-            energy['best_day'] = {'date': best_day.date, 'balance': best_day.balance_kcal}
-            energy['worst_day'] = {'date': worst_day.date, 'balance': worst_day.balance_kcal}
+            best_day = max(days_with_balance, key=lambda x: adjusted_balance[x.pk])
+            worst_day = min(days_with_balance, key=lambda x: adjusted_balance[x.pk])
+            energy['best_day'] = {'date': best_day.date, 'balance': adjusted_balance[best_day.pk]}
+            energy['worst_day'] = {'date': worst_day.date, 'balance': adjusted_balance[worst_day.pk]}
 
         # Per-day balance vs the 7-day average, for the mobile Dashboard's
         # "tap the 7-day average" comparison panel - reuses days_sorted and
@@ -214,8 +240,8 @@ def week_view(request):
         energy['days_vs_avg'] = [
             {
                 'date': d.date,
-                'balance': d.balance_kcal,
-                'delta': round(d.balance_kcal - avg_balance, 0) if d.balance_kcal is not None else None,
+                'balance': adjusted_balance[d.pk],
+                'delta': round(adjusted_balance[d.pk] - avg_balance, 0),
                 'is_today': d.date == today,
             }
             for d in days_sorted
@@ -319,8 +345,8 @@ def week_view(request):
     # macro-energy distribution and its logged-days denominator - a day
     # with no MealEntry is unlogged, never treated as a 0-intake day.
     window_days = (end_date - start_date).days + 1
-    logged_days = logged_nutrition_days_count(start_date, end_date)
-    macro_cov = weekly_macro_summary(start_date, end_date)
+    logged_days = logged_nutrition_days_count(request.user, start_date, end_date)
+    macro_cov = weekly_macro_summary(request.user, start_date, end_date)
 
     nutrition_summary = {
         'window_days': window_days,

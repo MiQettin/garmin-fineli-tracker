@@ -65,6 +65,13 @@ def food_diary_view(request):
         totals['fiber'] += entry.fiber_g or 0
         totals['salt'] += entry.salt_g or 0
 
+    # Day summary from this user's own entries - daily_log's stored totals
+    # are shared between users and would include everyone's food.
+    day_totals = {
+        f'{key}_in' if key == 'calories' else f'{key}_g': sum(t[key] for t in meal_totals.values())
+        for key in ('calories', 'protein', 'carbs', 'sugar', 'fat', 'sat_fat', 'fiber', 'salt')
+    }
+
     prev_date = current_date - timedelta(days=1)
     next_date = current_date + timedelta(days=1)
 
@@ -74,6 +81,7 @@ def food_diary_view(request):
         'meal_entries': meal_entries,
         'custom_foods': custom_foods,
         'meal_totals': meal_totals,
+        'day_totals': day_totals,
         'meal_types': meal_types,
         'prev_date': prev_date,
         'next_date': next_date,
@@ -972,6 +980,7 @@ def bulk_import_diary_csv(request):
         return JsonResponse({'error': 'No files uploaded'}, status=400)
 
     from datetime import datetime
+    from django.db import transaction
     from .utils import parse_food_rows_from_content
 
     file_results = []
@@ -1015,72 +1024,149 @@ def bulk_import_diary_csv(request):
                 'message': str(e)
             })
 
+    failed_files = [result for result in file_results if result['status'] == 'error']
+    if failed_files:
+        return JsonResponse({
+            'success': False,
+            'error': 'No files were imported because one or more files could not be validated.',
+            'files': file_results,
+        }, status=400)
+
     total_new_days = 0
     total_updated_days = 0
     total_food_rows = 0
 
     owner = request.user
 
-    for date_str, rows in rows_by_date.items():
-        day_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        daily_log, created = DailyLog.objects.get_or_create(date=day_date)
+    def row_key(date_str, row):
+        """Identify one diary food row without using nutrition values."""
+        return (
+            date_str,
+            row['meal_type'],
+            row['source_food_id'],
+            row['food_name'],
+            row['source_amount'],
+            row['source_unit'],
+            row['portion_grams'],
+        )
 
-        # Replace only this owner's prior bulk-import rows for this date;
-        # manual / Fineli / custom-food entries, and other users' or legacy
-        # (user=None) bulk-import rows, are untouched.
-        daily_log.meal_entries.filter(source_type='bulk_import', user=owner).delete()
+    # Uploads can contain overlapping exports or the same file more than once.
+    # Keep one copy of each food row before touching the database.
+    for date_str, rows in list(rows_by_date.items()):
+        unique_rows = {}
+        for row in rows:
+            unique_rows[row_key(date_str, row)] = row
+        rows_by_date[date_str] = list(unique_rows.values())
 
-        new_entries = MealEntry.objects.bulk_create([
-            MealEntry(
-                daily_log=daily_log,
-                user=owner,
-                source_type='bulk_import',
-                food_name=row['food_name'],
-                meal_type=row['meal_type'],
-                portion_grams=row['portion_grams'],
-                calories=row['calories'],
-                protein_g=row['protein_g'],
-                protein_qualifier=row['protein_qualifier'],
-                carbs_g=row['carbs_g'],
-                carbs_qualifier=row['carbs_qualifier'],
-                fat_g=row['fat_g'],
-                fat_qualifier=row['fat_qualifier'],
-                sat_fat_g=row['sat_fat_g'],
-                sat_fat_qualifier=row['sat_fat_qualifier'],
-                sugar_g=row['sugar_g'],
-                sugar_qualifier=row['sugar_qualifier'],
-                fiber_g=row['fiber_g'],
-                fiber_qualifier=row['fiber_qualifier'],
-                salt_g=row['salt_g'],
-                salt_qualifier=row['salt_qualifier'],
-                source_food_id=row['source_food_id'],
-                source_amount=row['source_amount'],
-                source_unit=row['source_unit'],
-                source_ingredients_classification=row['source_ingredients_classification'],
-                source_food_use_classification=row['source_food_use_classification'],
-            )
-            for row in rows
-        ])
+    def meal_entry_values(row):
+        return {
+            'food_name': row['food_name'],
+            'meal_type': row['meal_type'],
+            'portion_grams': row['portion_grams'],
+            'calories': row['calories'],
+            'protein_g': row['protein_g'],
+            'protein_qualifier': row['protein_qualifier'],
+            'carbs_g': row['carbs_g'],
+            'carbs_qualifier': row['carbs_qualifier'],
+            'fat_g': row['fat_g'],
+            'fat_qualifier': row['fat_qualifier'],
+            'sat_fat_g': row['sat_fat_g'],
+            'sat_fat_qualifier': row['sat_fat_qualifier'],
+            'sugar_g': row['sugar_g'],
+            'sugar_qualifier': row['sugar_qualifier'],
+            'fiber_g': row['fiber_g'],
+            'fiber_qualifier': row['fiber_qualifier'],
+            'salt_g': row['salt_g'],
+            'salt_qualifier': row['salt_qualifier'],
+            'source_food_id': row['source_food_id'],
+            'source_amount': row['source_amount'],
+            'source_unit': row['source_unit'],
+            'source_ingredients_classification': row['source_ingredients_classification'],
+            'source_food_use_classification': row['source_food_use_classification'],
+        }
 
-        MealEntryNutrient.objects.bulk_create([
-            MealEntryNutrient(
-                meal_entry=entry,
-                nutrient_key=aux['nutrient_key'],
-                value=aux['value'],
-                unit=aux['unit'],
-                qualifier=aux['qualifier'],
-            )
-            for row, entry in zip(rows, new_entries)
-            for aux in row['aux_nutrients']
-        ])
+    class DuplicateImportRows(Exception):
+        """Abort the complete upload when the existing data is ambiguous."""
 
-        daily_log.recalculate_from_meals()
+    try:
+        # A previous implementation deleted and recreated all rows for an
+        # imported date.  Never do that: an upload must be additive and
+        # idempotent, even when it overlaps an earlier export.
+        with transaction.atomic():
+            for date_str in sorted(rows_by_date):
+                rows = rows_by_date[date_str]
+                day_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                # Serialise imports for the same day.  Without the row lock,
+                # two simultaneous uploads could both observe a missing row
+                # and create duplicates before either transaction commits.
+                daily_log, created = (
+                    DailyLog.objects.select_for_update().get_or_create(date=day_date)
+                )
+                existing_entries = list(
+                    daily_log.meal_entries.select_for_update().filter(
+                        source_type='bulk_import', user=owner
+                    )
+                )
+                existing = {
+                    row_key(date_str, {
+                        'meal_type': entry.meal_type,
+                        'source_food_id': entry.source_food_id,
+                        'food_name': entry.food_name,
+                        'source_amount': entry.source_amount,
+                        'source_unit': entry.source_unit,
+                        'portion_grams': entry.portion_grams,
+                    }): entry
+                    for entry in existing_entries
+                }
 
-        total_food_rows += len(rows)
-        if created:
-            total_new_days += 1
-        else:
-            total_updated_days += 1
+                if len(existing) != len(existing_entries):
+                    raise DuplicateImportRows(date_str)
+
+                for row in rows:
+                    key = row_key(date_str, row)
+                    entry = existing.get(key)
+                    if entry is None:
+                        entry = MealEntry(
+                            daily_log=daily_log,
+                            user=owner,
+                            source_type='bulk_import',
+                            **meal_entry_values(row),
+                        )
+                        entry.save()
+                        existing[key] = entry
+                    else:
+                        values = meal_entry_values(row)
+                        for field, value in values.items():
+                            setattr(entry, field, value)
+                        entry.save(update_fields=list(values) + ['created_at'])
+
+                    entry.nutrients.all().delete()
+                    MealEntryNutrient.objects.bulk_create([
+                        MealEntryNutrient(
+                            meal_entry=entry,
+                            nutrient_key=aux['nutrient_key'],
+                            value=aux['value'],
+                            unit=aux['unit'],
+                            qualifier=aux['qualifier'],
+                        )
+                        for aux in row['aux_nutrients']
+                    ])
+                    total_food_rows += 1
+
+                daily_log.recalculate_from_meals()
+                if created:
+                    total_new_days += 1
+                else:
+                    total_updated_days += 1
+    except DuplicateImportRows as error:
+        return JsonResponse({
+            'success': False,
+            'error': (
+                f'Import stopped: duplicate existing CSV rows were found '
+                f'for {error.args[0]}. No changes were made.'
+            ),
+            'files': file_results,
+        }, status=409)
 
     return JsonResponse({
         'success': True,

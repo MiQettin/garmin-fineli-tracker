@@ -14,6 +14,10 @@ class UserSettings(models.Model):
     min_daily_calories = models.IntegerField(default=1500, help_text="Minimum recommended daily calorie intake")
     max_daily_calories = models.IntegerField(default=3000, help_text="Maximum recommended daily calorie intake")
     max_daily_deficit = models.IntegerField(default=300, help_text="Custom warning threshold for calorie deficit (kcal) - used when auto is off")
+    garmin_calorie_adjustment = models.IntegerField(
+        default=0,
+        help_text="Calories to add to or subtract from Garmin daily expenditure",
+    )
     
     # User physical data
     weight_kg = models.FloatField(null=True, blank=True, help_text="User weight in kilograms")
@@ -212,7 +216,11 @@ class DailyLog(models.Model):
         return self.calories_in - self.calories_out
     
     def recalculate_from_meals(self):
-        """Recalculate calories_in and macros from MealEntry records"""
+        """Recalculate calories_in and macros from MealEntry records.
+
+        DailyLog is one shared row per date, so these stored totals include
+        every user's entries. Never show them as one user's intake - use
+        nutrition.aggregation.user_daily_totals() instead."""
         from django.db.models import Sum
         totals = self.meal_entries.aggregate(
             calories=Sum('calories'),

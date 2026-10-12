@@ -103,13 +103,19 @@
           <small>When enabled, warnings are calculated from your selected goal above</small>
         </label>
 
-        <div id="customThresholds" style="{% if form.use_auto_thresholds.value %}display:none{% endif %}">
+        <div id="customThresholds">
           <label for="id_max_daily_deficit">
             Warning Threshold (kcal below goal):
-            <input class="form-control" type="number" name="max_daily_deficit" value="{{ form.max_daily_deficit.value }}" id="id_max_daily_deficit" min="50" max="500">
-            <small>Show warning when deficit exceeds goal by this amount (default: 100 kcal)</small>
+            <input class="form-control" type="number" name="max_daily_deficit" value="{{ form.max_daily_deficit.value }}" id="id_max_daily_deficit" min="0" max="2000" step="1">
+            <small>Used when automatic thresholds are disabled. The severe-warning threshold is twice this value.</small>
           </label>
         </div>
+
+        <label for="id_garmin_calorie_adjustment">
+          Garmin Calorie Adjustment (kcal/day):
+          <input class="form-control" type="number" name="garmin_calorie_adjustment" value="{{ form.garmin_calorie_adjustment.value }}" id="id_garmin_calorie_adjustment" min="-5000" max="5000" step="1">
+          <small>Added to Garmin's daily expenditure. Use a negative value when Garmin overestimates and a positive value when it underestimates.</small>
+        </label>
         
         <!-- Hidden fields to preserve values -->
         <input type="hidden" name="min_daily_calories" value="{{ form.min_daily_calories.value }}">
@@ -237,10 +243,13 @@
     function toggleCustomThresholds() {
       const autoCheckbox = document.getElementById('id_use_auto_thresholds');
       const customSection = document.getElementById('customThresholds');
-      customSection.style.display = autoCheckbox.checked ? 'none' : 'block';
+      customSection.style.opacity = autoCheckbox.checked ? '0.65' : '1';
     }
     
     // Initialize on page load
-    document.addEventListener('DOMContentLoaded', initFromGrams);
+    document.addEventListener('DOMContentLoaded', function() {
+      initFromGrams();
+      toggleCustomThresholds();
+    });
   </script>
 {% endblock %}

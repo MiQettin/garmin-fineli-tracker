@@ -178,7 +178,7 @@ Import daily nutrition totals from Fineli diary CSV exports:
 
 **Features:**
 - Multi-file upload support
-- Updates existing days or creates new ones (re-importing a date replaces only its own prior bulk-import rows; manual/Fineli/custom entries are untouched)
+- Adds missing food rows and updates matching CSV-imported rows without deleting existing entries (manual/Fineli/custom entries are untouched)
 - Imports individual food rows (not just daily totals): calories, protein, carbs, fat, saturated fat, sugar, fiber, salt, plus auxiliary micronutrients and original Fineli source provenance where present
 - Preserves below-detection-limit values (e.g. Fineli's `<0.1`) as a qualifier instead of collapsing them to a plain number
 - Uses the diary's own meal-slot name - the 5 standard Finnish names map onto the app's Breakfast/Lunch/Dinner/Snack/Evening Snack sections; any other name (a custom-renamed slot, "Herkku", etc.) gets its own section named after the CSV's own text

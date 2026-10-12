@@ -95,6 +95,12 @@ DATABASES = {
         # DATABASE_PATH lets a server keep its database outside the code
         # checkout, so deploying new code never touches the data file.
         'NAME': Path(os.getenv("DATABASE_PATH") or BASE_DIR / 'db.sqlite3'),
+        # Never let Django's test runner operate on the development database.
+        # An explicit in-memory database also keeps parallel test runs
+        # isolated from the Raspberry Pi database path.
+        'TEST': {
+            'NAME': ':memory:',
+        },
     }
 }
 
@@ -147,5 +153,8 @@ STORAGES = {
 # Auth - Django admin's built-in login/logout is the application's single
 # auth entry point; there is no separate HealthManager login view.
 LOGIN_URL = '/admin/login/'
-LOGIN_REDIRECT_URL = 'food_diary'
-LOGOUT_REDIRECT_URL = '/admin/login/'
+LOGIN_REDIRECT_URL = 'week_view'
+# After logout, the admin login form gets next=/ so signing in again opens
+# the Dashboard; without `next` admin's login falls back to the admin index.
+# The admin site itself stays reachable by typing /admin/.
+LOGOUT_REDIRECT_URL = '/admin/login/?next=/'

@@ -120,7 +120,71 @@ class BulkImportDiaryCsvTests(TestCase):
             2,
         )
 
-    def test_corrected_reimport_replaces_only_bulk_rows(self):
+    def test_overlapping_files_are_deduplicated(self):
+        self.client.post(self.url, {
+            "csv_files": [upload(diary_csv()), upload(diary_csv())],
+        })
+
+        self.assertEqual(
+            MealEntry.objects.filter(
+                daily_log__date="2026-08-16", source_type="bulk_import"
+            ).count(),
+            2,
+        )
+
+    def test_invalid_file_aborts_the_whole_upload(self):
+        response = self.client.post(self.url, {
+            "csv_files": [
+                upload(diary_csv()),
+                upload("not a Fineli CSV"),
+            ],
+        })
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()["success"])
+        self.assertFalse(
+            MealEntry.objects.filter(source_type="bulk_import").exists()
+        )
+
+    def test_existing_duplicate_rows_abort_without_more_duplicates(self):
+        self.client.post(self.url, {"csv_files": upload(diary_csv())})
+        entry = MealEntry.objects.get(
+            daily_log__date="2026-08-16",
+            source_type="bulk_import",
+            food_name="Test Chicken",
+        )
+        MealEntry.objects.create(
+            daily_log=entry.daily_log,
+            user=self.user,
+            source_type="bulk_import",
+            food_name=entry.food_name,
+            meal_type=entry.meal_type,
+            portion_grams=entry.portion_grams,
+            calories=entry.calories,
+            protein_g=entry.protein_g,
+            carbs_g=entry.carbs_g,
+            fat_g=entry.fat_g,
+            sat_fat_g=entry.sat_fat_g,
+            sugar_g=entry.sugar_g,
+            fiber_g=entry.fiber_g,
+            salt_g=entry.salt_g,
+            source_food_id=entry.source_food_id,
+            source_amount=entry.source_amount,
+            source_unit=entry.source_unit,
+        )
+
+        response = self.client.post(self.url, {"csv_files": upload(diary_csv())})
+
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(response.json()["success"])
+        self.assertEqual(
+            MealEntry.objects.filter(
+                daily_log__date="2026-08-16", source_type="bulk_import"
+            ).count(),
+            3,
+        )
+
+    def test_corrected_import_preserves_existing_bulk_rows(self):
         log = DailyLog.objects.create(date="2026-08-16")
         manual = MealEntry.objects.create(
             daily_log=log, source_type="manual", food_name="Manual Snack",
@@ -133,12 +197,14 @@ class BulkImportDiaryCsvTests(TestCase):
         bulk_entries = MealEntry.objects.filter(
             daily_log__date="2026-08-16", source_type="bulk_import"
         )
-        self.assertEqual(bulk_entries.count(), 1)
-        self.assertEqual(bulk_entries.first().food_name, "Corrected Soup")
+        self.assertEqual(bulk_entries.count(), 3)
+        self.assertTrue(bulk_entries.filter(food_name="Corrected Soup").exists())
+        self.assertTrue(bulk_entries.filter(food_name="Test Oatmeal").exists())
+        self.assertTrue(bulk_entries.filter(food_name="Test Chicken").exists())
         self.assertTrue(MealEntry.objects.filter(pk=manual.pk).exists())
 
         log.refresh_from_db()
-        expected = bulk_entries.first().calories + manual.calories
+        expected = sum(entry.calories for entry in bulk_entries) + manual.calories
         self.assertEqual(log.calories_in, int(round(expected)))
 
 
@@ -213,7 +279,7 @@ class MealEntryProvenanceTests(TestCase):
             3,
         )
 
-    def test_corrected_reimport_replaces_provenance(self):
+    def test_corrected_reimport_preserves_existing_provenance(self):
         self.client.post(self.url, {"csv_files": upload(provenance_csv())})
         corrected = "\n".join([
             PROVENANCE_CSV_HEADER,
@@ -225,8 +291,8 @@ class MealEntryProvenanceTests(TestCase):
         entries = MealEntry.objects.filter(
             daily_log__date="2026-08-16", source_type="bulk_import"
         )
-        self.assertEqual(entries.count(), 1)
-        replacement = entries.first()
+        self.assertEqual(entries.count(), 4)
+        replacement = entries.get(food_name="Replacement Meal")
         self.assertEqual(replacement.food_name, "Replacement Meal")
         self.assertEqual(replacement.source_food_id, 99999)
         self.assertEqual(replacement.source_unit, "RKL")
@@ -317,7 +383,7 @@ class MealEntryClassificationProvenanceTests(TestCase):
         self.assertEqual(entry.source_ingredients_classification, "")
         self.assertEqual(entry.source_food_use_classification, "")
 
-    def test_corrected_reimport_replaces_classification(self):
+    def test_corrected_reimport_preserves_classification(self):
         self.client.post(self.url, {"csv_files": upload(classification_csv())})
         corrected = "\n".join([
             CLASSIFICATION_CSV_HEADER,
@@ -329,8 +395,8 @@ class MealEntryClassificationProvenanceTests(TestCase):
         entries = MealEntry.objects.filter(
             daily_log__date="2026-08-16", source_type="bulk_import"
         )
-        self.assertEqual(entries.count(), 1)
-        replacement = entries.first()
+        self.assertEqual(entries.count(), 3)
+        replacement = entries.get(food_name="Replacement Meal")
         self.assertEqual(replacement.food_name, "Replacement Meal")
         self.assertEqual(replacement.source_ingredients_classification, "Keitot")
         self.assertEqual(replacement.source_food_use_classification, "Keitot")
@@ -763,18 +829,18 @@ class BulkImportAuxiliaryNutrientTests(TestCase):
         )
         self.assertEqual(MealEntryNutrient.objects.count(), 7)
 
-    def test_corrected_reimport_replaces_nutrient_values(self):
+    def test_corrected_reimport_preserves_existing_nutrient_values(self):
         self.client.post(self.url, {"csv_files": upload(aux_diary_csv())})
         self.client.post(self.url, {"csv_files": upload(corrected_aux_diary_csv())})
 
         entries = MealEntry.objects.filter(daily_log__date="2026-08-16", source_type="bulk_import")
-        self.assertEqual(entries.count(), 1)
+        self.assertEqual(entries.count(), 3)
         soup = entries.get(food_name="Corrected Soup")
 
         self.assertEqual(soup.nutrients.get(nutrient_key="starch").value, 99.0)
         self.assertEqual(soup.nutrients.get(nutrient_key="sodium").value, 999.0)
-        # old oatmeal/chicken MealEntry rows (and their nutrient children via CASCADE) are gone
-        self.assertEqual(MealEntryNutrient.objects.count(), 3)  # starch, sodium, iodine (potassium blank)
+        # Existing rows and their nutrient children remain alongside the correction.
+        self.assertEqual(MealEntryNutrient.objects.count(), 10)
 
     def test_manual_entry_and_its_nutrients_untouched_by_import(self):
         log = DailyLog.objects.create(date="2026-08-16")
@@ -1831,6 +1897,23 @@ class AdminLoginRoutingTests(TestCase):
         match = resolve("/admin/login/")
         self.assertTrue(match.func.__module__.startswith("django.contrib.admin"))
 
+    def test_login_after_logout_opens_dashboard_not_admin(self):
+        self.client.force_login(self.user_a)
+        resp = self.client.post(reverse("admin:logout"))
+        self.assertEqual(resp.status_code, 302)
+        login_url = resp.url
+        self.assertTrue(login_url.startswith("/admin/login/"))
+        resp = self.client.post(login_url, {"username": "alr_user_a", "password": "x"})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.url, reverse("week_view"))
+
+    def test_admin_site_still_reachable_directly(self):
+        self.user_a.is_superuser = True
+        self.user_a.save()
+        self.client.force_login(self.user_a)
+        resp = self.client.get("/admin/")
+        self.assertEqual(resp.status_code, 200)
+
 
 class SharedDjangoSessionAuthTests(TestCase):
     """Proves the SAME authenticated Django session (as force_login produces,
@@ -1929,6 +2012,16 @@ class DiaryOwnershipSecurityTests(TestCase):
         resp = self.client.get(reverse("food_diary"), {"date": self.DATE})
         names = {e.food_name for e in resp.context["meal_entries"]}
         self.assertEqual(names, {"B's Lunch"})
+
+    def test_day_summary_totals_only_own_entries(self):
+        # The shared DailyLog sums everyone's rows (300 + 400 + 500); the
+        # diary summary must show only the viewing user's intake.
+        self.client.force_login(self.user_a)
+        resp = self.client.get(reverse("food_diary"), {"date": self.DATE})
+        self.assertEqual(resp.context["day_totals"]["calories_in"], 300)
+        self.client.force_login(self.user_b)
+        resp = self.client.get(reverse("food_diary"), {"date": self.DATE})
+        self.assertEqual(resp.context["day_totals"]["calories_in"], 400)
 
     # 4-5: object-level edit/delete isolation
     def test_user_a_cannot_edit_or_delete_user_b_entry(self):

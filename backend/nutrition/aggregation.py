@@ -155,14 +155,15 @@ class MacroWindowResult:
     coverage: str  # "no_data" | "none" | "partial" | "complete"
 
 
-def weekly_macro_summary(start_date, end_date) -> dict[str, MacroWindowResult]:
+def weekly_macro_summary(user, start_date, end_date) -> dict[str, MacroWindowResult]:
     """Truthful protein_g/carbs_g/fat_g coverage across [start_date,
     end_date], at the MealEntry level. A macro is "complete" only if every
     MealEntry in the window has a known (non-null) value for it; otherwise
     "partial" (some known) or "none" (zero known, but entries exist).
     "no_data" means no MealEntry at all in the window. known_sum never
-    substitutes 0 for an unknown value - Sum() already ignores NULLs."""
-    entries = MealEntry.objects.filter(daily_log__date__range=[start_date, end_date])
+    substitutes 0 for an unknown value - Sum() already ignores NULLs.
+    Only `user`'s own entries count - DailyLog rows are shared between users."""
+    entries = MealEntry.objects.filter(user=user, daily_log__date__range=[start_date, end_date])
     agg = entries.aggregate(
         total_entries=Count("id"),
         protein_sum=Sum("protein_g"), protein_known=Count("id", filter=Q(protein_g__isnull=False)),
@@ -193,11 +194,48 @@ def weekly_macro_summary(start_date, end_date) -> dict[str, MacroWindowResult]:
     }
 
 
-def logged_nutrition_days_count(start_date, end_date) -> int:
-    """Distinct calendar dates in [start_date, end_date] with at least one
-    MealEntry - the truthful denominator for a weekly nutrition average. A
-    date with zero MealEntry rows is unknown/unlogged, never a 0-intake day."""
+def logged_nutrition_days_count(user, start_date, end_date) -> int:
+    """Distinct calendar dates in [start_date, end_date] with at least one of
+    `user`'s MealEntry rows - the truthful denominator for a weekly nutrition
+    average. A date with zero MealEntry rows is unknown/unlogged, never a
+    0-intake day."""
     return (
-        MealEntry.objects.filter(daily_log__date__range=[start_date, end_date])
+        MealEntry.objects.filter(user=user, daily_log__date__range=[start_date, end_date])
         .values("daily_log__date").distinct().count()
     )
+
+
+def user_daily_totals(user, start_date, end_date) -> dict:
+    """{date: {"calories_in", "protein_g", ..., "salt_g"}} summed from
+    `user`'s own MealEntry rows in [start_date, end_date], in one grouped
+    query. DailyLog is one shared row per date (it also carries the Garmin
+    data), so its stored nutrition totals add up every user's entries - read
+    per-user intake from here instead. Dates without entries are absent.
+    Unknown (None) values are skipped, like DailyLog.recalculate_from_meals."""
+    rows = (
+        MealEntry.objects.filter(user=user, daily_log__date__range=[start_date, end_date])
+        .values("daily_log__date")
+        .annotate(
+            calories=Sum("calories"),
+            protein=Sum("protein_g"),
+            carbs=Sum("carbs_g"),
+            fat=Sum("fat_g"),
+            sat_fat=Sum("sat_fat_g"),
+            sugar=Sum("sugar_g"),
+            fiber=Sum("fiber_g"),
+            salt=Sum("salt_g"),
+        )
+    )
+    return {
+        row["daily_log__date"]: {
+            "calories_in": int(row["calories"] or 0),
+            "protein_g": float(row["protein"] or 0),
+            "carbs_g": float(row["carbs"] or 0),
+            "fat_g": float(row["fat"] or 0),
+            "sat_fat_g": float(row["sat_fat"] or 0),
+            "sugar_g": float(row["sugar"] or 0),
+            "fiber_g": float(row["fiber"] or 0),
+            "salt_g": float(row["salt"] or 0),
+        }
+        for row in rows
+    }

@@ -142,7 +142,7 @@
   
   <p class="info-text">
     Create custom foods for items not in the Fineli database (imported products, homemade recipes, restaurant meals).
-    All values are per 100g.
+    Enter nutrition values per 100 g or per 100 ml. Use two decimal places when needed.
   </p>
 
   <div class="header-row" style="gap: 10px; justify-content: flex-start;">
@@ -157,50 +157,7 @@
     <form method="post">
       {% csrf_token %}
       <div class="form-grid">
-        <div class="form-group">
-          <label for="id_name">Food Name *</label>
-          {{ form.name }}
-        </div>
-        <div class="form-group">
-          <label for="id_brand">Brand (optional)</label>
-          {{ form.brand }}
-        </div>
-        <div class="form-group">
-          <label for="id_energy_kcal_per_100g">Calories (kcal/100g) *</label>
-          {{ form.energy_kcal_per_100g }}
-        </div>
-        <div class="form-group">
-          <label for="id_protein_per_100g">Protein (g/100g)</label>
-          {{ form.protein_per_100g }}
-        </div>
-        <div class="form-group">
-          <label for="id_carbs_per_100g">Carbs (g/100g)</label>
-          {{ form.carbs_per_100g }}
-        </div>
-        <div class="form-group">
-          <label for="id_sugar_per_100g">Sugar (g/100g)</label>
-          {{ form.sugar_per_100g }}
-        </div>
-        <div class="form-group">
-          <label for="id_fat_per_100g">Fat (g/100g)</label>
-          {{ form.fat_per_100g }}
-        </div>
-        <div class="form-group">
-          <label for="id_sat_fat_per_100g">Sat. Fat (g/100g)</label>
-          {{ form.sat_fat_per_100g }}
-        </div>
-        <div class="form-group">
-          <label for="id_fiber_per_100g">Fiber (g/100g)</label>
-          {{ form.fiber_per_100g }}
-        </div>
-        <div class="form-group">
-          <label for="id_salt_per_100g">Salt (g/100g)</label>
-          {{ form.salt_per_100g }}
-        </div>
-        <div class="form-group">
-          <label for="id_default_portion_g">Default Portion (g)</label>
-          {{ form.default_portion_g }}
-        </div>
+        {% include "nutrition/_custom_food_fields.html" %}
         <div class="form-actions">
           <button type="submit" class="btn btn-success">💾 Save Food</button>
         </div>
@@ -239,7 +196,7 @@
         </div>
       </div>
       
-      <div class="portion-info">Default portion: {{ food.default_portion_g }}g</div>
+      <div class="portion-info">Package: {{ food.package_amount|floatformat:"-2" }} {{ food.get_package_unit_display }}</div>
       
       <div class="food-actions">
         <a href="{% url 'edit_custom_food' food.id %}" class="btn btn-primary">✏️ Edit</a>

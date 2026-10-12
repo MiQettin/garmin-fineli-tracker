@@ -111,3 +111,6 @@ a { color: inherit; }
 /* Fineli CC BY 4.0 credit (nutrition/_fineli_attribution.html). */
 .fineli-attribution { font-size: 0.75em; color: var(--gray-500); text-align: center; margin: 24px 0 8px; }
 .fineli-attribution a { color: inherit; text-decoration: underline; }
+
+/* Django form validation errors (<ul class="errorlist">). */
+.errorlist { list-style: none; padding: 0; margin: 4px 0 0; color: var(--error); font-size: 0.85em; }

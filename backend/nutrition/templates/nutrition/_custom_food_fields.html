@@ -1,0 +1,56 @@
+{# Shared CustomFoodForm fields for the add (manage_custom_foods) and edit pages. #}
+{% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+<div class="form-group">
+  <label for="id_name">Food Name *</label>
+  {{ form.name }}{{ form.name.errors }}
+</div>
+<div class="form-group">
+  <label for="id_brand">Brand (optional)</label>
+  {{ form.brand }}{{ form.brand.errors }}
+</div>
+<div class="form-group">
+  <label for="id_nutrition_basis">Nutrition values per *</label>
+  {{ form.nutrition_basis }}{{ form.nutrition_basis.errors }}
+</div>
+<div class="form-group">
+  <label for="id_energy_kcal_per_100g">Calories (kcal per 100 g/ml) *</label>
+  {{ form.energy_kcal_per_100g }}{{ form.energy_kcal_per_100g.errors }}
+</div>
+<div class="form-group">
+  <label for="id_protein_per_100g">Protein (g per 100 g/ml)</label>
+  {{ form.protein_per_100g }}{{ form.protein_per_100g.errors }}
+</div>
+<div class="form-group">
+  <label for="id_carbs_per_100g">Carbs (g per 100 g/ml)</label>
+  {{ form.carbs_per_100g }}{{ form.carbs_per_100g.errors }}
+</div>
+<div class="form-group">
+  <label for="id_sugar_per_100g">Sugar (g per 100 g/ml)</label>
+  {{ form.sugar_per_100g }}{{ form.sugar_per_100g.errors }}
+</div>
+<div class="form-group">
+  <label for="id_fat_per_100g">Fat (g per 100 g/ml)</label>
+  {{ form.fat_per_100g }}{{ form.fat_per_100g.errors }}
+</div>
+<div class="form-group">
+  <label for="id_sat_fat_per_100g">Sat. Fat (g per 100 g/ml)</label>
+  {{ form.sat_fat_per_100g }}{{ form.sat_fat_per_100g.errors }}
+</div>
+<div class="form-group">
+  <label for="id_fiber_per_100g">Fiber (g per 100 g/ml)</label>
+  {{ form.fiber_per_100g }}{{ form.fiber_per_100g.errors }}
+</div>
+<div class="form-group">
+  <label for="id_salt_per_100g">Salt (g per 100 g/ml)</label>
+  {{ form.salt_per_100g }}{{ form.salt_per_100g.errors }}
+</div>
+<div class="form-group">
+  <label for="id_package_amount">Package size *</label>
+  <div class="input-group">
+    {{ form.package_amount }}
+    {{ form.package_unit }}
+  </div>
+  {{ form.package_amount.errors }}{{ form.package_unit.errors }}
+  {{ form.default_portion_g }}
+  <small class="info-text">For example 55 g, 2 dl, or 1 l. The food diary will offer one package.</small>
+</div>

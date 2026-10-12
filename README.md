@@ -80,8 +80,14 @@ If it shows 3.11 or older, install a newer Python before continuing:
    Windows (PowerShell):
    ```powershell
    py -3.12 -m venv venv     # or -3.13
-   venv\Scripts\activate
+   .\venv\Scripts\Activate.ps1
    python --version          # must show 3.12 or newer
+   ```
+
+   If PowerShell blocks the activation script, allow scripts for your user account and run the activation command again:
+   ```powershell
+   Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+   .\venv\Scripts\Activate.ps1
    ```
 
    If `python --version` shows an older version, delete the `venv` folder and recreate it with the right Python.

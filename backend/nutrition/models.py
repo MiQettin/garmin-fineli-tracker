@@ -52,8 +52,67 @@ class FineliFood(models.Model):
         return f"{self.name_fi} (ID: {self.fineli_id})"
 
 
+# Fineli portion unit codes (foodunit_FI.csv THSCODE -> DESCRIPT), in the
+# order the portion picker lists them. "G" is not a Fineli add-unit; it is
+# the diary CSV's code for a plain gram amount.
+FINELI_UNIT_LABELS = {
+    "G": "g",
+    "KPL_S": "pieni (kpl)",
+    "KPL_M": "keskikokoinen (kpl)",
+    "KPL_L": "iso (kpl)",
+    "KPL_VALM": "valmistajan kpl",
+    "PORTS": "pieni annos",
+    "PORTM": "keskikokoinen annos",
+    "PORTL": "iso annos",
+    "DL": "dl",
+    "RKL": "rkl",
+    "TL": "tl",
+}
+_FINELI_UNIT_ORDER = {code: i for i, code in enumerate(FINELI_UNIT_LABELS)}
+
+# Units a MealEntry portion can be logged in: Fineli's, plus "PKG" - one
+# package of a custom product (CustomFood.default_portion_g grams).
+PORTION_UNIT_LABELS = {**FINELI_UNIT_LABELS, "PKG": "pakkaus"}
+
+
+def fineli_unit_sort_key(unit_code):
+    """Picker order for a unit code; unknown codes sort last."""
+    return (_FINELI_UNIT_ORDER.get(unit_code, len(_FINELI_UNIT_ORDER)), unit_code)
+
+
+class FineliFoodUnit(models.Model):
+    """One Fineli portion size for a food (foodaddunit.csv), e.g. peeled
+    banana KPL_L = 150 g. Imported by import_fineli_csv; replaced wholesale
+    per food on re-import."""
+    fineli_food = models.ForeignKey(FineliFood, on_delete=models.CASCADE, related_name="units")
+    unit_code = models.CharField(max_length=20, help_text="Fineli unit code, e.g. KPL_M, PORTM, DL")
+    mass_g = models.FloatField(help_text="Grams in one unit of this food")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["fineli_food", "unit_code"], name="unique_fineli_food_unit"),
+        ]
+
+    @property
+    def label(self):
+        return FINELI_UNIT_LABELS.get(self.unit_code, self.unit_code)
+
+    def __str__(self):
+        return f"{self.fineli_food_id}:{self.unit_code}={self.mass_g}g"
+
+
 class CustomFood(models.Model):
     """User's custom food items (products not in Fineli)."""
+    PACKAGE_UNIT_CHOICES = [
+        ("G", "g"),
+        ("ML", "ml"),
+        ("DL", "dl"),
+        ("L", "l"),
+    ]
+    NUTRITION_BASIS_CHOICES = [
+        ("G", "100 g"),
+        ("ML", "100 ml"),
+    ]
     # None means legacy/unowned (created before per-user ownership existed) -
     # never fabricate a user for these. Not exposed in CustomFoodForm, so it
     # can only be set from request.user server-side, never client input.
@@ -81,6 +140,17 @@ class CustomFood(models.Model):
     
     # Default serving
     default_portion_g = models.FloatField(default=100, help_text="Default portion size in grams")
+    package_amount = models.FloatField(
+        null=True, blank=True, help_text="Package size in package_unit"
+    )
+    package_unit = models.CharField(
+        max_length=2, choices=PACKAGE_UNIT_CHOICES, default="G",
+        help_text="Unit for the package size",
+    )
+    nutrition_basis = models.CharField(
+        max_length=2, choices=NUTRITION_BASIS_CHOICES, default="G",
+        help_text="Whether nutrition values are per 100 g or per 100 ml",
+    )
     
     # Usage tracking
     use_count = models.IntegerField(default=0, help_text="How many times this food has been logged")
@@ -158,11 +228,14 @@ class MealEntry(models.Model):
     source_food_id = models.IntegerField(
         null=True, blank=True, help_text="Original Fineli diary CSV 'foodid' (0 is a valid explicit value, not unknown)"
     )
+    # Logged portion as quantity + Fineli unit code (e.g. 1 x KPL_L). Set by
+    # the diary CSV import and by the Add Food dialog for Fineli foods;
+    # portion_grams stays the canonical amount. Blank = no portion recorded.
     source_amount = models.FloatField(
-        null=True, blank=True, help_text="Original Fineli diary CSV 'amount' (logged quantity, distinct from portion_grams)"
+        null=True, blank=True, help_text="Logged quantity in source_unit (distinct from portion_grams)"
     )
     source_unit = models.CharField(
-        max_length=20, blank=True, help_text="Original Fineli diary CSV 'unit' portion code (e.g. G, DL, RKL, PORTM, PORTL)"
+        max_length=20, blank=True, help_text="Fineli portion unit code of source_amount (e.g. G, DL, RKL, KPL_M, PORTM)"
     )
     source_ingredients_classification = models.CharField(
         max_length=200, blank=True, help_text="Original Fineli diary CSV 'ingredients (classification)' taxonomy label"
@@ -261,6 +334,15 @@ class MealEntry(models.Model):
         super().delete(*args, **kwargs)
         daily_log.recalculate_from_meals()
     
+    @property
+    def portion_label(self):
+        """"1 × iso (kpl)" for a logged unit portion; "" for plain grams or
+        when no portion was recorded."""
+        if not self.source_unit or self.source_unit == "G" or self.source_amount is None:
+            return ""
+        unit = PORTION_UNIT_LABELS.get(self.source_unit, self.source_unit)
+        return f"{self.source_amount:g} × {unit}"
+
     def __str__(self):
         return f"{self.food_name} ({self.portion_grams}g) - {self.daily_log.date}"
 

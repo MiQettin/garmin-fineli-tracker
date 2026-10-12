@@ -17,7 +17,7 @@ Usage:
 from django.core.management.base import BaseCommand
 import csv
 import os
-from nutrition.models import FineliFood, FineliFoodNutrient, NUTRIENT_UNITS
+from nutrition.models import FineliFood, FineliFoodNutrient, FineliFoodUnit, NUTRIENT_UNITS
 
 # Existing supported auxiliary nutrient_key -> official Fineli EUFDNAME
 # component code. Verified against the local Release 20 catalog
@@ -137,7 +137,25 @@ class Command(BaseCommand):
                         pass
         
         self.stdout.write(f'Found nutrients for {len(nutrients_by_food)} foods')
-        
+
+        # Step 2b: Read portion units (optional file - older packages may
+        # lack it; then foods simply get no units).
+        units_by_food = {}  # {food_id: {unit_code: mass_g}}
+        unit_file = os.path.join(data_folder, 'foodaddunit.csv')
+        if os.path.exists(unit_file):
+            with open(unit_file, 'r', encoding='utf-8-sig') as f:
+                for row in csv.DictReader(f, delimiter=';'):
+                    food_id, unit_code = row.get('FOODID'), row.get('FOODUNIT')
+                    try:
+                        mass = float((row.get('MASS') or '').replace(',', '.'))
+                    except ValueError:
+                        continue
+                    if food_id and unit_code and mass > 0:
+                        units_by_food.setdefault(food_id, {})[unit_code] = mass
+            self.stdout.write(f'Found portion units for {len(units_by_food)} foods')
+        else:
+            self.stdout.write(self.style.WARNING('  File not found: foodaddunit.csv (no portion units imported)'))
+
         # Step 3: Combine and import
         self.stdout.write('Importing into database...')
         
@@ -214,6 +232,15 @@ class Command(BaseCommand):
                 ]
                 if aux_rows:
                     FineliFoodNutrient.objects.bulk_create(aux_rows)
+
+                # Portion units: same wholesale replace as the aux rows.
+                food_obj.units.all().delete()
+                units = units_by_food.get(food_id, {})
+                if units:
+                    FineliFoodUnit.objects.bulk_create([
+                        FineliFoodUnit(fineli_food=food_obj, unit_code=code, mass_g=mass)
+                        for code, mass in units.items()
+                    ])
 
                 if is_created:
                     created += 1

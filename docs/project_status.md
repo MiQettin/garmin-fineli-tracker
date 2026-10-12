@@ -5,9 +5,9 @@ Last updated: 2026-10-11
 ## Current Phase
 
 - Phase: 4 - Nutrition depth (recipes, provenance-aware diary import) and Garmin health metrics
-- Status: In development; food diary in daily personal use on localhost.
+- Status: In development; the food diary is in daily use on the owner's Raspberry Pi server (since 2026-10-11). The dev machine's database is a copy.
 - Current focus:
-  - Move a copy of the database to a home server and keep developing here (see [deployment.md](deployment.md)).
+  - Develop the public `garmin-fineli-tracker` release: changes are made and tested in the private repo, then published.
   - Keep Garmin CSV regeneration reliable with the current `garminconnect` login flow.
   - Running analytics improvements.
 
@@ -67,6 +67,16 @@ Last updated: 2026-10-11
   - `STATIC_ROOT = backend/staticfiles` for `collectstatic`; whitenoise serves it when `DEBUG=False`, and gunicorn is the server's app server (`requirements.txt`, Linux only).
 
 ## Recent Changes
+
+### 2026-10-11 (evening) - Fineli portion sizes
+
+- **Database change (approved by owner):** migration `nutrition.0018_fineli_food_units` adds the `FineliFoodUnit` table (food, Fineli unit code, grams). It only creates a table - existing tables and entries are untouched (the two `MealEntry` help-text changes are SQL no-ops).
+- `import_fineli_csv` now loads `foodaddunit.csv` (about 20,000 portion sizes for 4,232 foods).
+- Food diary portion picker offers each Fineli food's own sizes (e.g. peeled banana: small 100 g / medium 125 g / large 150 g) instead of fixed estimates; grams are recomputed server-side from the unit. Custom products can be logged as "1 × pakkaus" (their `default_portion_g`, labelled *Package size (g)*) or in grams; recipes in grams only (the old guessed dl/kpl/rkl/tl conversions are gone).
+- Fixed: the **edit custom food** page rendered fields that no longer exist on the form, so nutrient values couldn't be edited and saving silently failed. Add and edit forms now share one field template and show validation errors. The logged portion is stored in `MealEntry.source_amount`/`source_unit` (the same fields the diary CSV import already uses) and shown as "1 × iso (kpl) · 150g".
+- Fixed: adding a **custom food** from the diary sent its id as a Fineli id, so the entry could be linked to an unrelated Fineli food (wrong micronutrients) or create a bogus Fineli row.
+- Fixed: the food diary page crashed (HTTP 500) when an entry had an unknown nutrient - e.g. any of the 51 Fineli foods without saturated fat.
+- **To deploy on the Pi:** `backup_db`, `git pull`, `migrate`, then `import_fineli_csv --data-folder <Fineli folder> --update-existing` (the Fineli folder must be copied to the Pi; it is not in Git).
 
 ### 2026-10-11
 
@@ -169,7 +179,7 @@ Accepted date formats:
 ## Decisions And Conventions
 
 - **Database locked (2026-10-11):** no schema changes (models/migrations) and no data writes to the database without the owner's explicit approval - a copy is moving to a server.
-- **Private repo for development:** development continues in `MiQettin/HealtManager`. The public `MiQettin/garmin-fineli-tracker` is updated only on the owner's request, as a fresh single commit with no private history.
+- **Private repo for development, public for releases:** all work happens in the private repo. Tested changes are published to the public `MiQettin/garmin-fineli-tracker` as one release commit per publish, on top of the public history - private history is never pushed there.
 - SQLite stays local-first.
 - Raw exports and account tokens stay out of Git.
 - Derived values should be computed in code unless there is a clear reason to persist them.

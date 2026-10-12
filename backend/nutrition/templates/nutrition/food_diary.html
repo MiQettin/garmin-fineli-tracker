@@ -76,7 +76,7 @@
                 <div class="food-entry">
                     <div class="food-info">
                         <strong>{{ entry.food_name }}</strong>
-                        <span class="food-portion">{{ entry.portion_grams|floatformat:0 }}g</span>
+                        <span class="food-portion">{% if entry.portion_label %}{{ entry.portion_label }} · {% endif %}{{ entry.portion_grams|floatformat:0 }}g</span>
                         {% if entry.source_type %}
                             <span class="food-source badge-{{ entry.source_type }}">{{ entry.get_source_type_display }}</span>
                         {% endif %}
@@ -129,7 +129,7 @@
 
         <!-- My Foods Tab -->
         <div id="myfoodsTab" class="tab-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div class="my-foods-toolbar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <input type="text" id="myFoodsSearch" placeholder="Filter my foods..." 
                        oninput="filterMyFoods(this.value)"
                        class="search-input" style="flex: 1; margin-right: 10px;">
@@ -181,46 +181,46 @@
                 </div>
                 <div class="form-group">
                     <label>Portion (g):</label>
-                    <input type="number" name="portion_grams" value="100" step="0.1" required>
+                    <input type="number" name="portion_grams" value="100" step="0.01" required>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Calories:</label>
-                        <input type="number" name="calories" step="0.1" required>
+                        <input type="number" name="calories" step="0.01" required>
                     </div>
                     <div class="form-group">
                         <label>Protein (g):</label>
-                        <input type="number" name="protein_g" step="0.1" required>
+                        <input type="number" name="protein_g" step="0.01" required>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Carbs (g):</label>
-                        <input type="number" name="carbs_g" step="0.1" required>
+                        <input type="number" name="carbs_g" step="0.01" required>
                     </div>
                     <div class="form-group">
                         <label>Sugar (g):</label>
-                        <input type="number" name="sugar_g" step="0.1" value="0">
+                        <input type="number" name="sugar_g" step="0.01" value="0">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Fat (g):</label>
-                        <input type="number" name="fat_g" step="0.1" required>
+                        <input type="number" name="fat_g" step="0.01" required>
                     </div>
                     <div class="form-group">
                         <label>Sat. Fat (g):</label>
-                        <input type="number" name="sat_fat_g" step="0.1" value="0">
+                        <input type="number" name="sat_fat_g" step="0.01" value="0">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Fiber (g):</label>
-                        <input type="number" name="fiber_g" step="0.1" value="0">
+                        <input type="number" name="fiber_g" step="0.01" value="0">
                     </div>
                     <div class="form-group">
                         <label>Salt (g):</label>
-                        <input type="number" name="salt_g" step="0.1" value="0">
+                        <input type="number" name="salt_g" step="0.01" value="0">
                     </div>
                 </div>
                 <button type="submit" class="submit-btn">Add Entry</button>
@@ -239,17 +239,13 @@
         <div style="padding: 20px;">
             <div class="form-group">
                 <label>Amount:</label>
-                <input type="number" id="portionAmount" value="100" step="0.1" min="0" class="form-control" style="margin-bottom: 10px;">
+                <input type="number" id="portionAmount" value="100" step="0.01" min="0" class="form-control" style="margin-bottom: 10px;">
             </div>
             <div class="form-group">
                 <label>Unit:</label>
-                <select id="portionUnit" class="form-control" style="margin-bottom: 20px;">
-                    <option value="g">Grams (g)</option>
-                    <option value="dl">Deciliter (dl)</option>
-                    <option value="kpl">Pieces (kpl/pcs)</option>
-                    <option value="rkl">Tablespoon (rkl)</option>
-                    <option value="tl">Teaspoon (tl)</option>
-                </select>
+                <!-- Options are filled per food by fillPortionUnits(). -->
+                <select id="portionUnit" class="form-control" style="margin-bottom: 8px;"></select>
+                <div id="portionPreview" class="info-text" style="margin-bottom: 20px;"></div>
             </div>
             <div style="display: flex; gap: 10px;">
                 <button onclick="confirmPortion()" class="submit-btn" style="flex: 1;">OK</button>
@@ -517,9 +513,15 @@
     margin: 3% auto;
     padding: 0;
     border-radius: 8px;
-    max-width: 550px;
+    width: min(550px, calc(100vw - 24px));
     max-height: 85vh;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.modal-content,
+.modal-content * {
+    box-sizing: border-box;
 }
 
 .modal-header {
@@ -532,6 +534,7 @@
 
 .modal-header h2 {
     font-size: 1.1em;
+    min-width: 0;
 }
 
 .close-btn {
@@ -549,11 +552,13 @@
 
 .modal-tabs {
     display: flex;
+    flex-wrap: wrap;
     border-bottom: 1px solid var(--border-light);
 }
 
 .tab-btn {
-    flex: 1;
+    flex: 1 1 25%;
+    min-width: 0;
     padding: 15px;
     background: none;
     border: none;
@@ -561,6 +566,7 @@
     transition: all 0.2s;
     font-weight: 600;
     color: var(--gray-500);
+    overflow-wrap: anywhere;
 }
 
 .tab-btn.active {
@@ -579,6 +585,25 @@
 
 .tab-content.active {
     display: block;
+}
+
+.my-foods-toolbar {
+    min-width: 0;
+}
+
+.my-foods-toolbar .search-input {
+    min-width: 0;
+}
+
+.search-results,
+.search-result {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.search-result .result-name,
+.search-result .result-macros {
+    overflow-wrap: anywhere;
 }
 
 .search-input {
@@ -751,9 +776,52 @@
     .food-macros { grid-area: macros; flex-wrap: wrap; }
     .food-actions { grid-area: actions; }
 
-    /* 7 modal tabs in one non-wrapping row don't fit at phone width. */
-    .modal-tabs { flex-wrap: wrap; }
-    .tab-btn { flex: 1 1 33%; }
+    .modal {
+        padding: 8px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .modal-content {
+        width: 100%;
+        max-height: calc(100vh - 16px);
+        margin: 0 auto;
+    }
+
+    .modal-header {
+        padding: 10px 12px;
+    }
+
+    .modal-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .tab-btn {
+        width: 100%;
+        padding: 10px 6px;
+        font-size: 0.78em;
+        line-height: 1.25;
+    }
+
+    .tab-content {
+        padding: 14px 12px;
+    }
+
+    .my-foods-toolbar {
+        align-items: stretch !important;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .my-foods-toolbar .search-input {
+        margin-right: 0 !important;
+        margin-bottom: 0;
+    }
+
+    .my-foods-toolbar .submit-btn {
+        width: 100%;
+    }
 
     /* Manual Entry form's 2-up fields are more comfortable stacked. */
     .form-row { grid-template-columns: 1fr; }
@@ -967,7 +1035,7 @@ function formatFavoriteResult(food) {
                 P: ${fmtNutrient(food.protein, 1)}g |
                 C: ${fmtNutrient(food.carbs, 1)}g |
                 F: ${fmtNutrient(food.fat, 1)}g
-                (per 100g)
+                (per ${food.nutrition_basis === 'ML' ? '100ml' : '100g'})
             </div>
         </div>
     `;
@@ -1034,14 +1102,14 @@ function selectCustomFood(food) {
         fiber: food.fiber,
         salt: food.salt,
         source: 'custom',
-        custom_food_id: food.id
+        custom_food_id: food.id,
+        is_recipe: food.is_recipe,
+        default_portion: food.default_portion,
+        package_amount: food.package_amount,
+        package_unit: food.package_unit,
+        nutrition_basis: food.nutrition_basis
     };
     selectFineliFood(convertedFood);
-    
-    // Set default portion if available
-    if (food.default_portion && food.default_portion !== 100) {
-        document.getElementById('portionAmount').value = food.default_portion;
-    }
 }
 
 function formatFoodResult(food) {
@@ -1056,7 +1124,7 @@ function formatFoodResult(food) {
                 P: ${fmtNutrient(food.protein, 1)}g |
                 C: ${fmtNutrient(food.carbs, 1)}g |
                 F: ${fmtNutrient(food.fat, 1)}g
-                (per 100g)
+                (per ${food.nutrition_basis === 'ML' ? '100ml' : '100g'})
             </div>
         </div>
     `;
@@ -1065,13 +1133,83 @@ function formatFoodResult(food) {
 function selectFineliFood(food) {
     selectedFood = food;
     document.getElementById('portionFoodName').textContent = food.name;
-    document.getElementById('portionAmount').value = '100';
-    document.getElementById('portionUnit').value = 'g';
+    if (food.source === 'custom' && !food.is_recipe && food.package_amount) {
+        const packageUnit = food.package_unit || 'G';
+        const volumeUnits = [
+            {code: 'ML', label: 'ml', grams: 1, display_unit: 'ml'},
+            {code: 'DL', label: 'dl', grams: 100, display_unit: 'ml'},
+            {code: 'L', label: 'l', grams: 1000, display_unit: 'ml'},
+        ];
+        const directUnits = food.nutrition_basis === 'ML'
+            ? volumeUnits
+            : [GRAM_UNIT];
+        const packageMultiplier = packageUnit === 'DL' ? 100 : packageUnit === 'L' ? 1000 : 1;
+        const packagePreviewUnit = packageUnit === 'G' ? 'g' : 'ml';
+        fillPortionUnits([
+            {code: 'PKG', label: 'pakkaus', grams: food.package_amount * packageMultiplier, display_unit: packagePreviewUnit},
+            ...directUnits
+        ]);
+    } else if (food.source === 'custom') {
+        // Recipes: grams eaten (values are per 100 g of the recipe).
+        fillPortionUnits([GRAM_UNIT]);
+    } else {
+        // Fineli foods: grams plus the food's own Fineli portion sizes.
+        fillPortionUnits([GRAM_UNIT].concat(food.units || []));
+    }
+    document.getElementById('portionAmount').value = isGramUnit(portionUnits[0].code) ? '100' : '1';
+    updatePortionPreview();
     document.getElementById('portionModal').style.display = 'block';
 }
 
 // Store selected food temporarily
 let selectedFood = null;
+
+const GRAM_UNIT = {code: 'G', label: 'Grams (g)', grams: 1};
+let portionUnits = [];  // units offered in the open portion modal
+
+function isGramUnit(code) {
+    return code === 'G';
+}
+
+function formatGrams(grams) {
+    return Number.isInteger(grams) ? String(grams) : grams.toFixed(1);
+}
+
+function fillPortionUnits(units) {
+    portionUnits = units;
+    const select = document.getElementById('portionUnit');
+    select.innerHTML = '';
+    units.forEach(unit => {
+        const option = document.createElement('option');
+        option.value = unit.code;
+        option.textContent = isGramUnit(unit.code) || unit.code === unit.label
+            ? unit.label
+            : `${unit.label} – ${formatGrams(unit.grams)} ${unit.display_unit || 'g'}`;
+        select.appendChild(option);
+    });
+    select.value = units[0].code;
+}
+
+function selectedPortionUnit() {
+    const code = document.getElementById('portionUnit').value;
+    return portionUnits.find(unit => unit.code === code);
+}
+
+function updatePortionPreview() {
+    const unit = selectedPortionUnit();
+    const amount = parseFloat(document.getElementById('portionAmount').value);
+    const preview = document.getElementById('portionPreview');
+    preview.textContent = (unit && amount > 0 && !isGramUnit(unit.code))
+        ? `= ${formatGrams(Math.round(amount * unit.grams * 100) / 100)} ${unit.display_unit || 'g'}`
+        : '';
+}
+
+document.getElementById('portionUnit').addEventListener('change', function() {
+    // Switching between grams and a portion unit: start from a sensible amount.
+    document.getElementById('portionAmount').value = isGramUnit(this.value) ? '100' : '1';
+    updatePortionPreview();
+});
+document.getElementById('portionAmount').addEventListener('input', updatePortionPreview);
 
 function closePortionModal() {
     document.getElementById('portionModal').style.display = 'none';
@@ -1080,37 +1218,17 @@ function closePortionModal() {
 
 function confirmPortion() {
     const amount = parseFloat(document.getElementById('portionAmount').value);
-    const unit = document.getElementById('portionUnit').value;
-    
-    if (!amount || amount <= 0) {
+    const unit = selectedPortionUnit();
+
+    if (!amount || amount <= 0 || !unit) {
         showToast('Please enter a valid amount', 'error');
         return;
     }
-    
-    // Convert to grams based on unit
-    let portionGrams = amount;
-    switch(unit) {
-        case 'dl':
-            // Approximate: 1 dl ≈ 100g for most foods
-            portionGrams = amount * 100;
-            break;
-        case 'kpl':
-            // Approximate: 1 piece ≈ 50g (user should adjust)
-            portionGrams = amount * 50;
-            break;
-        case 'rkl':
-            // 1 tablespoon ≈ 15g
-            portionGrams = amount * 15;
-            break;
-        case 'tl':
-            // 1 teaspoon ≈ 5g
-            portionGrams = amount * 5;
-            break;
-        // 'g' falls through with no conversion
-    }
-    
+
+    const portionGrams = amount * unit.grams;
+    const isCustom = selectedFood.source === 'custom';
+
     const data = {
-        fineli_id: selectedFood.id,
         name: selectedFood.name,
         name_en: selectedFood.name_en,
         energy_kcal: selectedFood.energy_kcal,
@@ -1125,7 +1243,17 @@ function confirmPortion() {
         meal_type: currentMealType,
         date: currentDate
     };
-    
+    if (isCustom) {
+        // Custom foods must be sent as such - their id is not a Fineli id.
+        data.source = 'custom';
+        data.custom_food_id = selectedFood.custom_food_id;
+    } else {
+        data.fineli_id = selectedFood.id;
+    }
+    // The server recomputes grams from the unit (Fineli size or package).
+    data.amount = amount;
+    data.unit = unit.code;
+
     closePortionModal();
     
     fetch('/food-diary/api/add/', {

@@ -56,6 +56,8 @@ Mapped nutrients:
 
 Values are stored per 100g in `nutrition.models.FineliFood`. A nutrient Fineli doesn't report for a food is stored as unknown (`None`), never as 0. Auxiliary micronutrients are stored as `FineliFoodNutrient` rows.
 
+Portion sizes (`foodaddunit.csv`: e.g. small/medium/large piece, portions, dl) are stored as `FineliFoodUnit` rows and offered in the food diary's portion picker. If the file is missing, foods are imported without portion sizes.
+
 The import is idempotent: re-running with `--update-existing` refreshes every food in place.
 
 ## Verify Import

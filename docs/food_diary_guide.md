@@ -48,17 +48,17 @@ The diary requires login. Meal entries, custom foods/recipes and favorites belon
 
 ### Portion units
 
-Fineli and custom foods are stored per 100 g, and every entry is stored in grams. Other units are rough conversions:
+Every entry is stored in grams; nutrient values are per 100 g.
 
-| Unit | Converted as |
-| --- | --- |
-| g | exact |
-| dl | 100 g per dl |
-| kpl (piece) | 50 g per piece |
-| rkl (tablespoon) | 15 g |
-| tl (teaspoon) | 5 g |
+**Fineli foods** offer grams plus the food's own Fineli portion sizes, with the grams shown in the list - for example *peeled banana*: pieni (kpl) 100 g, keskikokoinen (kpl) 125 g, iso (kpl) 150 g, pieni / keskikokoinen / iso annos, and dl, rkl or tl where Fineli gives them. Pick a unit, enter how many (e.g. 2 × iso (kpl)), and the dialog shows the total grams. The server recalculates the grams from the stored Fineli size, and the diary shows the entry as e.g. "2 × iso (kpl) · 300g". Entries imported from a Fineli diary CSV show their portion the same way.
 
-Use grams when you can weigh the food - `dl` and `kpl` are only estimates.
+Portion sizes come from `foodaddunit.csv` in the Fineli package and are loaded by `import_fineli_csv`. A database imported before 2026-10-11 has none - re-run the import with `--update-existing`.
+
+**Custom products** (e.g. a protein quark) offer **pakkaus** - one package, using the product's *Package size (g)* - plus grams. Enter the values from the label per 100 g and the package size once; then log "1 × pakkaus" (or 0.5) in the diary.
+
+**Recipes** have no Fineli portion data, so they are logged in grams only - no guessed units. A recipe's page shows its total ingredient mass ("Total ingredient mass"), and its nutrient values are per 100 g, so you just enter how many grams you ate (e.g. half of an 800 g recipe = 400 g).
+
+Editing an entry's grams by hand removes its recorded portion, since it no longer matches.
 
 ### Manual entry
 
@@ -72,7 +72,7 @@ Click 🗑️, then click it again within 3 seconds. There are no browser pop-up
 
 Manage at http://127.0.0.1:8000/food-diary/custom-foods/ (Nutrition → Foods).
 
-- **Custom food**: your own product with nutrient values per 100 g.
+- **Custom food**: your own product with nutrient values per 100 g (as printed on the package) and a **Package size (g)**, so the diary can log "1 × pakkaus".
 - **Recipe**: a custom food built from ingredients (Fineli foods and/or your other custom foods). **Recalculate recipe** computes per-100 g values from the ingredients. You can also edit the final values by hand. A blank value means *unknown* and is never treated as zero.
 
 ## Diary CSV import

@@ -9,7 +9,7 @@ from django.db.models import Q
 import json
 
 from core.models import DailyLog
-from .models import FineliFood, CustomFood, CustomFoodIngredient, FavoriteFood, MealEntry, MealEntryNutrient
+from .models import FineliFood, CustomFood, CustomFoodIngredient, FavoriteFood, MealEntry, MealEntryNutrient, fineli_unit_sort_key
 from .forms import CustomFoodForm, FinalNutrientValuesForm, MealEntryForm, RecipeCreateForm
 from .recipe_aggregation import total_recipe_grams
 from .recipe_persistence import RecipeGraphError, recalculate_custom_food_recipe_with_dependencies
@@ -52,16 +52,18 @@ def food_diary_view(request):
         for key, _ in meal_types
     }
 
+    # Unknown (None) values are skipped, like DailyLog.recalculate_from_meals'
+    # Sum() - some Fineli foods lack e.g. sugar or fiber.
     for entry in meal_entries:
         totals = meal_totals[entry.meal_type]
-        totals['calories'] += entry.calories
-        totals['protein'] += entry.protein_g
-        totals['carbs'] += entry.carbs_g
-        totals['sugar'] += entry.sugar_g
-        totals['fat'] += entry.fat_g
-        totals['sat_fat'] += entry.sat_fat_g
-        totals['fiber'] += entry.fiber_g
-        totals['salt'] += entry.salt_g
+        totals['calories'] += entry.calories or 0
+        totals['protein'] += entry.protein_g or 0
+        totals['carbs'] += entry.carbs_g or 0
+        totals['sugar'] += entry.sugar_g or 0
+        totals['fat'] += entry.fat_g or 0
+        totals['sat_fat'] += entry.sat_fat_g or 0
+        totals['fiber'] += entry.fiber_g or 0
+        totals['salt'] += entry.salt_g or 0
 
     prev_date = current_date - timedelta(days=1)
     next_date = current_date + timedelta(days=1)
@@ -183,16 +185,99 @@ def _validation_error_message(exc: ValidationError) -> str:
     return "; ".join(exc.messages) if hasattr(exc, "messages") else str(exc)
 
 
+def _format_nutrient_value(value):
+    """Keep ordinary values compact while retaining useful precision for
+    small nutrients that would disappear when rounded to two decimals."""
+    value = float(value)
+    if value == 0:
+        return "0"
+    decimals = 2 if abs(value) >= 1 else 4
+    formatted = f"{value:.{decimals}f}".rstrip("0").rstrip(".")
+    return formatted if formatted not in {"-0", ""} else "0"
+
+
+RECIPE_NUTRIENT_LABELS = {
+    "fi": {
+        "alcohol": "Alkoholi", "calcium": "Kalsium", "cholesterol": "Kolesteroli",
+        "fatty_acids_total": "Rasvahapot yhteensä", "iron": "Rauta", "magnesium": "Magnesium",
+        "potassium": "Kalium", "sodium": "Natrium", "phosphorus": "Fosfori",
+        "zinc": "Sinkki", "folate": "Folaatti", "niacin": "Niasiini",
+        "carotenoids": "Karotenoidit", "vitamin_b6": "B6-vitamiini",
+        "riboflavin": "Riboflaviini", "thiamine": "Tiamiini",
+        "vitamin_b12": "B12-vitamiini", "vitamin_c": "C-vitamiini",
+        "vitamin_d": "D-vitamiini", "vitamin_e": "E-vitamiini", "vitamin_k": "K-vitamiini",
+        "ala": "ALA", "dha": "DHA", "epa": "EPA", "fructose": "Fruktoosi",
+        "glucose": "Glukoosi", "lactose": "Laktoosi", "maltose": "Maltoosi",
+        "linoleic_acid": "Linolihappo", "mufa_cis": "MUFA cis", "pufa": "PUFA",
+        "galactose": "Galaktoosi", "sucrose": "Sakkaroosi", "starch": "Tärkkelys",
+        "insoluble_fiber": "Liukenematon kuitu",
+        "soluble_noncellulose_polysaccharide": "Liukeneva kuitu",
+        "sugar_alcohols": "Sokerialkoholit", "organic_acids": "Orgaaniset hapot",
+        "trans_fat": "Transrasva", "omega3": "Omega-3", "omega6": "Omega-6",
+        "sterols": "Sterolit", "iodine": "Jodi", "selenium": "Seleeni",
+        "tryptophan": "Tryptofaani", "niacin_equivalent": "Niasiiniekvivalentti",
+    },
+    "en": {
+        "alcohol": "Alcohol", "calcium": "Calcium", "cholesterol": "Cholesterol",
+        "fatty_acids_total": "Total fatty acids", "iron": "Iron", "magnesium": "Magnesium",
+        "potassium": "Potassium", "sodium": "Sodium", "phosphorus": "Phosphorus",
+        "zinc": "Zinc", "folate": "Folate", "niacin": "Niacin",
+        "carotenoids": "Carotenoids", "vitamin_b6": "Vitamin B6",
+        "riboflavin": "Riboflavin", "thiamine": "Thiamine",
+        "vitamin_b12": "Vitamin B12", "vitamin_c": "Vitamin C",
+        "vitamin_d": "Vitamin D", "vitamin_e": "Vitamin E", "vitamin_k": "Vitamin K",
+        "ala": "ALA", "dha": "DHA", "epa": "EPA", "fructose": "Fructose",
+        "glucose": "Glucose", "lactose": "Lactose", "maltose": "Maltose",
+        "linoleic_acid": "Linoleic acid", "mufa_cis": "MUFA cis", "pufa": "PUFA",
+        "galactose": "Galactose", "sucrose": "Sucrose", "starch": "Starch",
+        "insoluble_fiber": "Insoluble fiber",
+        "soluble_noncellulose_polysaccharide": "Soluble non-cellulose polysaccharides",
+        "sugar_alcohols": "Sugar alcohols", "organic_acids": "Organic acids",
+        "trans_fat": "Trans fat", "omega3": "Omega-3", "omega6": "Omega-6",
+        "sterols": "Sterols", "iodine": "Iodine", "selenium": "Selenium",
+        "tryptophan": "Tryptophan", "niacin_equivalent": "Niacin equivalent",
+    },
+}
+
+
+def _recipe_language(parent):
+    """Use Finnish when the current Fineli catalog is Finnish, and English
+    when a future English-only catalog supplies the ingredient names."""
+    fineli_foods = [
+        ingredient.fineli_food
+        for ingredient in parent.ingredients.select_related("fineli_food")
+        if ingredient.fineli_food is not None
+    ]
+    if fineli_foods and any(food.name_fi for food in fineli_foods):
+        return "fi"
+    if fineli_foods and any(food.name_en for food in fineli_foods):
+        return "en"
+    return "fi"
+
+
 def _recipe_detail_context(request, parent, final_values_form=None):
     query = request.GET.get('q', '').strip()
+    language = _recipe_language(parent)
+    nutrient_labels = RECIPE_NUTRIENT_LABELS[language]
+    aux_nutrients = []
+    for nutrient in parent.nutrients.all().order_by('nutrient_key'):
+        nutrient.display_name = nutrient_labels.get(
+            nutrient.nutrient_key,
+            nutrient.nutrient_key.replace("_", " ").capitalize(),
+        )
+        nutrient.display_value = _format_nutrient_value(nutrient.value)
+        aux_nutrients.append(nutrient)
     return {
         'parent': parent,
         'ingredients': parent.ingredients.select_related('fineli_food', 'source_custom_food').order_by('id'),
         'own_foods': CustomFood.objects.filter(user=request.user).exclude(pk=parent.pk).order_by('name'),
         'query': query,
-        'fineli_results': FineliFood.objects.filter(name_fi__icontains=query).order_by('name_fi')[:20] if query else [],
+        'fineli_results': FineliFood.objects.filter(
+            name_fi__icontains=query
+        ).prefetch_related('units').order_by('name_fi')[:20] if query else [],
         'total_grams': total_recipe_grams(parent),
-        'aux_nutrients': parent.nutrients.all().order_by('nutrient_key'),
+        'aux_nutrients': aux_nutrients,
+        'recipe_language': language,
         'final_values_form': final_values_form or FinalNutrientValuesForm(instance=parent),
     }
 
@@ -207,22 +292,40 @@ def recipe_detail_view(request, food_id):
 
 @login_required
 def add_recipe_fineli_ingredient(request, food_id):
-    """Add a shared FineliFood as a recipe ingredient. Only identity+grams
-    are read from POST - nutrient values always come from the persisted
-    FineliFood/FineliFoodNutrient rows via recipe aggregation, never here."""
+    """Add a FineliFood portion as a recipe ingredient.
+
+    The selected Fineli unit is converted to canonical grams from the
+    persisted FineliFoodUnit row. Nutrients are still resolved later from the
+    persisted food catalog, never from POST.
+    """
     parent = get_object_or_404(CustomFood, pk=food_id, user=request.user)
     if request.method != "POST":
         return redirect('recipe_detail', food_id=parent.id)
 
     fineli_id = request.POST.get('fineli_id')
-    fineli_food = FineliFood.objects.filter(fineli_id=fineli_id).first() if fineli_id else None
+    fineli_food = FineliFood.objects.prefetch_related('units').filter(
+        fineli_id=fineli_id
+    ).first() if fineli_id else None
     error = None
     if fineli_food is None:
         error = "Select a valid Fineli food."
     else:
+        unit_code = request.POST.get('unit', 'G')
+        amount = _parse_grams(request.POST.get('amount', request.POST.get('amount_grams')))
+        if amount is None or amount <= 0:
+            error = "Enter a valid portion amount."
+        elif unit_code == 'G':
+            amount_grams = amount
+        else:
+            unit = fineli_food.units.filter(unit_code=unit_code).first()
+            if unit is None:
+                error = "Select a valid portion unit for this Fineli food."
+            else:
+                amount_grams = amount * unit.mass_g
+    if error is None:
         ingredient = CustomFoodIngredient(
             custom_food=parent, fineli_food=fineli_food,
-            amount_grams=_parse_grams(request.POST.get('amount_grams')),
+            amount_grams=amount_grams,
         )
         try:
             ingredient.save()  # CustomFoodIngredient.save() calls self.clean() itself
@@ -386,8 +489,13 @@ def edit_meal_entry(request, entry_id):
     entry = get_object_or_404(MealEntry, pk=entry_id, user=request.user)
 
     if request.method == "POST":
+        original_grams = entry.portion_grams
         form = MealEntryForm(request.POST, instance=entry)
         if form.is_valid():
+            # A logged "1 x iso (kpl)" no longer describes the entry once its
+            # grams are edited by hand.
+            if form.cleaned_data["portion_grams"] != original_grams:
+                entry.source_amount, entry.source_unit = None, ''
             form.save()
             return redirect(f'/food-diary/?date={entry.daily_log.date.strftime("%Y-%m-%d")}')
     else:
@@ -431,6 +539,12 @@ def format_food_for_frontend(food, is_favorite=False):
         'salt': _optional_float(food.salt_g),
         'is_favorite': is_favorite,
         'usage_count': food.usage_count,
+        # Fineli portion sizes for the portion picker, e.g.
+        # {'code': 'KPL_L', 'label': 'iso (kpl)', 'grams': 150.0}.
+        'units': [
+            {'code': u.unit_code, 'label': u.label, 'grams': u.mass_g}
+            for u in sorted(food.units.all(), key=lambda u: fineli_unit_sort_key(u.unit_code))
+        ],
     }
 
 
@@ -449,7 +563,12 @@ def format_custom_food_for_frontend(food):
         'sat_fat': _optional_float(food.sat_fat_per_100g),
         'fiber': _optional_float(food.fiber_per_100g),
         'salt': _optional_float(food.salt_per_100g),
+        'package_amount': float(food.package_amount) if food.package_amount else None,
+        'package_unit': food.package_unit,
+        'nutrition_basis': food.nutrition_basis,
         'default_portion': float(food.default_portion_g) if food.default_portion_g else 100,
+        # Recipes are logged in grams; products also offer "1 × pakkaus".
+        'is_recipe': food.ingredients.exists(),
         'use_count': food.use_count,
         'source': 'custom',
     }
@@ -482,7 +601,7 @@ def search_fineli_api(request):
     """Search Fineli database (local only)."""
     query = request.GET.get('q', '').strip()
     if len(query) < 2:
-        favorites = FineliFood.objects.filter(usage_count__gt=0).order_by('-usage_count', '-last_used')[:10]
+        favorites = FineliFood.objects.filter(usage_count__gt=0).prefetch_related('units').order_by('-usage_count', '-last_used')[:10]
         results = [format_food_for_frontend(food, is_favorite=True) for food in favorites]
         return JsonResponse({
             'results': results,
@@ -495,7 +614,7 @@ def search_fineli_api(request):
             Q(name_fi__icontains=query) |
             Q(name_sv__icontains=query) |
             Q(name_en__icontains=query)
-        ).order_by('-usage_count', 'name_fi')[:20]
+        ).prefetch_related('units').order_by('-usage_count', 'name_fi')[:20]
         
         results = [format_food_for_frontend(food, is_favorite=(food.usage_count > 0)) for food in foods]
         
@@ -539,8 +658,6 @@ def add_fineli_entry(request):
             # (user=None) one, even by sending its ID directly.
             try:
                 custom_food = CustomFood.objects.get(id=custom_food_id, user=request.user)
-                custom_food.use_count += 1
-                custom_food.save()
                 source_type = 'custom'
             except CustomFood.DoesNotExist:
                 pass
@@ -562,14 +679,67 @@ def add_fineli_entry(request):
                     'salt_g': data.get('salt'),
                 }
             )
-            
+            source_type = 'fineli'
+
+        # A Fineli food can be logged as amount x Fineli unit (e.g. 1 x KPL_L).
+        # Grams then come from the stored unit size, never from the client.
+        source_amount, source_unit = None, ''
+        unit_code = data.get('unit')
+        if fineli_food is not None and unit_code:
+            try:
+                amount = float(data.get('amount'))
+            except (TypeError, ValueError):
+                return JsonResponse({'error': 'Invalid amount'}, status=400)
+            if amount <= 0:
+                return JsonResponse({'error': 'Invalid amount'}, status=400)
+            if unit_code == 'G':
+                portion_grams = amount
+            else:
+                unit = fineli_food.units.filter(unit_code=unit_code).first()
+                if unit is None:
+                    return JsonResponse({'error': f'Unknown portion unit: {unit_code}'}, status=400)
+                portion_grams = amount * unit.mass_g
+            source_amount, source_unit = amount, unit_code
+        elif custom_food is not None and unit_code:
+            # Custom products use the package unit or a compatible direct unit.
+            try:
+                amount = float(data.get('amount'))
+            except (TypeError, ValueError):
+                return JsonResponse({'error': 'Invalid amount'}, status=400)
+            if amount <= 0:
+                return JsonResponse({'error': 'Invalid amount'}, status=400)
+            package_amount = custom_food.package_amount or custom_food.default_portion_g
+            package_unit = custom_food.package_unit or "G"
+            unit_to_ml = {"ML": 1, "DL": 100, "L": 1000}
+            if unit_code == 'PKG' and package_amount:
+                normalized_amount = amount * package_amount
+                normalized_unit = package_unit
+            elif unit_code in {"G", "ML", "DL", "L"}:
+                normalized_amount = amount
+                normalized_unit = unit_code
+            else:
+                return JsonResponse({'error': f'Unknown portion unit: {unit_code}'}, status=400)
+            if custom_food.nutrition_basis == "ML":
+                if normalized_unit == "G":
+                    return JsonResponse({'error': 'This food must be logged in a volume unit'}, status=400)
+                portion_grams = normalized_amount * unit_to_ml[normalized_unit]
+            else:
+                if normalized_unit != "G":
+                    return JsonResponse({'error': 'This food must be logged in grams'}, status=400)
+                portion_grams = normalized_amount
+            source_amount, source_unit = amount, unit_code
+        else:
+            portion_grams = float(data.get('portion_grams', 100))
+        multiplier = portion_grams / 100.0
+
+        # Usage counters only after the request has been validated.
+        if fineli_food is not None:
             fineli_food.usage_count += 1
             fineli_food.last_used = now()
             fineli_food.save()
-            source_type = 'fineli'
-        
-        portion_grams = float(data.get('portion_grams', 100))
-        multiplier = portion_grams / 100.0
+        if custom_food is not None:
+            custom_food.use_count += 1
+            custom_food.save()
 
         def _scaled_from_json(key):
             # Missing key = unknown, not 0 - preserve None rather than
@@ -587,6 +757,8 @@ def add_fineli_entry(request):
                 food_name=data.get('name', ''),
                 meal_type=data.get('meal_type', 'snack'),
                 portion_grams=portion_grams,
+                source_amount=source_amount,
+                source_unit=source_unit,
                 calories=_scaled_from_json('energy_kcal'),
                 protein_g=_scaled_from_json('protein'),
                 carbs_g=_scaled_from_json('carbs'),
@@ -690,7 +862,7 @@ def list_favorite_foods(request):
         return JsonResponse({'results': [], 'count': 0})
 
     favorites = FavoriteFood.objects.filter(user=request.user) \
-        .select_related('fineli_food', 'custom_food').order_by('-created_at')
+        .select_related('fineli_food', 'custom_food').prefetch_related('fineli_food__units').order_by('-created_at')
     results = []
     for fav in favorites:
         if fav.fineli_food_id:
@@ -767,7 +939,7 @@ def list_frequent_foods(request):
 
     fineli_foods = {f.id: f for f in FineliFood.objects.filter(
         id__in=[food_id for source, food_id, _ in combined if source == 'fineli']
-    )}
+    ).prefetch_related('units')}
     custom_foods = {f.id: f for f in CustomFood.objects.filter(
         id__in=[food_id for source, food_id, _ in combined if source == 'custom']
     )}

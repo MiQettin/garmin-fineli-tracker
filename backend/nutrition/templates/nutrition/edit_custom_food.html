@@ -33,49 +33,9 @@
     {% csrf_token %}
     
     <div class="form-row">
-      <div class="form-group">
-        <label>Food Name *</label>
-        {{ form.name }}
-      </div>
-      <div class="form-group">
-        <label>Brand (optional)</label>
-        {{ form.brand }}
-      </div>
+      {% include "nutrition/_custom_food_fields.html" %}
     </div>
-    
-    <div class="form-row">
-      <div class="form-group">
-        <label>Serving Size (g) *</label>
-        {{ form.serving_size_g }}
-      </div>
-      <div class="form-group">
-        <label>Calories per Serving *</label>
-        {{ form.calories_per_serving }}
-      </div>
-    </div>
-    
-    <div class="form-row">
-      <div class="form-group">
-        <label>Protein (g)</label>
-        {{ form.protein_g }}
-      </div>
-      <div class="form-group">
-        <label>Carbs (g)</label>
-        {{ form.carbs_g }}
-      </div>
-    </div>
-    
-    <div class="form-row">
-      <div class="form-group">
-        <label>Fat (g)</label>
-        {{ form.fat_g }}
-      </div>
-      <div class="form-group">
-        <label>Saturated Fat (g)</label>
-        {{ form.sat_fat_g }}
-      </div>
-    </div>
-    
+
     <div style="display:flex; gap:10px;">
       <button type="submit" class="btn btn-success">✓ Save Changes</button>
       <a href="{% url 'manage_custom_foods' %}" class="btn btn-secondary">✖ Cancel</a>

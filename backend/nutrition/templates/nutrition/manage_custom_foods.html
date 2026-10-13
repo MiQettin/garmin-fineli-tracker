@@ -1,4 +1,5 @@
 {% extends "core/base.html" %}
+{% load i18n %}
 
 {% block title %}My Foods - HealthManager{% endblock %}
 
@@ -137,36 +138,36 @@
 {% block content %}
 <div class="card">
   <div class="header-row">
-    <h1>📝 My Foods</h1>
+    <h1>📝 {% translate "My products" %}</h1>
   </div>
   
   <p class="info-text">
-    Add products that are not in the Fineli database, with the nutrition values from the label per 100 g or per 100 ml.
-    Homemade dishes built from ingredients are on the <a href="{% url 'recipe_list' %}">Recipes</a> page.
+    {% translate "Add products that are not in the Fineli database, with the nutrition values from the label per 100 g or per 100 ml." %}
+    {% url 'recipe_list' as recipes_url %}{% blocktranslate %}Homemade dishes built from ingredients are on the <a href="{{ recipes_url }}">Recipes</a> page.{% endblocktranslate %}
   </p>
 
   <div class="header-row" style="gap: 10px; justify-content: flex-start;">
-    <a href="#add-product-form" class="btn btn-success">➕ Add Product</a>
-    <a href="{% url 'recipe_list' %}" class="btn btn-outline-light">🧪 Recipes</a>
+    <a href="#add-product-form" class="btn btn-success">➕ {% translate "Add product" %}</a>
+    <a href="{% url 'recipe_list' %}" class="btn btn-outline-light">🧪 {% translate "Recipes" %}</a>
   </div>
 
   <!-- Add Product Form -->
   <div class="add-form" id="add-product-form">
-    <h2>➕ Add Product</h2>
-    <p class="info-text">Enter nutrition values manually.</p>
+    <h2>➕ {% translate "Add product" %}</h2>
+    <p class="info-text">{% translate "Enter the nutrition values from the label." %}</p>
     <form method="post">
       {% csrf_token %}
       <div class="form-grid">
         {% include "nutrition/_custom_food_fields.html" %}
         <div class="form-actions">
-          <button type="submit" class="btn btn-success">💾 Save Food</button>
+          <button type="submit" class="btn btn-success">💾 {% translate "Save product" %}</button>
         </div>
       </div>
     </form>
   </div>
   
   <!-- Custom Foods List -->
-  <h2>🍽️ My Custom Foods</h2>
+  <h2>🍽️ {% translate "Saved products" %}</h2>
   
   {% if custom_foods %}
   <div class="food-grid">
@@ -184,25 +185,25 @@
         </div>
         <div class="macro-item">
           <div class="macro-value">{{ food.protein_per_100g|floatformat:1 }}</div>
-          <div class="macro-label">protein</div>
+          <div class="macro-label">{% translate "protein" %}</div>
         </div>
         <div class="macro-item">
           <div class="macro-value">{{ food.carbs_per_100g|floatformat:1 }}</div>
-          <div class="macro-label">carbs</div>
+          <div class="macro-label">{% translate "carbs" %}</div>
         </div>
         <div class="macro-item">
           <div class="macro-value">{{ food.fat_per_100g|floatformat:1 }}</div>
-          <div class="macro-label">fat</div>
+          <div class="macro-label">{% translate "fat" %}</div>
         </div>
       </div>
       
-      {% if food.package_amount %}<div class="portion-info">Package: {{ food.package_amount|floatformat:"-2" }} {{ food.get_package_unit_display }}</div>{% endif %}
+      {% if food.package_amount %}<div class="portion-info">{% translate "Package:" %} {{ food.package_amount|floatformat:"-2" }} {{ food.get_package_unit_display }}</div>{% endif %}
       
       <div class="food-actions">
-        <a href="{% url 'edit_custom_food' food.id %}" class="btn btn-primary">✏️ Edit</a>
+        <a href="{% url 'edit_custom_food' food.id %}" class="btn btn-primary">✏️ {% translate "Edit" %}</a>
         <form method="post" action="{% url 'delete_custom_food' food.id %}" style="margin: 0;">
           {% csrf_token %}
-          <button type="submit" class="btn btn-danger" onclick="return confirm('Delete {{ food.name }}?')">🗑️ Delete</button>
+          <button type="submit" class="btn btn-danger" data-confirm="{% translate 'Click again to delete' %}">🗑️ {% translate "Delete" %}</button>
         </form>
       </div>
     </div>
@@ -210,8 +211,8 @@
   </div>
   {% else %}
   <div class="empty-state">
-    <p>No custom foods yet.</p>
-    <p>Add your first custom food using the form above!</p>
+    <p>{% translate "No products yet." %}</p>
+    <p>{% translate "Add your first product using the form above!" %}</p>
   </div>
   {% endif %}
 </div>

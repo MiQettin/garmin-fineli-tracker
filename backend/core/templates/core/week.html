@@ -1,6 +1,7 @@
 {% extends "core/base.html" %}
+{% load i18n l10n %}
 
-{% block title %}Dashboard - HealthManager{% endblock %}
+{% block title %}{% translate "Dashboard" %} - HealthManager{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -242,8 +243,8 @@
   <!-- Header -->
   <div class="dash-header">
     <div>
-      <h1 class="dash-title">Dashboard</h1>
-      <div class="dash-subtitle">Weekly training, recovery &amp; nutrition overview</div>
+      <h1 class="dash-title">{% translate "Dashboard" %}</h1>
+      <div class="dash-subtitle">{% translate "Weekly training, recovery and nutrition overview" %}</div>
     </div>
   </div>
 
@@ -253,9 +254,9 @@
     <div class="week-range">
       {{ start_date|date:"d.m" }} &ndash; {{ end_date|date:"d.m.Y" }}
       {% if week_offset == 0 %}
-        <span class="badge-current">Current</span>
+        <span class="badge-current">{% translate "Current" %}</span>
       {% else %}
-        <span class="badge-past">{{ week_offset }}w ago</span>
+        <span class="badge-past">{% blocktranslate with n=week_offset %}{{ n }} wk ago{% endblocktranslate %}</span>
       {% endif %}
     </div>
     {% if next_week is not None %}
@@ -269,8 +270,8 @@
   <!-- Nutrition Summary: existing energy figures + macro-energy distribution + truthful coverage -->
   <div class="section-card">
     <div class="section-title">
-      <i class="bi bi-basket2-fill"></i> Nutrition &mdash; Last {{ nutrition_summary.window_days }} days
-      <span class="muted-sm"><i class="bi bi-calendar-check"></i> {{ nutrition_summary.logged_days }} / {{ nutrition_summary.window_days }} days logged</span>
+      <i class="bi bi-basket2-fill"></i> {% blocktranslate with n=nutrition_summary.window_days %}Nutrition &mdash; last {{ n }} days{% endblocktranslate %}
+      <span class="muted-sm"><i class="bi bi-calendar-check"></i> {% blocktranslate with logged=nutrition_summary.logged_days total=nutrition_summary.window_days %}{{ logged }} / {{ total }} days logged{% endblocktranslate %}</span>
     </div>
 
     <!-- Same compact row list used by the 7-day average comparison panel -
@@ -278,16 +279,16 @@
          rows are daily averages, not period totals, so they stay directly
          comparable to each other. -->
     <div class="cmp-row">
-      <span>Avg intake</span>
+      <span>{% translate "Avg intake" %}</span>
       <span>{{ energy.avg_intake|floatformat:0 }} kcal</span>
     </div>
     <div class="cmp-row">
-      <span>Avg expenditure</span>
+      <span>{% translate "Avg expenditure" %}</span>
       <span>{{ energy.avg_expenditure|floatformat:0 }} kcal</span>
     </div>
     <div class="balance-status balance-{{ energy.status }}"{% if energy.status != 'surplus' %} style="--status: hsl({{ energy.status_hue }}, 78%, 58%); --status-bg: hsla({{ energy.status_hue }}, 70%, 45%, 0.22);"{% endif %}>
       <div class="cmp-highlight">
-        <span>Avg daily balance</span>
+        <span>{% translate "Avg daily balance" %}</span>
         <span class="balance-value">{{ energy.avg_balance|floatformat:"+0" }} kcal</span>
       </div>
       <div class="balance-meta">
@@ -295,53 +296,53 @@
           {% if energy.status == 'good' %}<i class="bi bi-check-circle-fill"></i>{% elif energy.status == 'moderate' %}<i class="bi bi-exclamation-triangle-fill"></i>{% elif energy.status == 'aggressive' %}<i class="bi bi-exclamation-octagon-fill"></i>{% else %}<i class="bi bi-arrow-up-circle-fill"></i>{% endif %}
           {{ energy.interpretation }}
         </span>
-        <span>Goal {{ energy.target_balance|floatformat:"+0" }} kcal/day
-          &middot; on track {% if energy.ok_high is not None %}{{ energy.ok_low|floatformat:"+0" }}&hellip;{{ energy.ok_high|floatformat:"+0" }}{% else %}&ge; {{ energy.ok_low|floatformat:"+0" }}{% endif %}
-          &middot; alert below {{ energy.alert_low|floatformat:"+0" }}</span>
+        <span>{% blocktranslate with goal=energy.target_balance|floatformat:"+0" %}Goal {{ goal }} kcal/day{% endblocktranslate %}
+          &middot; {% translate "on track" %} {% if energy.ok_high is not None %}{{ energy.ok_low|floatformat:"+0" }}&hellip;{{ energy.ok_high|floatformat:"+0" }}{% else %}&ge; {{ energy.ok_low|floatformat:"+0" }}{% endif %}
+          &middot; {% blocktranslate with limit=energy.alert_low|floatformat:"+0" %}alert below {{ limit }}{% endblocktranslate %}</span>
       </div>
     </div>
 
     {% if nutrition_summary.percentages_available %}
     <div class="segbar">
-      <span class="seg-protein" style="width: {{ nutrition_summary.macros.protein.percent }}%;"></span>
-      <span class="seg-carbs" style="width: {{ nutrition_summary.macros.carbs.percent }}%;"></span>
-      <span class="seg-fat" style="width: {{ nutrition_summary.macros.fat.percent }}%;"></span>
+      <span class="seg-protein" style="width: {{ nutrition_summary.macros.protein.percent|unlocalize }}%;"></span>
+      <span class="seg-carbs" style="width: {{ nutrition_summary.macros.carbs.percent|unlocalize }}%;"></span>
+      <span class="seg-fat" style="width: {{ nutrition_summary.macros.fat.percent|unlocalize }}%;"></span>
     </div>
     {% endif %}
-    <div class="cmp-days-title">Macros ({{ nutrition_summary.denominator_label|lower }})</div>
+    <div class="cmp-days-title">{% translate "Macros" %} ({{ nutrition_summary.denominator_label|lower }})</div>
     <div class="cmp-row">
-      <span><span class="mini-dot" style="background: #34d399;"></span>Protein</span>
-      <span>{% if nutrition_summary.macros.protein.avg_g is None %}<span class="text-muted">Unknown</span>{% else %}{{ nutrition_summary.macros.protein.avg_g }} g{% if nutrition_summary.macros.protein.percent %} <span class="text-muted">&middot; {{ nutrition_summary.macros.protein.percent }}%</span>{% endif %}{% endif %}</span>
+      <span><span class="mini-dot" style="background: #34d399;"></span>{% translate "Protein" %}</span>
+      <span>{% if nutrition_summary.macros.protein.avg_g is None %}<span class="text-muted">{% translate "Unknown" %}</span>{% else %}{{ nutrition_summary.macros.protein.avg_g }} g{% if nutrition_summary.macros.protein.percent %} <span class="text-muted">&middot; {{ nutrition_summary.macros.protein.percent }}%</span>{% endif %}{% endif %}</span>
     </div>
     <div class="cmp-row">
-      <span><span class="mini-dot" style="background: #fbbf24;"></span>Carbs</span>
-      <span>{% if nutrition_summary.macros.carbs.avg_g is None %}<span class="text-muted">Unknown</span>{% else %}{{ nutrition_summary.macros.carbs.avg_g }} g{% if nutrition_summary.macros.carbs.percent %} <span class="text-muted">&middot; {{ nutrition_summary.macros.carbs.percent }}%</span>{% endif %}{% endif %}</span>
+      <span><span class="mini-dot" style="background: #fbbf24;"></span>{% translate "Carbs" %}</span>
+      <span>{% if nutrition_summary.macros.carbs.avg_g is None %}<span class="text-muted">{% translate "Unknown" %}</span>{% else %}{{ nutrition_summary.macros.carbs.avg_g }} g{% if nutrition_summary.macros.carbs.percent %} <span class="text-muted">&middot; {{ nutrition_summary.macros.carbs.percent }}%</span>{% endif %}{% endif %}</span>
     </div>
     <div class="cmp-row">
-      <span><span class="mini-dot" style="background: #a78bfa;"></span>Fat</span>
-      <span>{% if nutrition_summary.macros.fat.avg_g is None %}<span class="text-muted">Unknown</span>{% else %}{{ nutrition_summary.macros.fat.avg_g }} g{% if nutrition_summary.macros.fat.percent %} <span class="text-muted">&middot; {{ nutrition_summary.macros.fat.percent }}%</span>{% endif %}{% endif %}</span>
+      <span><span class="mini-dot" style="background: #a78bfa;"></span>{% translate "Fat" %}</span>
+      <span>{% if nutrition_summary.macros.fat.avg_g is None %}<span class="text-muted">{% translate "Unknown" %}</span>{% else %}{{ nutrition_summary.macros.fat.avg_g }} g{% if nutrition_summary.macros.fat.percent %} <span class="text-muted">&middot; {{ nutrition_summary.macros.fat.percent }}%</span>{% endif %}{% endif %}</span>
     </div>
     {% if not nutrition_summary.percentages_available %}
-    <div class="text-muted" style="font-size: 0.78em; margin-top: 6px;">Energy-share % needs complete data for all three macros this period.</div>
+    <div class="text-muted" style="font-size: 0.78em; margin-top: 6px;">{% translate "Energy-share % needs complete data for all three macros this period." %}</div>
     {% endif %}
 
     <!-- Daily Breakdown, moved to the bottom of this card -->
     <button class="collapse-toggle btn btn-outline-light w-100 text-start d-flex align-items-center gap-2 mt-3" type="button" data-bs-toggle="collapse" data-bs-target="#dailyTable" aria-expanded="false" aria-controls="dailyTable">
       <i class="bi bi-chevron-right chev"></i>
       <i class="bi bi-table"></i>
-      Daily Breakdown ({{ full_week_days|length }} days)
+      {% blocktranslate with n=full_week_days|length %}Daily breakdown ({{ n }} days){% endblocktranslate %}
     </button>
     <div class="collapse mt-3" id="dailyTable">
       <div class="table-responsive">
       <table class="table table-dark table-sm table-hover mb-0">
         <tr>
-          <th>Date</th>
-          <th>In</th>
-          <th>Out</th>
-          <th>Balance</th>
-          <th>Protein</th>
-          <th>Carbs</th>
-          <th>Fat</th>
+          <th>{% translate "Date" %}</th>
+          <th>{% translate "In" %}</th>
+          <th>{% translate "Out" %}</th>
+          <th>{% translate "Balance" %}</th>
+          <th>{% translate "Protein" %}</th>
+          <th>{% translate "Carbs" %}</th>
+          <th>{% translate "Fat" %}</th>
         </tr>
         {% for item in full_week_days %}
         <tr>
@@ -367,27 +368,27 @@
     <div class="stat-card">
       <div class="stat-card-head">
         <div class="icon-badge soft-warning"><i class="bi bi-activity"></i></div>
-        <div class="stat-card-title">Training</div>
+        <div class="stat-card-title">{% translate "Training" %}</div>
       </div>
       {% if training.total_workouts %}
       <div class="stat-metric">{{ training.total_workouts }}</div>
-      <div class="stat-caption">workouts this week</div>
+      <div class="stat-caption">{% translate "workouts this week" %}</div>
       <span class="stat-pill {% if training.load_status == 'low' %}monitor{% elif training.load_status == 'very_high' %}reduce{% else %}ok{% endif %}">
         {{ training.load_text }}
       </span>
       <div class="stat-foot">
         <div class="stat-foot-item">
           <div class="stat-foot-value">{{ training.total_time_min|floatformat:0 }}</div>
-          <div class="stat-foot-label">Minutes</div>
+          <div class="stat-foot-label">{% translate "Minutes" %}</div>
         </div>
         <div class="stat-foot-item">
           <div class="stat-foot-value">{{ training.total_calories }}</div>
-          <div class="stat-foot-label">Burned (kcal)</div>
+          <div class="stat-foot-label">{% translate "Burned (kcal)" %}</div>
         </div>
       </div>
       {% else %}
       <div class="stat-metric text-muted">&mdash;</div>
-      <div class="stat-caption">No workouts logged</div>
+      <div class="stat-caption">{% translate "No workouts logged" %}</div>
       {% endif %}
     </div>
 
@@ -395,32 +396,32 @@
     <div class="stat-card">
       <div class="stat-card-head">
         <div class="icon-badge soft-danger"><i class="bi bi-heart-pulse-fill"></i></div>
-        <div class="stat-card-title">Recovery</div>
+        <div class="stat-card-title">{% translate "Recovery" %}</div>
       </div>
       {% if recovery.current_hr %}
       <div class="stat-metric">{{ recovery.current_hr }}<span class="unit">bpm</span></div>
-      <div class="stat-caption">resting heart rate</div>
+      <div class="stat-caption">{% translate "resting heart rate" %}</div>
       <span class="stat-pill {{ recovery.status }}">{{ recovery.status_text }}</span>
       <div class="stat-foot">
         <div class="stat-foot-item">
           <div class="stat-foot-value">{{ recovery.baseline_hr|floatformat:0 }}</div>
-          <div class="stat-foot-label">Baseline (bpm)</div>
+          <div class="stat-foot-label">{% translate "Baseline (bpm)" %}</div>
         </div>
         <div class="stat-foot-item">
           <div class="stat-foot-value {% if recovery.deviation > 3 %}text-warning{% elif recovery.deviation > 5 %}text-error{% endif %}">
             {{ recovery.deviation|floatformat:"+0" }}
           </div>
-          <div class="stat-foot-label">Deviation</div>
+          <div class="stat-foot-label">{% translate "Deviation" %}</div>
         </div>
       </div>
       {% if recovery.consecutive_elevated >= 3 %}
       <div class="text-error" style="font-size: 0.82em;">
-        <i class="bi bi-exclamation-triangle-fill"></i> Elevated for {{ recovery.consecutive_elevated }} days
+        <i class="bi bi-exclamation-triangle-fill"></i> {% blocktranslate with n=recovery.consecutive_elevated %}Elevated for {{ n }} days{% endblocktranslate %}
       </div>
       {% endif %}
       {% else %}
       <div class="stat-metric text-muted">&mdash;</div>
-      <div class="stat-caption">No HR data available</div>
+      <div class="stat-caption">{% translate "No heart rate data available" %}</div>
       {% endif %}
     </div>
   </div>
@@ -430,14 +431,14 @@
   <!-- Recent Activities -->
   {% if recent_activities %}
   <div class="section-card">
-    <div class="section-title"><i class="bi bi-stopwatch"></i> This Week's Activities</div>
+    <div class="section-title"><i class="bi bi-stopwatch"></i> {% translate "This week's activities" %}</div>
     <ul class="activity-list">
       {% for activity in recent_activities %}
       <li class="activity-item">
         <div class="activity-left">
-          <span class="activity-type-badge type-{{ activity.activity_type }}">{{ activity.get_activity_type_display }}</span>
+          <span class="activity-type-badge type-{{ activity.activity_type }}">{{ activity.type_label }}</span>
           <div class="activity-info">
-            <span class="activity-name">{{ activity.name|default:"Workout" }}</span>
+            <span class="activity-name">{% if activity.name %}{{ activity.name }}{% else %}{% translate "Workout" %}{% endif %}</span>
             <span class="activity-meta">{{ activity.date|date:"D d.m" }}</span>
           </div>
         </div>

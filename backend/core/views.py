@@ -11,10 +11,14 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.utils import translation
+from django.utils.translation import gettext
 from django.core.management import call_command
 
 from .models import DailyLog, UserSettings
 from .forms import UserSettingsForm
+from activities.labels import activity_type_label
 from activities.models import Activity
 from nutrition.aggregation import logged_nutrition_days_count, user_daily_totals, weekly_macro_summary
 
@@ -189,32 +193,32 @@ def week_view(request):
         if target_balance >= 0:  # Maintenance or bulk goals
             if avg_balance >= target_balance - warning_buffer:
                 energy['status'] = 'good'
-                energy['interpretation'] = 'On track for your goal'
+                energy['interpretation'] = gettext('On track for your goal')
                 energy['color'] = 'success'
             elif avg_balance >= target_balance - danger_buffer:
                 energy['status'] = 'moderate'
-                energy['interpretation'] = f'{abs(int(deviation_from_goal))} kcal below target'
+                energy['interpretation'] = gettext('%(kcal)s kcal below target') % {'kcal': abs(int(deviation_from_goal))}
                 energy['color'] = 'warning'
             else:
                 energy['status'] = 'aggressive'
-                energy['interpretation'] = f'Undereating - {abs(int(deviation_from_goal))} kcal below goal'
+                energy['interpretation'] = gettext('Undereating - %(kcal)s kcal below goal') % {'kcal': abs(int(deviation_from_goal))}
                 energy['color'] = 'error'
         else:  # Cut/deficit goals
             if avg_balance > target_balance + warning_buffer:
                 energy['status'] = 'surplus'
-                energy['interpretation'] = 'Eating above target - slower progress'
+                energy['interpretation'] = gettext('Eating above target - slower progress')
                 energy['color'] = 'info'
             elif avg_balance >= target_balance - warning_buffer:
                 energy['status'] = 'good'
-                energy['interpretation'] = 'On track for your goal'
+                energy['interpretation'] = gettext('On track for your goal')
                 energy['color'] = 'success'
             elif avg_balance >= target_balance - danger_buffer:
                 energy['status'] = 'moderate'
-                energy['interpretation'] = f'{abs(int(deviation_from_goal))} kcal deeper - watch energy levels'
+                energy['interpretation'] = gettext('%(kcal)s kcal deeper - watch energy levels') % {'kcal': abs(int(deviation_from_goal))}
                 energy['color'] = 'warning'
             else:
                 energy['status'] = 'aggressive'
-                energy['interpretation'] = f'{abs(int(deviation_from_goal))} kcal too deep - muscle loss risk'
+                energy['interpretation'] = gettext('%(kcal)s kcal too deep - muscle loss risk') % {'kcal': abs(int(deviation_from_goal))}
                 energy['color'] = 'error'
         
         # 3-day trend (compare last 3 days avg to previous 3 days avg)
@@ -224,17 +228,17 @@ def week_view(request):
             prev_3 = sum(adjusted_balance[d.pk] for d in days_sorted[3:6]) / 3
             if last_3 > prev_3 + 50:
                 energy['trend'] = 'improving'
-                energy['trend_text'] = 'Intake improving'
+                energy['trend_text'] = gettext('Intake improving')
             elif last_3 < prev_3 - 50:
                 energy['trend'] = 'worsening'
-                energy['trend_text'] = 'Deficit deepening'
+                energy['trend_text'] = gettext('Deficit deepening')
             else:
                 energy['trend'] = 'stable'
-                energy['trend_text'] = 'Stable pattern'
+                energy['trend_text'] = gettext('Stable pattern')
         elif len(days_sorted) >= 3:
             last_3 = sum(adjusted_balance[d.pk] for d in days_sorted[:3]) / 3
             energy['trend'] = 'stable'
-            energy['trend_text'] = f'{round(last_3, 0):+.0f} kcal (3-day avg)'
+            energy['trend_text'] = gettext('%(kcal)s kcal (3-day avg)') % {'kcal': f'{round(last_3, 0):+.0f}'}
         
         # Best and worst days
         days_with_balance = [d for d in days if adjusted_balance[d.pk] is not None]
@@ -281,16 +285,16 @@ def week_view(request):
         hours_per_week = training['total_time_min'] / 60
         if hours_per_week < 2:
             training['load_status'] = 'low'
-            training['load_text'] = 'Light week'
+            training['load_text'] = gettext('Light week')
         elif hours_per_week < 5:
             training['load_status'] = 'normal'
-            training['load_text'] = 'Normal load'
+            training['load_text'] = gettext('Normal load')
         elif hours_per_week < 8:
             training['load_status'] = 'high'
-            training['load_text'] = 'High volume'
+            training['load_text'] = gettext('High volume')
         else:
             training['load_status'] = 'very_high'
-            training['load_text'] = 'Very high - ensure recovery'
+            training['load_text'] = gettext('Very high - ensure recovery')
     
     # Daily activity data (steps, intensity)
     activity_days = qs.filter(steps__isnull=False)
@@ -318,15 +322,15 @@ def week_view(request):
         # Simplified status
         if hr_status == 'normal':
             recovery['status'] = 'ok'
-            recovery['status_text'] = 'Ready to train'
+            recovery['status_text'] = gettext('Ready to train')
             recovery['color'] = 'success'
         elif hr_status == 'light_load':
             recovery['status'] = 'monitor'
-            recovery['status_text'] = 'Train cautiously'
+            recovery['status_text'] = gettext('Train cautiously')
             recovery['color'] = 'warning'
         else:
             recovery['status'] = 'reduce'
-            recovery['status_text'] = 'Prioritize recovery'
+            recovery['status_text'] = gettext('Prioritize recovery')
             recovery['color'] = 'error'
     
     # === PROTEIN DATA (primary macro) ===
@@ -362,7 +366,7 @@ def week_view(request):
     nutrition_summary = {
         'window_days': window_days,
         'logged_days': logged_days,
-        'denominator_label': 'Average per day' if logged_days == window_days and logged_days > 0 else 'Average on logged days',
+        'denominator_label': gettext('Average per day') if logged_days == window_days and logged_days > 0 else gettext('Average on logged days'),
     }
 
     macro_energy = {}
@@ -391,6 +395,8 @@ def week_view(request):
     recent_activities = list(Activity.objects.filter(
         date__range=[start_date, end_date]
     ).order_by('-date', '-start_time')[:5])
+    for activity in recent_activities:
+        activity.type_label = activity_type_label(activity.activity_type)
     
     prev_week = week_offset + 1
     next_week = week_offset - 1 if week_offset > 0 else None
@@ -427,7 +433,9 @@ def settings_view(request):
         form = UserSettingsForm(request.POST, instance=user_settings)
         if form.is_valid():
             form.save()
-            message = "Settings saved successfully!"
+            # The confirmation is shown in the language just chosen.
+            translation.activate(form.instance.language)
+            messages.success(request, gettext("Settings saved."))
             return redirect("settings")
     else:
         form = UserSettingsForm(instance=user_settings)
@@ -463,7 +471,7 @@ def sync_garmin(request):
     # core/week.html), so an anonymous caller must get a JSON 401 rather
     # than a redirect to the login page, which `response.json()` can't parse.
     if not request.user.is_authenticated:
-        return JsonResponse({"status": "error", "message": "Authentication required"}, status=401)
+        return JsonResponse({"status": "error", "message": gettext("Authentication required")}, status=401)
 
     user_settings = UserSettings.get_settings()
     
@@ -495,7 +503,7 @@ def sync_garmin(request):
             error_msg = result.stderr or result.stdout or "Unknown error"
             return JsonResponse({
                 "status": "error",
-                "message": f"Failed to fetch Garmin data: {error_msg[:500]}"
+                "message": gettext("Failed to fetch Garmin data: %(error)s") % {"error": error_msg[:500]}
             }, status=500)
         
         # Step 2: Run import_garmin_csv management command
@@ -510,7 +518,7 @@ def sync_garmin(request):
         
         return JsonResponse({
             "status": "success",
-            "message": "Garmin data synced successfully!",
+            "message": gettext("Garmin data synced."),
             "details": import_output[:500] if import_output else None,
             "synced_at": user_settings.last_garmin_sync.strftime("%d-%m-%Y %H:%M")
         })
@@ -518,10 +526,10 @@ def sync_garmin(request):
     except subprocess.TimeoutExpired:
         return JsonResponse({
             "status": "error",
-            "message": "Sync timed out. Try again later."
+            "message": gettext("Sync timed out. Try again later.")
         }, status=504)
     except Exception as e:
         return JsonResponse({
             "status": "error",
-            "message": f"Sync failed: {str(e)}"
+            "message": gettext("Sync failed: %(error)s") % {"error": e}
         }, status=500)

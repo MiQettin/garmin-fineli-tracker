@@ -1,6 +1,7 @@
 {% extends 'core/base.html' %}
+{% load i18n core_extras %}
 
-{% block title %}{{ activity.name|default:"Activity" }} - HealthManager{% endblock %}
+{% block title %}{% if activity.name %}{{ activity.name }}{% else %}{% translate "Activity" %}{% endif %} - HealthManager{% endblock %}
 
 {% block content %}
 <style>
@@ -429,21 +430,17 @@ function showTab(tabName) {
 
 <div class="detail-container">
   <a href="{% url 'activities' %}?type={{ activity.activity_type }}" class="back-button">
-    ← Back to Activities
+    ← {% translate "Back to activities" %}
   </a>
   
   <div class="activity-header-section">
-    <div class="activity-title">{{ activity.name|default:"Untitled Activity" }}</div>
+    <div class="activity-title">{% if activity.name %}{{ activity.name }}{% else %}{% translate "Untitled activity" %}{% endif %}</div>
     <div class="activity-meta">
-      {{ activity.date|date:"l, F j, Y" }} at {{ activity.start_time|date:"H:i" }}
+      {% blocktranslate with date=activity.date|date:"l j.n.Y" time=activity.start_time|date:"H:i" %}{{ date }} at {{ time }}{% endblocktranslate %}
     </div>
     <div class="activity-type-badge">
-      {% if activity.activity_type == 'running' %}🏃 Running
-      {% elif activity.activity_type == 'walking' %}🚶 Walking
-      {% elif activity.activity_type == 'dancing' %}💃 Dancing
-      {% elif activity.activity_type == 'strength' %}💪 Strength Training
-      {% else %}{{ activity.get_activity_type_display }}
-      {% endif %}
+      {% if activity.activity_type == 'running' %}🏃{% elif activity.activity_type == 'walking' %}🚶{% elif activity.activity_type == 'dancing' %}💃{% elif activity.activity_type == 'strength' %}💪{% endif %}
+      {{ activity.activity_type|activity_type_label }}
     </div>
   </div>
   
@@ -451,14 +448,14 @@ function showTab(tabName) {
     <div class="primary-stat-card">
       <div class="primary-stat-icon">⏱️</div>
       <div class="primary-stat-value">{{ duration_formatted }}</div>
-      <div class="primary-stat-label">Duration</div>
+      <div class="primary-stat-label">{% translate "Duration" %}</div>
     </div>
     
     {% if activity.distance_km %}
     <div class="primary-stat-card">
       <div class="primary-stat-icon">📏</div>
       <div class="primary-stat-value">{{ activity.distance_km|floatformat:2 }}</div>
-      <div class="primary-stat-label">Distance (km)</div>
+      <div class="primary-stat-label">{% translate "Distance (km)" %}</div>
     </div>
     {% endif %}
     
@@ -466,7 +463,7 @@ function showTab(tabName) {
     <div class="primary-stat-card">
       <div class="primary-stat-icon">🏃</div>
       <div class="primary-stat-value">{{ pace_formatted }}</div>
-      <div class="primary-stat-label">Avg Pace (min/km)</div>
+      <div class="primary-stat-label">{% translate "Avg pace (min/km)" %}</div>
     </div>
     {% endif %}
     
@@ -474,7 +471,7 @@ function showTab(tabName) {
     <div class="primary-stat-card">
       <div class="primary-stat-icon">❤️</div>
       <div class="primary-stat-value">{{ activity.avg_hr }}</div>
-      <div class="primary-stat-label">Avg Heart Rate (bpm)</div>
+      <div class="primary-stat-label">{% translate "Avg heart rate (bpm)" %}</div>
     </div>
     {% endif %}
     
@@ -482,7 +479,7 @@ function showTab(tabName) {
     <div class="primary-stat-card">
       <div class="primary-stat-icon">🔥</div>
       <div class="primary-stat-value">{{ activity.calories }}</div>
-      <div class="primary-stat-label">Calories</div>
+      <div class="primary-stat-label">{% translate "Calories" %}</div>
     </div>
     {% endif %}
   </div>
@@ -490,68 +487,68 @@ function showTab(tabName) {
   <!-- Tabbed Content Area -->
   <div class="tabs-container">
     <div class="tabs-header">
-      <button class="tab-button active" onclick="showTab('stats')">📊 Stats</button>
-      <button class="tab-button" onclick="showTab('intervals')">⏱️ Intervals</button>
+      <button class="tab-button active" onclick="showTab('stats')">📊 {% translate "Stats" %}</button>
+      <button class="tab-button" onclick="showTab('intervals')">⏱️ {% translate "Intervals" %}</button>
       {% if hr_zones %}
-      <button class="tab-button" onclick="showTab('hr-zones')">❤️ HR Zones</button>
+      <button class="tab-button" onclick="showTab('hr-zones')">❤️ {% translate "HR zones" %}</button>
       {% endif %}
     </div>
     
     <!-- Stats Tab -->
     <div id="stats-tab" class="tab-content active">
-      <h2 style="margin-top: 0;">Detailed Metrics</h2>
+      <h2 style="margin-top: 0;">{% translate "Detailed metrics" %}</h2>
       <div class="details-grid">
         {% if activity.avg_speed_kmh %}
         <div class="detail-item">
-          <div class="detail-item-label">Average Speed</div>
+          <div class="detail-item-label">{% translate "Average speed" %}</div>
           <div class="detail-item-value">{{ activity.avg_speed_kmh|floatformat:2 }} km/h</div>
         </div>
         {% endif %}
         
         {% if activity.max_hr %}
         <div class="detail-item">
-          <div class="detail-item-label">Maximum Heart Rate</div>
+          <div class="detail-item-label">{% translate "Maximum heart rate" %}</div>
           <div class="detail-item-value">{{ activity.max_hr }} bpm</div>
         </div>
         {% endif %}
         
         {% if activity.elevation_gain %}
         <div class="detail-item">
-          <div class="detail-item-label">Elevation Gain</div>
+          <div class="detail-item-label">{% translate "Elevation gain" %}</div>
           <div class="detail-item-value">{{ activity.elevation_gain|floatformat:0 }} m</div>
         </div>
         {% endif %}
         
         {% if activity.elevation_loss %}
         <div class="detail-item">
-          <div class="detail-item-label">Elevation Loss</div>
+          <div class="detail-item-label">{% translate "Elevation loss" %}</div>
           <div class="detail-item-value">{{ activity.elevation_loss|floatformat:0 }} m</div>
         </div>
         {% endif %}
         
         {% if activity.avg_cadence %}
         <div class="detail-item">
-          <div class="detail-item-label">Average Cadence</div>
+          <div class="detail-item-label">{% translate "Average cadence" %}</div>
           <div class="detail-item-value">{{ activity.avg_cadence|floatformat:0 }} spm</div>
         </div>
         {% endif %}
         
         {% if activity.steps %}
         <div class="detail-item">
-          <div class="detail-item-label">Total Steps</div>
+          <div class="detail-item-label">{% translate "Total steps" %}</div>
           <div class="detail-item-value">{{ activity.steps }}</div>
         </div>
         {% endif %}
         
         {% if activity.vo2max %}
         <div class="detail-item">
-          <div class="detail-item-label">VO2 Max Estimate</div>
+          <div class="detail-item-label">{% translate "VO2 max estimate" %}</div>
           <div class="detail-item-value">{{ activity.vo2max|floatformat:1 }}</div>
         </div>
         {% endif %}
         
         <div class="detail-item">
-          <div class="detail-item-label">Activity ID</div>
+          <div class="detail-item-label">{% translate "Activity ID" %}</div>
           <div class="detail-item-value">{{ activity.activity_id }}</div>
         </div>
       </div>
@@ -559,28 +556,28 @@ function showTab(tabName) {
     
     <!-- Intervals Tab -->
     <div id="intervals-tab" class="tab-content">
-      <h2 style="margin-top: 0;">Lap / Interval Data</h2>
+      <h2 style="margin-top: 0;">{% translate "Laps and intervals" %}</h2>
       {% if laps %}
         <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 20px;">
           <p style="color: var(--gray-500); margin: 0;">
-            Total laps: {{ laps|length }}
+            {% blocktranslate with n=laps|length %}Total laps: {{ n }}{% endblocktranslate %}
             {% if lap_stats.best_pace %}
-            | Best pace: {{ lap_stats.best_pace.pace_formatted }} (Lap {{ lap_stats.best_pace.lap_number }})
+            | {% blocktranslate with pace=lap_stats.best_pace.pace_formatted lap=lap_stats.best_pace.lap_number %}Best pace: {{ pace }} (lap {{ lap }}){% endblocktranslate %}
             {% endif %}
             {% if lap_stats.worst_pace %}
-            | Slowest pace: {{ lap_stats.worst_pace.pace_formatted }} (Lap {{ lap_stats.worst_pace.lap_number }})
+            | {% blocktranslate with pace=lap_stats.worst_pace.pace_formatted lap=lap_stats.worst_pace.lap_number %}Slowest pace: {{ pace }} (lap {{ lap }}){% endblocktranslate %}
             {% endif %}
           </p>
           <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
-            <label for="stepTypeFilter" style="font-weight: 600; color: var(--gray-500);">Step Type</label>
+            <label for="stepTypeFilter" style="font-weight: 600; color: var(--gray-500);">{% translate "Step type" %}</label>
             <select id="stepTypeFilter" onchange="filterByStepType(this.value)" style="padding: 8px 12px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 14px;">
-              <option value="all">All</option>
-              <option value="warmup">Warm Up</option>
-              <option value="run">Run</option>
-              <option value="cooldown">Cool Down</option>
-              <option value="recovery">Recovery</option>
-              <option value="rest">Rest</option>
-              <option value="other">Other</option>
+              <option value="all">{% translate "All" %}</option>
+              <option value="warmup">{{ "warmup"|step_type_label }}</option>
+              <option value="run">{{ "run"|step_type_label }}</option>
+              <option value="cooldown">{{ "cooldown"|step_type_label }}</option>
+              <option value="recovery">{{ "recovery"|step_type_label }}</option>
+              <option value="rest">{{ "rest"|step_type_label }}</option>
+              <option value="other">{{ "other"|step_type_label }}</option>
             </select>
           </div>
         </div>
@@ -590,17 +587,17 @@ function showTab(tabName) {
           <thead>
             <tr>
               <th style="width: 40px;"></th>
-              <th>Interval</th>
-              <th>Step Type</th>
-              <th>Lap</th>
-              <th>Time</th>
-              <th>Cumulative</th>
-              <th>Distance</th>
-              <th>Avg Pace</th>
-              <th>Avg HR</th>
-              <th>Max HR</th>
-              <th>Ascent</th>
-              <th>Cadence</th>
+              <th>{% translate "Interval" %}</th>
+              <th>{% translate "Step type" %}</th>
+              <th>{% translate "Lap" %}</th>
+              <th>{% translate "Time" %}</th>
+              <th>{% translate "Cumulative" %}</th>
+              <th>{% translate "Distance" %}</th>
+              <th>{% translate "Avg pace" %}</th>
+              <th>{% translate "Avg HR" %}</th>
+              <th>{% translate "Max HR" %}</th>
+              <th>{% translate "Ascent" %}</th>
+              <th>{% translate "Cadence" %}</th>
             </tr>
           </thead>
           <tbody id="lapsTableBody">
@@ -613,7 +610,7 @@ function showTab(tabName) {
                   <td></td>
                   <td>
                     <span class="step-type-badge step-type-{{ group.step_type }}">
-                      {{ group.laps.0.get_step_type_display }}
+                      {{ group.laps.0.step_type|step_type_label }}
                     </span>
                   </td>
                   <td>{{ group.laps.0.lap_number }} - {{ group.laps|last|get_lap_number }}</td>
@@ -631,7 +628,7 @@ function showTab(tabName) {
                 <tr class="group-lap-row group-{{ forloop.parentloop.counter }}" data-step-type="{{ lap.step_type }}" style="display: none;">
                   <td></td>
                   <td></td>
-                  <td>{{ lap.get_step_type_display }}</td>
+                  <td>{{ lap.step_type|step_type_label }}</td>
                   <td>{{ lap.lap_number }}</td>
                   <td>{{ lap.lap_time_formatted }}</td>
                   <td>{{ lap.cumulative_time_seconds|floatformat:0 }}s</td>
@@ -655,7 +652,7 @@ function showTab(tabName) {
                   </td>
                   <td>
                     <span class="step-type-badge step-type-{{ lap.step_type }}">
-                      {{ lap.get_step_type_display }}
+                      {{ lap.step_type|step_type_label }}
                     </span>
                   </td>
                   <td>{{ lap.lap_number }}</td>
@@ -674,7 +671,7 @@ function showTab(tabName) {
             
             <!-- Summary Row -->
             <tr class="summary-row">
-              <td colspan="4"><strong>Summary</strong></td>
+              <td colspan="4"><strong>{% translate "Summary" %}</strong></td>
               <td><strong>{{ duration_formatted }}</strong></td>
               <td><strong>{{ activity.duration_minutes|floatformat:0 }}m</strong></td>
               <td><strong>{{ activity.distance_km|floatformat:2 }} km</strong></td>
@@ -689,7 +686,7 @@ function showTab(tabName) {
         </div>
       {% else %}
         <p style="color: var(--gray-500); text-align: center; padding: 40px;">
-          No lap data available for this activity.
+          {% translate "No lap data available for this activity." %}
         </p>
       {% endif %}
     </div>
@@ -698,34 +695,34 @@ function showTab(tabName) {
     {% if hr_zones %}
     <div id="hr-zones-tab" class="tab-content">
       <div class="hr-zones-section">
-        <h3>Heart Rate Zones</h3>
+        <h3>{% translate "Heart rate zones" %}</h3>
         <div class="hr-zone-bar"></div>
         <p style="text-align: center; color: var(--gray-500); margin-bottom: 20px;">
-          Your average heart rate was in <span class="current-hr-indicator">Zone {{ hr_zones.current_zone }}</span>
+          {% blocktranslate with zone=hr_zones.current_zone %}Your average heart rate was in <span class="current-hr-indicator">zone {{ zone }}</span>{% endblocktranslate %}
         </p>
         
         <div class="hr-zone {% if hr_zones.current_zone == 5 %}active{% endif %}">
-          <span class="hr-zone-name">Zone 5 - Maximum</span>
+          <span class="hr-zone-name">{% translate "Zone 5 - Maximum" %}</span>
           <span class="hr-zone-time">{% if hr_zones.zone5_time %}{{ hr_zones.zone5_time }}{% else %}-{% endif %}</span>
           <span class="hr-zone-range">{{ hr_zones.zone5.0 }} - {{ hr_zones.zone5.1 }} bpm</span>
         </div>
         <div class="hr-zone {% if hr_zones.current_zone == 4 %}active{% endif %}">
-          <span class="hr-zone-name">Zone 4 - Threshold</span>
+          <span class="hr-zone-name">{% translate "Zone 4 - Threshold" %}</span>
           <span class="hr-zone-time">{% if hr_zones.zone4_time %}{{ hr_zones.zone4_time }}{% else %}-{% endif %}</span>
           <span class="hr-zone-range">{{ hr_zones.zone4.0 }} - {{ hr_zones.zone4.1 }} bpm</span>
         </div>
         <div class="hr-zone {% if hr_zones.current_zone == 3 %}active{% endif %}">
-          <span class="hr-zone-name">Zone 3 - Tempo</span>
+          <span class="hr-zone-name">{% translate "Zone 3 - Tempo" %}</span>
           <span class="hr-zone-time">{% if hr_zones.zone3_time %}{{ hr_zones.zone3_time }}{% else %}-{% endif %}</span>
           <span class="hr-zone-range">{{ hr_zones.zone3.0 }} - {{ hr_zones.zone3.1 }} bpm</span>
         </div>
         <div class="hr-zone {% if hr_zones.current_zone == 2 %}active{% endif %}">
-          <span class="hr-zone-name">Zone 2 - Aerobic</span>
+          <span class="hr-zone-name">{% translate "Zone 2 - Aerobic" %}</span>
           <span class="hr-zone-time">{% if hr_zones.zone2_time %}{{ hr_zones.zone2_time }}{% else %}-{% endif %}</span>
           <span class="hr-zone-range">{{ hr_zones.zone2.0 }} - {{ hr_zones.zone2.1 }} bpm</span>
         </div>
         <div class="hr-zone {% if hr_zones.current_zone == 1 %}active{% endif %}">
-          <span class="hr-zone-name">Zone 1 - Recovery</span>
+          <span class="hr-zone-name">{% translate "Zone 1 - Recovery" %}</span>
           <span class="hr-zone-time">{% if hr_zones.zone1_time %}{{ hr_zones.zone1_time }}{% else %}-{% endif %}</span>
           <span class="hr-zone-range">{{ hr_zones.zone1.0 }} - {{ hr_zones.zone1.1 }} bpm</span>
         </div>

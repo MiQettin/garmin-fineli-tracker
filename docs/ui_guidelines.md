@@ -109,6 +109,20 @@ Running analytics: workout filters (All, VK, PK, Pitkä) and lap inclusion filte
 - Long lists scroll inside their own box (`max-height`, `overscroll-behavior: contain`).
 - Respect `prefers-reduced-motion` for animations.
 
+## Translations
+
+The UI is in English and Finnish (Settings → Language). Write every user-visible text in English and mark it for translation; the Finnish text goes in `backend/locale/fi/LC_MESSAGES/django.po`.
+
+- Templates: `{% load i18n %}`, then `{% translate "Text" %}`, or `{% blocktranslate with n=value %}… {{ n }} …{% endblocktranslate %}` for texts with values. Keep whole sentences in one msgid - never glue translated fragments together.
+- `{% translate %}` output is **not** HTML-escaped. For texts with `&`, `<` or `>` use `{% translate "Health & Recovery" as t %}{{ t|force_escape }}`.
+- A literal `%` in a translated text is written `%%` (also in the Finnish msgstr).
+- Template tag arguments: `label=_("Text")`.
+- JavaScript: `{% load core_extras %}` and `{% jstrans "Text" %}`, which outputs a JSON string literal that is safe inside `<script>`. Static `.js` files get their texts from a small object defined in the template (e.g. `window.HEALTH_I18N`) and keep English defaults.
+- Python: `gettext("… %(name)s") % {"name": value}` for messages and JSON errors. Model `choices` are translated at display time (form `__init__`, `activities.labels`, template filters) - changing a model's choices would need a migration.
+- Numbers: the Finnish locale prints decimal commas. Values that go into `<input value>`, CSS (`width: …%`) or JavaScript need `|unlocalize`.
+- Units are metric only: g, ml, dl, l, kcal, km, min/km, bpm.
+- Workflow: `manage.py update_translations` → translate the new entries in the .po → `manage.py compile_translations`. `core.tests.TranslationCatalogTests` fails when a text has no Finnish translation or the .mo is stale.
+
 ## Accessibility
 
 - Text colors meet WCAG AA contrast on the dark surfaces.
@@ -133,3 +147,4 @@ Before committing UI changes:
 - [ ] Browser console has no errors (`node --check` on extracted page scripts catches syntax errors)
 - [ ] POST requests carry the CSRF token
 - [ ] Unknown values show as "unknown"/"–", never as 0
+- [ ] New texts are translated and the page works in both English and Finnish (numbers in inputs and JS use `|unlocalize`)

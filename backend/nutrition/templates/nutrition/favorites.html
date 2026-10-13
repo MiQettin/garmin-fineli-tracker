@@ -1,6 +1,7 @@
 {% extends "core/base.html" %}
+{% load i18n core_extras %}
 
-{% block title %}Favorites - HealthManager{% endblock %}
+{% block title %}{% translate "Favorites" %} - HealthManager{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -34,32 +35,32 @@
 
 {% block content %}
 <div class="card fav-card">
-  <h1>⭐ Favorites</h1>
-  <p class="fav-intro">Favorites are quick picks in the food diary's Favorites tab and in recipe ingredient search. Tap ★ to remove one, or search below to add more.</p>
+  <h1>⭐ {% translate "Favorites" %}</h1>
+  <p class="fav-intro">{% translate "Favorites are quick picks in the food diary's Favorites tab and in recipe ingredient search. Tap ★ to remove one, or search below to add more." %}</p>
 
-  <h2>Your favorites</h2>
+  <h2>{% translate "Your favorites" %}</h2>
   <div class="fav-list" id="favList">
     {% for fav in favorites %}
       {% if fav.fineli_food %}
       <div class="fav-row" data-kind="fineli" data-id="{{ fav.fineli_food.fineli_id }}">
-        <span class="fav-name">{{ fav.fineli_food.name_fi }}</span>
-        <span class="fav-badge">Fineli</span>
-        <button type="button" class="star-btn on" aria-pressed="true" aria-label="Remove {{ fav.fineli_food.name_fi }} from favorites">★</button>
+        <span class="fav-name">{{ fav.fineli_food.display_name }}</span>
+        <span class="fav-badge">{% translate "Fineli" %}</span>
+        <button type="button" class="star-btn on" aria-pressed="true" aria-label="{% blocktranslate with name=fav.fineli_food.display_name %}Remove {{ name }} from favorites{% endblocktranslate %}">★</button>
       </div>
       {% elif fav.custom_food %}
       <div class="fav-row" data-kind="custom" data-id="{{ fav.custom_food.id }}">
         <span class="fav-name">{{ fav.custom_food.name }}{% if fav.custom_food.brand %} <small>{{ fav.custom_food.brand }}</small>{% endif %}</span>
-        <span class="fav-badge">My food</span>
-        <button type="button" class="star-btn on" aria-pressed="true" aria-label="Remove {{ fav.custom_food.name }} from favorites">★</button>
+        <span class="fav-badge">{% translate "Own food" %}</span>
+        <button type="button" class="star-btn on" aria-pressed="true" aria-label="{% blocktranslate with name=fav.custom_food.name %}Remove {{ name }} from favorites{% endblocktranslate %}">★</button>
       </div>
       {% endif %}
     {% endfor %}
   </div>
-  <p class="empty-state" id="favEmpty"{% if favorites %} hidden{% endif %}>No favorites yet - search below and tap ☆ to add some.</p>
+  <p class="empty-state" id="favEmpty"{% if favorites %} hidden{% endif %}>{% translate "No favorites yet - search below and tap ☆ to add some." %}</p>
 
-  <h2>Add favorites</h2>
+  <h2>{% translate "Add favorites" %}</h2>
   <div class="fav-search">
-    <input class="form-control" type="search" id="favSearch" placeholder="Search Fineli and my foods" autocomplete="off" aria-label="Search foods to add to favorites">
+    <input class="form-control" type="search" id="favSearch" placeholder="{% translate 'Search Fineli and my foods' %}" autocomplete="off" aria-label="{% translate 'Search foods to add to favorites' %}">
   </div>
   <div class="fav-status" id="favStatus" aria-live="polite"></div>
   <div id="favResults"></div>
@@ -69,6 +70,20 @@
 
 {% block extra_js %}
 <script>
+const T = {
+  fineli: {% jstrans "Fineli" %},
+  ownFood: {% jstrans "Own food" %},
+  ownFoods: {% jstrans "My foods" %},
+  addLabel: {% jstrans "Add {name} to favorites" %},
+  removeLabel: {% jstrans "Remove {name} from favorites" %},
+  removed: {% jstrans "Removed from favorites" %},
+  added: {% jstrans "Added to favorites" %},
+  updateFailed: {% jstrans "Could not update favorites - try again." %},
+  searching: {% jstrans "Searching..." %},
+  nothing: {% jstrans 'Nothing matched "{query}".' %},
+  searchFailed: {% jstrans "Search failed - try again." %},
+  typeMore: {% jstrans "Type at least 2 characters" %},
+};
 // Favorites page: star/unstar through the favorites JSON API. Food names
 // are always inserted as text, never HTML.
 (function () {
@@ -126,10 +141,10 @@
     const on = favorites.has(key(kind, id));
     r.append(
       label,
-      el('span', {class: 'fav-badge'}, kind === 'fineli' ? 'Fineli' : 'My food'),
+      el('span', {class: 'fav-badge'}, kind === 'fineli' ? T.fineli : T.ownFood),
       el('button', {
         type: 'button', class: `star-btn${on ? ' on' : ''}`, 'aria-pressed': String(on),
-        'aria-label': `${on ? 'Remove' : 'Add'} ${name} ${on ? 'from' : 'to'} favorites`,
+        'aria-label': (on ? T.removeLabel : T.addLabel).replace('{name}', name),
       }, on ? '★' : '☆'),
     );
     return r;
@@ -139,7 +154,7 @@
     button.classList.toggle('on', on);
     button.textContent = on ? '★' : '☆';
     button.setAttribute('aria-pressed', String(on));
-    button.setAttribute('aria-label', `${on ? 'Remove' : 'Add'} ${name} ${on ? 'from' : 'to'} favorites`);
+    button.setAttribute('aria-label', (on ? T.removeLabel : T.addLabel).replace('{name}', name));
   }
 
   async function toggle(rowEl) {
@@ -159,16 +174,16 @@
         favorites.delete(key(kind, id));
         list.querySelector(`.fav-row[data-kind="${kind}"][data-id="${id}"]`)?.remove();
         results.querySelectorAll(`.fav-row[data-kind="${kind}"][data-id="${id}"] .star-btn`).forEach((b) => setStar(b, false, name));
-        showToast('Removed from favorites', 'info', 2500);
+        showToast(T.removed, 'info', 2500);
       } else {
         favorites.add(key(kind, id));
         list.prepend(row(kind, id, name, rowEl.querySelector('.fav-name small')?.textContent || ''));
         results.querySelectorAll(`.fav-row[data-kind="${kind}"][data-id="${id}"] .star-btn`).forEach((b) => setStar(b, true, name));
-        showToast('Added to favorites', 'success', 2500);
+        showToast(T.added, 'success', 2500);
       }
       empty.hidden = favorites.size > 0;
     } catch (err) {
-      showToast('Could not update favorites - try again.', 'error');
+      showToast(T.updateFailed, 'error');
     } finally {
       button.disabled = false;
     }
@@ -190,7 +205,7 @@
   async function search(query) {
     if (controller) controller.abort();
     controller = new AbortController();
-    status.textContent = 'Searching…';
+    status.textContent = T.searching;
     try {
       const q = encodeURIComponent(query);
       const [fineli, custom] = await Promise.all([
@@ -200,11 +215,11 @@
       results.replaceChildren();
       const own = (custom.results || []).map((f) => row('custom', f.id, f.name, f.brand, query));
       const fin = (fineli.results || []).map((f) => row('fineli', f.id, f.name, '', query));
-      group('My foods', own);
-      group('Fineli', fin);
-      status.textContent = own.length || fin.length ? '' : `Nothing matched "${query}".`;
+      group(T.ownFoods, own);
+      group(T.fineli, fin);
+      status.textContent = own.length || fin.length ? '' : T.nothing.replace('{query}', query);
     } catch (err) {
-      if (err.name !== 'AbortError') status.textContent = 'Search failed - try again.';
+      if (err.name !== 'AbortError') status.textContent = T.searchFailed;
     }
   }
 
@@ -214,7 +229,7 @@
     if (query.length < 2) {
       if (controller) controller.abort();
       results.replaceChildren();
-      status.textContent = query ? 'Type at least 2 characters' : '';
+      status.textContent = query ? T.typeMore : '';
       return;
     }
     timer = setTimeout(() => search(query), 250);

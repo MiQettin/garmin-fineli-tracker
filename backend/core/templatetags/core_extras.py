@@ -4,7 +4,11 @@ Custom template tags and filters for activity/interval data.
 Provides utility functions for calculating group statistics in lap/interval data.
 """
 
+import json
+
 from django import template
+from django.utils.safestring import mark_safe
+from django.utils.translation import gettext
 
 register = template.Library()
 
@@ -190,3 +194,26 @@ def get_item(dictionary, key):
     if dictionary is None:
         return None
     return dictionary.get(key)
+
+
+@register.filter
+def activity_type_label(code):
+    """Activity type in the app language: {{ activity.activity_type|activity_type_label }}."""
+    from activities.labels import activity_type_label as label
+    return label(code)
+
+
+@register.filter
+def step_type_label(code):
+    """Lap step type in the app language: {{ lap.step_type|step_type_label }}."""
+    from activities.labels import step_type_label as label
+    return label(code)
+
+
+@register.simple_tag
+def jstrans(text):
+    """A translated text as a JavaScript string literal, quotes included:
+    `const msg = {% jstrans "Search failed" %};`. Placeholders such as
+    {name} are left for the script to fill in. Safe inside <script>."""
+    literal = json.dumps(gettext(text))
+    return mark_safe(literal.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026"))

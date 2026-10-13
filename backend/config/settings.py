@@ -61,6 +61,8 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # The language chosen in Settings (English / Suomi) for every request.
+    'core.middleware.UserLanguageMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -127,7 +129,17 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'en'
+
+# Languages the user can choose in Settings (UserSettings.language).
+LANGUAGES = [
+    ('en', 'English'),
+    ('fi', 'Suomi'),
+]
+
+# HealthManager's own translations (locale/fi/LC_MESSAGES/django.po -> .mo,
+# compiled with `python manage.py compile_translations`).
+LOCALE_PATHS = [BASE_DIR / 'locale']
 
 # Local time: "today" in the diary and dashboard must follow the user's
 # clock - with UTC, food logged after midnight Finnish time landed on the

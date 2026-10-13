@@ -35,6 +35,10 @@ The Nutrition menu has four pages:
    ```
    Expected: about 4,238 foods. **If this prints 0, food search returns nothing.**
 
+## Language
+
+**Settings → Language** switches the whole app between English and Suomi. In Finnish, Fineli food names are always Finnish. In English, **Fineli food names** lets you choose Fineli's Finnish or English names; the names change everywhere (search, diary, recipes, favorites). Your own products and recipes keep the names you gave them. Portion unit names (e.g. *iso (kpl)* / *large piece*) follow the app language.
+
 ## Logging food
 
 1. Open **Nutrition → Diary**. Today is selected; change the day with the date picker or the previous/next buttons.
@@ -66,7 +70,7 @@ Every entry is stored in grams (or millilitres for per-100 ml products). The por
 | Product, values per 100 ml | ml, dl, l, plus **pakkaus** if it has a package size |
 | Recipe | grams, plus **annos** if it has a servings count |
 
-The server converts units to grams from the stored sizes, and the diary shows the entry as e.g. "2 × iso (kpl) · 300g". Fineli portion sizes come from `foodaddunit.csv` and are loaded by `import_fineli_csv`; a database imported before 2026-10-11 has none - re-run the import with `--update-existing`.
+The unit names above are the Finnish ones; in English they are shown as *small piece*, *package*, *serving* and so on. The server converts units to grams from the stored sizes, and the diary shows the entry as e.g. "2 × iso (kpl) · 300g". Fineli portion sizes come from `foodaddunit.csv` and are loaded by `import_fineli_csv`; a database imported before 2026-10-11 has none - re-run the import with `--update-existing`.
 
 Nutrient values are taken from the database when you log the food, so an entry always uses the food's current values. An entry keeps those values afterwards, even if the food or recipe changes later.
 

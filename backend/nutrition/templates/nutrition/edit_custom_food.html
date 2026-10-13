@@ -1,6 +1,7 @@
 {% extends "core/base.html" %}
+{% load i18n %}
 
-{% block title %}Edit Custom Food{% endblock %}
+{% block title %}{% translate "Edit product" %}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -26,7 +27,7 @@
 {% endblock %}
 
 {% block content %}
-<h1 style="margin-bottom:15px; font-size:1.3em;">Edit Custom Food</h1>
+<h1 style="margin-bottom:15px; font-size:1.3em;">{% translate "Edit product" %}</h1>
 
 <div class="card">
   <form method="post">
@@ -37,8 +38,8 @@
     </div>
 
     <div style="display:flex; gap:10px;">
-      <button type="submit" class="btn btn-success">✓ Save Changes</button>
-      <a href="{% url 'manage_custom_foods' %}" class="btn btn-secondary">✖ Cancel</a>
+      <button type="submit" class="btn btn-success">✓ {% translate "Save changes" %}</button>
+      <a href="{% url 'manage_custom_foods' %}" class="btn btn-secondary">✖ {% translate "Cancel" %}</a>
     </div>
   </form>
 </div>

@@ -29,6 +29,9 @@ HealthManager is a privacy-focused Django web application that helps you:
 - **Favorites, Recent, Frequent**, manual entries, editing entries, and **bulk import** of Fineli diary CSV exports.
 - Unknown nutrient values stay unknown - never counted as zero.
 
+### Language
+- English or Finnish UI (Settings → Language). Fineli food names in Finnish, or in English when the UI is English. Metric units.
+
 ### Dashboard
 - Last 7 completed days: intake vs Garmin expenditure, average daily balance against your goal (preset or custom kcal/day), colored green → yellow → red by your warning thresholds.
 - Macro goals and energy shares, logged-day coverage, and a Daily Breakdown of all 7 days compared with the 7-day average.
@@ -267,7 +270,7 @@ garmin-fineli-tracker/
 The full model reference, the rules the code relies on, and how to back up, inspect and restore the database are in [docs/database_guide.md](docs/database_guide.md). In short:
 
 - **`DailyLog`** - one row per day: Garmin expenditure (`calories_out`, active/BMR kcal), steps, distance, intensity minutes, heart rate; plus cached nutrition totals.
-- **`UserSettings`** - one shared settings row: body data, activity level, fitness goal (preset or custom), warning thresholds, Garmin calorie adjustment, macro goals.
+- **`UserSettings`** - one shared settings row: body data, activity level, fitness goal (preset or custom), warning thresholds, Garmin calorie adjustment, macro goals, app language and Fineli name language.
 - **Nutrition** - `FineliFood` (+ micronutrients and portion sizes), `CustomFood` (your products and recipes, with ingredients), `MealEntry` (one diary entry, values stored for the portion), `FavoriteFood`.
 - **Garmin** - `Activity`, `ActivityLap`, and the health tables `DailyHealth`, `SleepSummary`, `HrvSummary`.
 

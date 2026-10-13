@@ -1,6 +1,7 @@
 {% extends "core/base.html" %}
+{% load i18n l10n core_extras %}
 
-{% block title %}Settings - HealthManager{% endblock %}
+{% block title %}{% translate "Settings" %} - HealthManager{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -33,7 +34,7 @@
 
 {% block content %}
   <div class="card">
-    <h1>Settings</h1>
+    <h1>{% translate "Settings" %}</h1>
 
     {% if message %}
       <div class="alert alert-success">
@@ -43,145 +44,168 @@
 
     <form method="post" id="settingsForm">
       {% csrf_token %}
+      {% if form.errors %}
+        <div class="alert alert-danger" role="alert">
+          <strong>{% translate "Settings were not saved. Check these fields:" %}</strong>
+          <ul class="mb-0">
+            {% for field in form %}{% for error in field.errors %}<li>{{ field.label }}: {{ error }}</li>{% endfor %}{% endfor %}
+            {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <div class="form-section">
+        <h3>🌐 Language / Kieli</h3>
+        <label for="id_language">
+          App language / Sovelluksen kieli:
+          {{ form.language }}
+          <small>The whole app - menus, pages, messages and dates. / Koko sovellus: valikot, sivut, ilmoitukset ja päivämäärät.</small>
+        </label>
+        <label for="id_food_language" id="foodLanguage">
+          {% translate "Fineli food names:" %}
+          {{ form.food_language }}
+          <small>{% translate "In English you can keep the Finnish food database or use Fineli's English names. In Finnish, food names are always Finnish." %}</small>
+        </label>
+      </div>
       
       <div class="form-section">
-        <h3>👤 Physical Data</h3>
+        <h3>👤 {% translate "Physical data" %}</h3>
         <label for="id_weight_kg">
-          Weight (kg):
-          <input class="form-control" type="number" name="weight_kg" value="{{ form.weight_kg.value|default:'' }}" id="id_weight_kg" step="0.1" min="30" max="300">
-          <small>Your current weight in kilograms</small>
+          {% translate "Weight (kg):" %}
+          <input class="form-control" type="number" name="weight_kg" value="{{ form.weight_kg.value|default:''|unlocalize }}" id="id_weight_kg" step="0.1" min="30" max="300">
+          <small>{% translate "Your current weight in kilograms" %}</small>
         </label>
 
         <label for="id_height_cm">
-          Height (cm):
-          <input class="form-control" type="number" name="height_cm" value="{{ form.height_cm.value|default:'' }}" id="id_height_cm" step="0.1" min="100" max="250">
-          <small>Your height in centimeters</small>
+          {% translate "Height (cm):" %}
+          <input class="form-control" type="number" name="height_cm" value="{{ form.height_cm.value|default:''|unlocalize }}" id="id_height_cm" step="0.1" min="100" max="250">
+          <small>{% translate "Your height in centimetres" %}</small>
         </label>
 
         <label for="id_age">
-          Age:
-          <input class="form-control" type="number" name="age" value="{{ form.age.value|default:'' }}" id="id_age" min="10" max="120">
-          <small>Your age in years</small>
+          {% translate "Age:" %}
+          <input class="form-control" type="number" name="age" value="{{ form.age.value|default:''|unlocalize }}" id="id_age" min="10" max="120">
+          <small>{% translate "Your age in years" %}</small>
         </label>
 
         <label for="id_sex">
-          Sex:
+          {% translate "Sex:" %}
           <select class="form-select" name="sex" id="id_sex">
             <option value="">---------</option>
-            <option value="M" {% if form.sex.value == 'M' %}selected{% endif %}>Male</option>
-            <option value="F" {% if form.sex.value == 'F' %}selected{% endif %}>Female</option>
+            <option value="M" {% if form.sex.value == 'M' %}selected{% endif %}>{% translate "Male" %}</option>
+            <option value="F" {% if form.sex.value == 'F' %}selected{% endif %}>{% translate "Female" %}</option>
           </select>
-          <small>Biological sex for metabolic calculations</small>
+          <small>{% translate "Biological sex for metabolic calculations" %}</small>
         </label>
 
         <label for="id_activity_level">
-          Activity Level:
+          {% translate "Activity level:" %}
           <select class="form-select" name="activity_level" id="id_activity_level">
             {% for val, label in form.fields.activity_level.choices %}
-              <option value="{{ val }}" {% if form.activity_level.value == val %}selected{% endif %}>{{ label }}</option>
+              <option value="{{ val|unlocalize }}" {% if form.activity_level.value|unlocalize == val|unlocalize %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
-          <small>Your typical weekly activity level</small>
+          <small>{% translate "Your typical weekly activity level" %}</small>
         </label>
 
         <label for="id_fitness_goal">
-          Fitness Goal:
+          {% translate "Fitness goal:" %}
           <select class="form-select" name="fitness_goal" id="id_fitness_goal" onchange="toggleCustomGoal()">
             {% for val, label in form.fields.fitness_goal.choices %}
               <option value="{{ val }}" {% if form.fitness_goal.value == val %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
-          <small>Your current fitness objective</small>
+          <small>{% translate "Your current fitness objective" %}</small>
         </label>
 
         <label for="id_custom_goal_kcal" id="customGoal">
-          Custom Goal (kcal/day):
-          <input class="form-control" type="number" name="custom_goal_kcal" value="{{ form.custom_goal_kcal.value|default_if_none:'' }}" id="id_custom_goal_kcal" min="-2000" max="2000" step="1" placeholder="e.g. 100 or -350">
-          <small>Your own daily energy balance target. Positive for a surplus, negative for a deficit.</small>
+          {% translate "Custom goal (kcal/day):" %}
+          <input class="form-control" type="number" name="custom_goal_kcal" value="{{ form.custom_goal_kcal.value|default_if_none:''|unlocalize }}" id="id_custom_goal_kcal" min="-2000" max="2000" step="1" placeholder="{% translate 'e.g. 100 or -350' %}">
+          <small>{% translate "Your own daily energy balance target. Positive for a surplus, negative for a deficit." %}</small>
           {% for error in form.custom_goal_kcal.errors %}<small style="color: var(--error);">{{ error }}</small>{% endfor %}
         </label>
       </div>
 
       <div class="form-section">
-        <h3>Warning Thresholds</h3>
+        <h3>{% translate "Warning thresholds" %}</h3>
         <label class="checkbox-label" for="id_use_auto_thresholds">
           <input type="checkbox" name="use_auto_thresholds" id="id_use_auto_thresholds" {% if form.use_auto_thresholds.value %}checked{% endif %} onchange="toggleCustomThresholds()">
-          Use automatic thresholds based on fitness goal
-          <small>When enabled, warnings are calculated from your selected goal above</small>
+          {% translate "Use automatic thresholds based on fitness goal" %}
+          <small>{% translate "When enabled, warnings are calculated from your selected goal above" %}</small>
         </label>
 
         <div id="customThresholds">
           <label for="id_max_daily_deficit">
-            Warning Threshold (kcal below goal):
-            <input class="form-control" type="number" name="max_daily_deficit" value="{{ form.max_daily_deficit.value }}" id="id_max_daily_deficit" min="0" max="2000" step="1">
-            <small>Used when automatic thresholds are disabled. The severe-warning threshold is twice this value.</small>
+            {% translate "Warning threshold (kcal below goal):" %}
+            <input class="form-control" type="number" name="max_daily_deficit" value="{{ form.max_daily_deficit.value|unlocalize }}" id="id_max_daily_deficit" min="0" max="2000" step="1">
+            <small>{% translate "Used when automatic thresholds are disabled. The alert threshold is twice this value." %}</small>
           </label>
         </div>
 
         <label for="id_garmin_calorie_adjustment">
-          Garmin Calorie Adjustment (kcal/day):
-          <input class="form-control" type="number" name="garmin_calorie_adjustment" value="{{ form.garmin_calorie_adjustment.value }}" id="id_garmin_calorie_adjustment" min="-5000" max="5000" step="1">
-          <small>Added to Garmin's daily expenditure. Use a negative value when Garmin overestimates and a positive value when it underestimates.</small>
+          {% translate "Garmin calorie adjustment (kcal/day):" %}
+          <input class="form-control" type="number" name="garmin_calorie_adjustment" value="{{ form.garmin_calorie_adjustment.value|unlocalize }}" id="id_garmin_calorie_adjustment" min="-5000" max="5000" step="1">
+          <small>{% translate "Added to Garmin's daily expenditure. Use a negative value when Garmin overestimates and a positive value when it underestimates." %}</small>
         </label>
         
         <!-- Hidden fields to preserve values -->
-        <input type="hidden" name="min_daily_calories" value="{{ form.min_daily_calories.value }}">
-        <input type="hidden" name="max_daily_calories" value="{{ form.max_daily_calories.value }}">
+        <input type="hidden" name="min_daily_calories" value="{{ form.min_daily_calories.value|unlocalize }}">
+        <input type="hidden" name="max_daily_calories" value="{{ form.max_daily_calories.value|unlocalize }}">
       </div>
 
       <div class="form-section">
-        <h3>Macro Goals</h3>
+        <h3>{% translate "Macro goals" %}</h3>
         {% if target_calories %}
         <div style="margin-bottom: 15px; color: var(--gray-600);">
-          Target: <strong>{{ target_calories|floatformat:0 }}</strong> kcal/day
+          {% translate "Target:" %} <strong>{{ target_calories|floatformat:0 }}</strong> {% translate "kcal/day" %}
         </div>
         {% endif %}
         <div class="macro-box">
           <div class="macro-grid">
             <div class="macro-item">
-              <label>Protein</label>
+              <label>{% translate "Protein" %}</label>
               <input class="form-control" type="number" id="protein_pct_input" step="1" min="0" max="100" oninput="adjustCarbs('protein')">
               <span class="unit">%</span>
               <div class="macro-grams" id="protein_grams">-- g</div>
-              <input type="hidden" name="protein_goal_g" id="id_protein_goal_g" value="{{ form.protein_goal_g.value }}">
+              <input type="hidden" name="protein_goal_g" id="id_protein_goal_g" value="{{ form.protein_goal_g.value|unlocalize }}">
             </div>
             <div class="macro-item">
-              <label>Carbs</label>
+              <label>{% translate "Carbs" %}</label>
               <input class="form-control" type="number" id="carbs_pct_input" step="1" min="0" max="100" oninput="recalcGrams()">
               <span class="unit">%</span>
               <div class="macro-grams" id="carbs_grams">-- g</div>
-              <input type="hidden" name="carbs_goal_g" id="id_carbs_goal_g" value="{{ form.carbs_goal_g.value }}">
+              <input type="hidden" name="carbs_goal_g" id="id_carbs_goal_g" value="{{ form.carbs_goal_g.value|unlocalize }}">
             </div>
             <div class="macro-item">
-              <label>Fat</label>
+              <label>{% translate "Fat" %}</label>
               <input class="form-control" type="number" id="fat_pct_input" step="1" min="0" max="100" oninput="adjustCarbs('fat')">
               <span class="unit">%</span>
               <div class="macro-grams" id="fat_grams">-- g</div>
-              <input type="hidden" name="fat_goal_g" id="id_fat_goal_g" value="{{ form.fat_goal_g.value }}">
+              <input type="hidden" name="fat_goal_g" id="id_fat_goal_g" value="{{ form.fat_goal_g.value|unlocalize }}">
             </div>
           </div>
-          <div class="macro-total" id="macro_total">Total: 100%</div>
+          <div class="macro-total" id="macro_total">{% translate "Total" %}: 100%</div>
         </div>
       </div>
 
       <div class="form-section">
-        <h3>📅 Display Preferences</h3>
+        <h3>📅 {% translate "Display preferences" %}</h3>
         <label for="id_week_start_day">
-          Week Starts On:
+          {% translate "Week starts on:" %}
           <select class="form-select" name="week_start_day" required id="id_week_start_day">
-            <option value="0" {% if form.week_start_day.value == 0 %}selected{% endif %}>Monday</option>
-            <option value="6" {% if form.week_start_day.value == 6 %}selected{% endif %}>Sunday</option>
+            <option value="0" {% if form.week_start_day.value == 0 %}selected{% endif %}>{% translate "Monday" %}</option>
+            <option value="6" {% if form.week_start_day.value == 6 %}selected{% endif %}>{% translate "Sunday" %}</option>
           </select>
-          <small>First day of the week for weekly summaries</small>
+          <small>{% translate "First day of the week for weekly summaries" %}</small>
         </label>
       </div>
 
-      <button type="submit" class="btn btn-success">💾 Save Settings</button>
+      <button type="submit" class="btn btn-success">💾 {% translate "Save settings" %}</button>
     </form>
   </div>
   
   <script>
-    const TARGET_CALORIES = {{ target_calories|default:2000 }};
+    const TARGET_CALORIES = {{ target_calories|default:2000|unlocalize }};
     const CAL_PER_GRAM = { protein: 4, carbs: 4, fat: 9 };
     
     // Calculate grams from percentage
@@ -218,7 +242,7 @@
       // Update total display
       const total = proteinPct + carbsPct + fatPct;
       const totalEl = document.getElementById('macro_total');
-      totalEl.textContent = 'Total: ' + total + '%';
+      totalEl.textContent = {% jstrans "Total" %} + ': ' + total + '%';
       totalEl.className = 'macro-total ' + (total === 100 ? 'valid' : 'warning');
     }
     
@@ -253,6 +277,11 @@
       document.getElementById('id_custom_goal_kcal').required = isCustom;
     }
 
+    function toggleFoodLanguage() {
+      const english = document.getElementById('id_language').value === 'en';
+      document.getElementById('foodLanguage').style.display = english ? '' : 'none';
+    }
+
     function toggleCustomThresholds() {
       const autoCheckbox = document.getElementById('id_use_auto_thresholds');
       const customSection = document.getElementById('customThresholds');
@@ -264,6 +293,8 @@
       initFromGrams();
       toggleCustomGoal();
       toggleCustomThresholds();
+      toggleFoodLanguage();
+      document.getElementById('id_language').addEventListener('change', toggleFoodLanguage);
     });
   </script>
 {% endblock %}

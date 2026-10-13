@@ -1,6 +1,7 @@
 {% extends 'core/base.html' %}
+{% load i18n %}
 
-{% block title %}Activities - HealthManager{% endblock %}
+{% block title %}{% translate "Activities" %} - HealthManager{% endblock %}
 
 {% block content %}
 <style>
@@ -141,23 +142,23 @@
 </style>
 
 <div class="activities-header">
-  <h1>🏃 Activities</h1>
+  <h1>🏃 {% translate "Activities" %}</h1>
   <div class="filter-tabs">
     <button class="filter-tab {% if activity_type == 'running' %}active{% endif %}" 
             onclick="window.location.href='?type=running'">
-      🏃 Running
+      🏃 {% translate "Running" %}
     </button>
     <button class="filter-tab {% if activity_type == 'walking' %}active{% endif %}"
             onclick="window.location.href='?type=walking'">
-      🚶 Walking
+      🚶 {% translate "Walking" %}
     </button>
     <button class="filter-tab {% if activity_type == 'dancing' %}active{% endif %}"
             onclick="window.location.href='?type=dancing'">
-      💃 Dancing
+      💃 {% translate "Dancing" %}
     </button>
     <button class="filter-tab {% if activity_type == 'strength' %}active{% endif %}"
             onclick="window.location.href='?type=strength'">
-      💪 Strength
+      💪 {% translate "Strength" %}
     </button>
   </div>
 </div>
@@ -165,85 +166,85 @@
 {% if stats.total_count %}
 <div class="stats-grid">
   <div class="stat-card">
-    <h3>Total Activities</h3>
-    <div class="stat-value">{{ stats.total_count }}<span class="stat-unit">workouts</span></div>
+    <h3>{% translate "Total activities" %}</h3>
+    <div class="stat-value">{{ stats.total_count }}<span class="stat-unit">{% translate "workouts" %}</span></div>
   </div>
   <div class="stat-card">
-    <h3>Total Distance</h3>
+    <h3>{% translate "Total distance" %}</h3>
     <div class="stat-value">{{ stats.total_distance|floatformat:1 }}<span class="stat-unit">km</span></div>
   </div>
   <div class="stat-card">
-    <h3>Total Time</h3>
+    <h3>{% translate "Total time" %}</h3>
     <div class="stat-value">{{ stats.total_duration|floatformat:0 }}<span class="stat-unit">min</span></div>
   </div>
   <div class="stat-card">
-    <h3>Avg Distance</h3>
+    <h3>{% translate "Avg distance" %}</h3>
     <div class="stat-value">{{ stats.avg_distance|floatformat:1 }}<span class="stat-unit">km</span></div>
   </div>
   <div class="stat-card">
-    <h3>Avg Pace</h3>
+    <h3>{% translate "Avg pace" %}</h3>
     <div class="stat-value">{{ stats.avg_pace|floatformat:2 }}<span class="stat-unit">min/km</span></div>
   </div>
   <div class="stat-card">
-    <h3>Avg Heart Rate</h3>
+    <h3>{% translate "Avg heart rate" %}</h3>
     <div class="stat-value">{{ stats.avg_hr|floatformat:0 }}<span class="stat-unit">bpm</span></div>
   </div>
 </div>
 
 <div class="activities-list">
-  <h2>Recent Activities (Last 30)</h2>
+  <h2>{% translate "Recent activities (last 30)" %}</h2>
   {% for activity in activities %}
   <div class="activity-item" onclick="window.location.href='{% url 'activity_detail' activity.id %}'">
     <div class="activity-header">
       <div>
-        <div class="activity-name">{{ activity.name|default:"Untitled Activity" }}</div>
-        <div class="activity-date">{{ activity.date|date:"d-m-Y" }} at {{ activity.start_time|date:"H:i" }}</div>
+        <div class="activity-name">{% if activity.name %}{{ activity.name }}{% else %}{% translate "Untitled activity" %}{% endif %}</div>
+        <div class="activity-date">{% blocktranslate with date=activity.date|date:"d.m.Y" time=activity.start_time|date:"H:i" %}{{ date }} at {{ time }}{% endblocktranslate %}</div>
       </div>
     </div>
     <div class="activity-details">
       <div class="activity-detail">
-        <span class="activity-detail-label">Duration</span>
+        <span class="activity-detail-label">{% translate "Duration" %}</span>
         <span class="activity-detail-value">{{ activity.duration_minutes|floatformat:1 }} min</span>
       </div>
       {% if activity.distance_km %}
       <div class="activity-detail">
-        <span class="activity-detail-label">Distance</span>
+        <span class="activity-detail-label">{% translate "Distance" %}</span>
         <span class="activity-detail-value">{{ activity.distance_km|floatformat:2 }} km</span>
       </div>
       {% endif %}
       {% if activity.pace_min_per_km %}
       <div class="activity-detail">
-        <span class="activity-detail-label">Avg Pace</span>
+        <span class="activity-detail-label">{% translate "Avg pace" %}</span>
         <span class="activity-detail-value">{{ activity.pace_min_per_km|floatformat:2 }} min/km</span>
       </div>
       {% endif %}
       {% if activity.avg_hr %}
       <div class="activity-detail">
-        <span class="activity-detail-label">Avg HR</span>
+        <span class="activity-detail-label">{% translate "Avg HR" %}</span>
         <span class="activity-detail-value">{{ activity.avg_hr }} bpm</span>
       </div>
       {% endif %}
       {% if activity.max_hr %}
       <div class="activity-detail">
-        <span class="activity-detail-label">Max HR</span>
+        <span class="activity-detail-label">{% translate "Max HR" %}</span>
         <span class="activity-detail-value">{{ activity.max_hr }} bpm</span>
       </div>
       {% endif %}
       {% if activity.calories %}
       <div class="activity-detail">
-        <span class="activity-detail-label">Calories</span>
+        <span class="activity-detail-label">{% translate "Calories" %}</span>
         <span class="activity-detail-value">{{ activity.calories }} kcal</span>
       </div>
       {% endif %}
       {% if activity.elevation_gain %}
       <div class="activity-detail">
-        <span class="activity-detail-label">Elevation Gain</span>
+        <span class="activity-detail-label">{% translate "Elevation gain" %}</span>
         <span class="activity-detail-value">{{ activity.elevation_gain|floatformat:0 }} m</span>
       </div>
       {% endif %}
       {% if activity.avg_cadence %}
       <div class="activity-detail">
-        <span class="activity-detail-label">Avg Cadence</span>
+        <span class="activity-detail-label">{% translate "Avg cadence" %}</span>
         <span class="activity-detail-value">{{ activity.avg_cadence|floatformat:0 }} spm</span>
       </div>
       {% endif %}
@@ -254,8 +255,8 @@
 {% else %}
 <div class="empty-state">
   <div class="empty-state-icon">🏃</div>
-  <h2>No {{ activity_type }} activities found</h2>
-  <p>Import Garmin data to see your activities here</p>
+  <h2>{% translate "No activities found" %}</h2>
+  <p>{% translate "Sync your Garmin data to see your activities here." %}</p>
 </div>
 {% endif %}
 

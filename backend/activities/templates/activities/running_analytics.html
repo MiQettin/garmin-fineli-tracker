@@ -1,6 +1,7 @@
 {% extends "core/base.html" %}
+{% load i18n core_extras %}
 
-{% block title %}Running Analytics - HealthManager{% endblock %}
+{% block title %}{% translate "Running analytics" %} - HealthManager{% endblock %}
 
 {% block content %}
 <style>
@@ -334,33 +335,33 @@
 
 <div class="analytics-container">
   <div class="page-header">
-    <h1>📊 Running Performance Analytics</h1>
-    <p>Track your running interval progress over time (excludes warm-ups, cool-downs & walks)</p>
+    <h1>📊 {% translate "Running performance analytics" %}</h1>
+    <p>{% translate "Track your running interval progress over time (excludes warm-ups, cool-downs and walks)" %}</p>
   </div>
   
   <!-- Filter Section -->
   <div class="filter-section">
     <div class="filter-tabs">
-      <a href="{% url 'running_analytics' %}{{ workout_filter_urls.all }}" class="filter-tab {% if not workout_type and not search_query %}active{% endif %}">All</a>
-      <a href="{% url 'running_analytics' %}{{ workout_filter_urls.vk }}" class="filter-tab {% if workout_type == 'vk' %}active{% endif %}">🔥 VK (Intervals)</a>
-      <a href="{% url 'running_analytics' %}{{ workout_filter_urls.pk }}" class="filter-tab {% if workout_type == 'pk' %}active{% endif %}">💪 PK (Base)</a>
-      <a href="{% url 'running_analytics' %}{{ workout_filter_urls.pitka }}" class="filter-tab {% if workout_type == 'pitka' %}active{% endif %}">🏃 Pitkä (Long)</a>
+      <a href="{% url 'running_analytics' %}{{ workout_filter_urls.all }}" class="filter-tab {% if not workout_type and not search_query %}active{% endif %}">{% translate "All" %}</a>
+      <a href="{% url 'running_analytics' %}{{ workout_filter_urls.vk }}" class="filter-tab {% if workout_type == 'vk' %}active{% endif %}">🔥 VK ({% translate 'Intervals' %})</a>
+      <a href="{% url 'running_analytics' %}{{ workout_filter_urls.pk }}" class="filter-tab {% if workout_type == 'pk' %}active{% endif %}">💪 PK ({% translate 'Base' %})</a>
+      <a href="{% url 'running_analytics' %}{{ workout_filter_urls.pitka }}" class="filter-tab {% if workout_type == 'pitka' %}active{% endif %}">🏃 Pitkä ({% translate 'Long' %})</a>
     </div>
-    <div class="lap-filter-tabs" aria-label="Lap filters">
-      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.intervals }}" class="filter-tab {% if include_intervals %}active{% endif %}">Intervals</a>
-      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.warmup }}" class="filter-tab {% if include_warmup %}active{% endif %}">Warm-up</a>
-      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.cooldown }}" class="filter-tab {% if include_cooldown %}active{% endif %}">Cool-down</a>
+    <div class="lap-filter-tabs" aria-label="{% translate 'Lap filters' %}">
+      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.intervals }}" class="filter-tab {% if include_intervals %}active{% endif %}">{% translate "Intervals" %}</a>
+      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.warmup }}" class="filter-tab {% if include_warmup %}active{% endif %}">{{ "warmup"|step_type_label }}</a>
+      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.cooldown }}" class="filter-tab {% if include_cooldown %}active{% endif %}">{{ "cooldown"|step_type_label }}</a>
     </div>
     <form class="search-form" method="get" action="{% url 'running_analytics' %}">
-      <input type="text" name="q" value="{{ search_query }}" placeholder="Search workout names...">
+      <input type="text" name="q" value="{{ search_query }}" placeholder="{% translate 'Search workout names...' %}">
       <input type="hidden" name="intervals" value="{% if include_intervals %}1{% else %}0{% endif %}">
       <input type="hidden" name="warmup" value="{% if include_warmup %}1{% else %}0{% endif %}">
       <input type="hidden" name="cooldown" value="{% if include_cooldown %}1{% else %}0{% endif %}">
       <input type="hidden" name="type" value="{{ workout_type }}">
-      <button type="submit">🔍 Search</button>
+      <button type="submit">🔍 {% translate "Search" %}</button>
     </form>
     {% if workout_type or search_query or include_warmup or include_cooldown or not include_intervals %}
-    <a href="{% url 'running_analytics' %}" class="clear-filter">✕ Clear filter</a>
+    <a href="{% url 'running_analytics' %}" class="clear-filter">✕ {% translate "Clear filter" %}</a>
     {% endif %}
   </div>
   
@@ -370,49 +371,49 @@
     <div class="stat-card">
       <div class="stat-icon">🏃</div>
       <div class="stat-value">{{ overall_stats.total_workouts }}</div>
-      <div class="stat-label">Run Workouts</div>
+      <div class="stat-label">{% translate "Run workouts" %}</div>
     </div>
     
     <div class="stat-card">
       <div class="stat-icon">⚡</div>
       <div class="stat-value">{{ overall_stats.total_intervals }}</div>
-      <div class="stat-label">Total Work Laps</div>
+      <div class="stat-label">{% translate "Total work laps" %}</div>
     </div>
     
     <div class="stat-card highlight">
       <div class="stat-icon">🏆</div>
       <div class="stat-value">{{ overall_stats.best_avg_pace_formatted }}/km</div>
-      <div class="stat-label">Best Avg Pace</div>
+      <div class="stat-label">{% translate "Best avg pace" %}</div>
     </div>
     
     <div class="stat-card">
       <div class="stat-icon">⏱️</div>
       <div class="stat-value">{{ overall_stats.avg_pace_formatted }}/km</div>
-      <div class="stat-label">Overall Avg Pace</div>
+      <div class="stat-label">{% translate "Overall avg pace" %}</div>
     </div>
     
     <div class="stat-card">
       <div class="stat-icon">❤️</div>
       <div class="stat-value">{{ overall_stats.avg_hr|default:"-" }}</div>
-      <div class="stat-label">Avg Heart Rate</div>
+      <div class="stat-label">{% translate "Avg heart rate" %}</div>
     </div>
     
     <div class="stat-card">
       <div class="stat-icon">📏</div>
       <div class="stat-value">{{ overall_stats.total_distance|floatformat:2 }}</div>
-      <div class="stat-label">Total km (intervals)</div>
+      <div class="stat-label">{% translate "Total km (intervals)" %}</div>
     </div>
   </div>
   
   <!-- Charts Section -->
   <div class="chart-section">
-    <h2>📈 Progress Over Time</h2>
+    <h2>📈 {% translate "Progress over time" %}</h2>
     
     <div class="chart-tabs">
-      <button class="chart-tab active" data-type="pace" onclick="showChart('pace', this)">Pace</button>
-      <button class="chart-tab" data-type="hr" onclick="showChart('hr', this)">Heart Rate</button>
-      <button class="chart-tab" data-type="distance" onclick="showChart('distance', this)">Distance</button>
-      <button class="chart-tab" data-type="intervals" onclick="showChart('intervals', this)">Work Laps</button>
+      <button class="chart-tab active" data-type="pace" onclick="showChart('pace', this)">{% translate "Pace" %}</button>
+      <button class="chart-tab" data-type="hr" onclick="showChart('hr', this)">{% translate "Heart rate" %}</button>
+      <button class="chart-tab" data-type="distance" onclick="showChart('distance', this)">{% translate "Distance" %}</button>
+      <button class="chart-tab" data-type="intervals" onclick="showChart('intervals', this)">{% translate "Work laps" %}</button>
     </div>
     
     <div class="chart-container">
@@ -422,20 +423,20 @@
   
   <!-- Workout History Table -->
   <div class="workouts-section">
-    <h2>📋 Workout History</h2>
+    <h2>📋 {% translate "Workout history" %}</h2>
     
     <div class="table-responsive">
     <table class="workouts-table">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Workout</th>
-          <th>Work Laps</th>
-          <th>Avg Pace</th>
-          <th>Best Pace</th>
-          <th>Avg HR</th>
-          <th>Distance</th>
-          <th>Time</th>
+          <th>{% translate "Date" %}</th>
+          <th>{% translate "Workout" %}</th>
+          <th>{% translate "Work laps" %}</th>
+          <th>{% translate "Avg pace" %}</th>
+          <th>{% translate "Best pace" %}</th>
+          <th>{% translate "Avg HR" %}</th>
+          <th>{% translate "Distance" %}</th>
+          <th>{% translate "Time" %}</th>
         </tr>
       </thead>
       <tbody>
@@ -463,19 +464,19 @@
   {% else %}
   <div class="empty-state">
     {% if workout_type or search_query %}
-    <h3>No Matching Workouts</h3>
-    <p>No running workouts found matching your filter{% if search_query %}: "{{ search_query }}"{% endif %}{% if workout_type %} ({{ workout_type|upper }}){% endif %}.</p>
+    <h3>{% translate "No matching workouts" %}</h3>
+    <p>{% translate "No running workouts found matching your filter" %}{% if search_query %}: "{{ search_query }}"{% endif %}{% if workout_type %} ({{ workout_type|upper }}){% endif %}.</p>
     <p style="margin-top: 20px;">
       <a href="{% url 'running_analytics' %}" style="color: var(--primary);">
-        ← Clear filters and show all
+        ← {% translate "Clear filters and show all" %}
       </a>
     </p>
     {% else %}
-    <h3>No Running Data Yet</h3>
-    <p>Import your Garmin activities to see your running performance analytics.</p>
+    <h3>{% translate "No running data yet" %}</h3>
+    <p>{% translate "Sync your Garmin activities to see your running performance analytics." %}</p>
     <p style="margin-top: 20px;">
       <a href="{% url 'activities' %}?type=running" style="color: var(--primary);">
-        Go to Activities →
+        {% translate "Go to activities" %} →
       </a>
     </p>
     {% endif %}
@@ -491,14 +492,14 @@
   // Chart configuration
   const chartConfigs = {
     pace: {
-      label: 'Average Pace (min/km)',
+      label: {% jstrans "Average pace (min/km)" %},
       data: chartData.pace_data,
       borderColor: '#2563eb',
       backgroundColor: 'rgba(37, 99, 235, 0.1)',
-      yAxisLabel: 'Pace (min/km)',
+      yAxisLabel: {% jstrans "Pace (min/km)" %},
       reverse: true,  // Lower pace is better
       secondDataset: {
-        label: 'Best Work Lap Pace',
+        label: {% jstrans "Best work lap pace" %},
         data: chartData.best_pace_data,
         borderColor: '#059669',
         backgroundColor: 'rgba(5, 150, 105, 0.1)',
@@ -506,27 +507,27 @@
       }
     },
     hr: {
-      label: 'Average Heart Rate (bpm)',
+      label: {% jstrans "Average heart rate (bpm)" %},
       data: chartData.hr_data,
       borderColor: '#dc2626',
       backgroundColor: 'rgba(220, 38, 38, 0.1)',
-      yAxisLabel: 'Heart Rate (bpm)',
+      yAxisLabel: {% jstrans "Heart rate (bpm)" %},
       reverse: false
     },
     distance: {
-      label: 'Total Interval Distance (km)',
+      label: {% jstrans "Total interval distance (km)" %},
       data: chartData.distance_data,
       borderColor: '#7c3aed',
       backgroundColor: 'rgba(124, 58, 237, 0.1)',
-      yAxisLabel: 'Distance (km)',
+      yAxisLabel: {% jstrans "Distance (km)" %},
       reverse: false
     },
     intervals: {
-      label: 'Work Laps',
+      label: {% jstrans "Work laps" %},
       data: chartData.interval_count_data,
       borderColor: '#0891b2',
       backgroundColor: 'rgba(8, 145, 178, 0.1)',
-      yAxisLabel: 'Work Laps',
+      yAxisLabel: {% jstrans "Work laps" %},
       reverse: false
     }
   };
@@ -645,7 +646,7 @@
           x: {
             title: {
               display: true,
-              text: 'Date'
+              text: {% jstrans "Date" %}
             }
           }
         },
@@ -665,7 +666,7 @@
       showChart('pace', null);
     } else {
       console.log('No chart data available');
-      document.querySelector('.chart-container').innerHTML = '<p style="text-align: center; color: var(--gray-500); padding: 40px;">No interval data to display</p>';
+      document.querySelector('.chart-container').innerHTML = '<p style="text-align: center; color: var(--gray-500); padding: 40px;">' + {% jstrans "No interval data to display" %} + '</p>';
     }
   });
 </script>

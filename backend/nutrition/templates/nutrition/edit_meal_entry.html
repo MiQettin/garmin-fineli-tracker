@@ -1,6 +1,7 @@
 {% extends "core/base.html" %}
+{% load i18n %}
 
-{% block title %}Edit {{ entry.food_name }} - HealthManager{% endblock %}
+{% block title %}{% translate "Edit" %} - {{ entry.food_name }} - HealthManager{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -28,41 +29,41 @@
 {% block content %}
 <div class="card entry-edit">
   <h1>✏️ {{ entry.food_name }}</h1>
-  <div class="entry-sub">{{ entry.daily_log.date|date:"D d.m.Y" }}{% if entry.get_source_type_display %} &middot; {{ entry.get_source_type_display }}{% endif %}</div>
+  <div class="entry-sub">{{ entry.daily_log.date|date:"D d.m.Y" }}{% if source_label %} &middot; {{ source_label }}{% endif %}</div>
 
   <form method="post">
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="errorlist">{{ form.non_field_errors }}</div>{% endif %}
     <div class="edit-grid">
-      <label class="wide">Food name{{ form.food_name }}{{ form.food_name.errors }}</label>
-      <label class="wide">Meal{{ form.meal_type }}{{ form.meal_type.errors }}</label>
+      <label class="wide">{% translate "Food name" %}{{ form.food_name }}{{ form.food_name.errors }}</label>
+      <label class="wide">{% translate "Meal" %}{{ form.meal_type }}{{ form.meal_type.errors }}</label>
       {% if unit_label %}
-      <label>Amount (× {{ unit_label }}){{ form.portion_amount }}{{ form.portion_amount.errors }}</label>
+      <label>{% blocktranslate %}Amount (× {{ unit_label }}){% endblocktranslate %}{{ form.portion_amount }}{{ form.portion_amount.errors }}</label>
       {% endif %}
-      <label{% if not unit_label %} class="wide"{% endif %}>Grams{{ form.portion_grams }}{{ form.portion_grams.errors }}</label>
+      <label{% if not unit_label %} class="wide"{% endif %}>{% translate "Grams" %}{{ form.portion_grams }}{{ form.portion_grams.errors }}</label>
     </div>
-    <p class="hint">Nutrition values follow the amount automatically{% if unit_label %} - change the count or the grams{% endif %}.</p>
+    <p class="hint">{% if unit_label %}{% translate "Nutrition values follow the amount automatically - change the count or the grams." %}{% else %}{% translate "Nutrition values follow the amount automatically." %}{% endif %}</p>
 
     <details{% if form.calories.errors or form.protein_g.errors or form.carbs_g.errors %} open{% endif %}>
-      <summary>Edit nutrition values (whole portion)</summary>
-      <p class="hint">Only needed to correct a value. Leave a field empty if it is unknown.</p>
+      <summary>{% translate "Edit nutrition values (whole portion)" %}</summary>
+      <p class="hint">{% translate "Only needed to correct a value. Leave a field empty if it is unknown." %}</p>
       <div class="edit-grid">
-        <label>Calories (kcal){{ form.calories }}{{ form.calories.errors }}</label>
-        <label>Protein (g){{ form.protein_g }}{{ form.protein_g.errors }}</label>
-        <label>Carbs (g){{ form.carbs_g }}{{ form.carbs_g.errors }}</label>
-        <label>of which sugars (g){{ form.sugar_g }}{{ form.sugar_g.errors }}</label>
-        <label>Fat (g){{ form.fat_g }}{{ form.fat_g.errors }}</label>
-        <label>of which saturated (g){{ form.sat_fat_g }}{{ form.sat_fat_g.errors }}</label>
-        <label>Fiber (g){{ form.fiber_g }}{{ form.fiber_g.errors }}</label>
-        <label>Salt (g){{ form.salt_g }}{{ form.salt_g.errors }}</label>
+        <label>{% translate "Energy (kcal)" %}{{ form.calories }}{{ form.calories.errors }}</label>
+        <label>{% translate "Protein (g)" %}{{ form.protein_g }}{{ form.protein_g.errors }}</label>
+        <label>{% translate "Carbohydrates (g)" %}{{ form.carbs_g }}{{ form.carbs_g.errors }}</label>
+        <label>{% translate "of which sugars (g)" %}{{ form.sugar_g }}{{ form.sugar_g.errors }}</label>
+        <label>{% translate "Fat (g)" %}{{ form.fat_g }}{{ form.fat_g.errors }}</label>
+        <label>{% translate "of which saturated (g)" %}{{ form.sat_fat_g }}{{ form.sat_fat_g.errors }}</label>
+        <label>{% translate "Fiber (g)" %}{{ form.fiber_g }}{{ form.fiber_g.errors }}</label>
+        <label>{% translate "Salt (g)" %}{{ form.salt_g }}{{ form.salt_g.errors }}</label>
       </div>
     </details>
 
-    <label style="margin-top: 14px;">Notes{{ form.notes }}{{ form.notes.errors }}</label>
+    <label style="margin-top: 14px;">{% translate "Notes" %}{{ form.notes }}{{ form.notes.errors }}</label>
 
     <div class="edit-actions">
-      <a href="{{ diary_url }}" class="btn btn-outline-light">Cancel</a>
-      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{{ diary_url }}" class="btn btn-outline-light">{% translate "Cancel" %}</a>
+      <button type="submit" class="btn btn-primary">{% translate "Save" %}</button>
     </div>
   </form>
 </div>

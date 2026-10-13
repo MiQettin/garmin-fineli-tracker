@@ -1,6 +1,22 @@
 (function () {
   "use strict";
 
+  // Texts in the app language, provided by health_page.html (English fallback).
+  var T = Object.assign({
+    loading: "Loading…",
+    requestFailed: "Request failed ({status})",
+    couldNotLoad: "Could not load health data: {error}",
+    couldNotLoadTrends: "Could not load trend charts: {error}",
+    noData: "No data",
+    current: "Current:",
+    vs28: "vs 28d avg",
+    avg28: "28d avg:",
+    samples: "7d: {n7} samples · 28d: {n28} samples · 90d: {n90} samples",
+    fromBeforeTo: "From date must be on or before To date.",
+    hrvLabel: "HRV (ms)",
+    rhrLabel: "Resting HR (bpm)",
+  }, window.HEALTH_I18N || {});
+
   var scriptTag = document.currentScript;
   var analyticsUrl = scriptTag.getAttribute("data-analytics-url");
   var dateInput = document.getElementById("health-date");
@@ -44,13 +60,13 @@
     if (value === null || value === undefined) return "—";
     var rounded = Math.round(value);
     var sign = rounded > 0 ? "+" : "";
-    return sign + rounded + (unit ? " " + unit : "") + " vs 28d avg";
+    return sign + rounded + (unit ? " " + unit : "") + " " + T.vs28;
   }
 
   function fmtDeltaHours(value) {
     if (value === null || value === undefined) return "—";
     var sign = value > 0 ? "+" : "";
-    return sign + (value / 3600).toFixed(1) + " h vs 28d avg";
+    return sign + (value / 3600).toFixed(1) + " h " + T.vs28;
   }
 
   function setText(id, text) {
@@ -62,7 +78,7 @@
     if (!metric) return;
     var format = isDuration ? fmtHours : function (v) { return fmt(v, unit); };
     setText(prefix + "-value", format(metric.current));
-    setText(prefix + "-sub", "28d avg: " + format(metric.avg_28d));
+    setText(prefix + "-sub", T.avg28 + " " + format(metric.avg_28d));
   }
 
   function renderTrendCard(prefix, metric, unit, isDuration) {
@@ -80,7 +96,7 @@
     var c7 = metric.sample_count_7d != null ? metric.sample_count_7d : 0;
     var c28 = metric.sample_count_28d != null ? metric.sample_count_28d : 0;
     var c90 = metric.sample_count_90d != null ? metric.sample_count_90d : 0;
-    setText(prefix + "-counts", "7d: " + c7 + " samples · 28d: " + c28 + " samples · 90d: " + c90 + " samples");
+    setText(prefix + "-counts", T.samples.replace("{n7}", c7).replace("{n28}", c28).replace("{n90}", c90));
   }
 
   function render(a) {
@@ -121,13 +137,13 @@
   function loadAnalytics(endDate) {
     statusEl.hidden = false;
     statusEl.classList.remove("is-error");
-    statusEl.textContent = "Loading…";
+    statusEl.textContent = T.loading;
 
     fetch(analyticsUrl + "?end_date=" + encodeURIComponent(endDate))
       .then(function (response) {
         if (!response.ok) {
           return response.json().catch(function () { return {}; }).then(function (body) {
-            throw new Error(body.error || "Request failed (" + response.status + ")");
+            throw new Error(body.error || T.requestFailed.replace("{status}", response.status));
           });
         }
         return response.json();
@@ -138,7 +154,7 @@
       })
       .catch(function (err) {
         statusEl.classList.add("is-error");
-        statusEl.textContent = "Could not load health data: " + err.message;
+        statusEl.textContent = T.couldNotLoad.replace("{error}", err.message);
         statusEl.hidden = false;
       });
   }
@@ -170,7 +186,7 @@
           tooltip: {
             callbacks: {
               label: function (ctx) {
-                return ctx.parsed.y === null ? "No data" : label + ": " + ctx.parsed.y;
+                return ctx.parsed.y === null ? T.noData : label + ": " + ctx.parsed.y;
               },
             },
           },
@@ -187,8 +203,8 @@
     var hrvSeries = a.hrv.daily_series || [];
     var rhrSeries = a.resting_hr.daily_series || [];
 
-    hrvChart = buildChart("hrv-chart", "HRV (ms)", hrvSeries, hrvChart, "#2563eb");
-    rhrChart = buildChart("rhr-chart", "Resting HR (bpm)", rhrSeries, rhrChart, "#7c3aed");
+    hrvChart = buildChart("hrv-chart", T.hrvLabel, hrvSeries, hrvChart, "#2563eb");
+    rhrChart = buildChart("rhr-chart", T.rhrLabel, rhrSeries, rhrChart, "#7c3aed");
 
     var hrvHasData = hrvSeries.some(function (p) { return p.value !== null; });
     var rhrHasData = rhrSeries.some(function (p) { return p.value !== null; });
@@ -199,11 +215,11 @@
 
     setText(
       "hrv-chart-now",
-      "Current: " + fmt(a.hrv.current, "ms") + (a.hrv.current_date ? " (" + a.hrv.current_date + ")" : "")
+      T.current + " " + fmt(a.hrv.current, "ms") + (a.hrv.current_date ? " (" + a.hrv.current_date + ")" : "")
     );
     setText(
       "rhr-chart-now",
-      "Current: " + fmt(a.resting_hr.current, "bpm") + (a.resting_hr.current_date ? " (" + a.resting_hr.current_date + ")" : "")
+      T.current + " " + fmt(a.resting_hr.current, "bpm") + (a.resting_hr.current_date ? " (" + a.resting_hr.current_date + ")" : "")
     );
   }
 
@@ -217,7 +233,7 @@
     // and dates are never silently swapped.
     if (from > to) {
       rangeValidationEl.hidden = false;
-      rangeValidationEl.textContent = "From date must be on or before To date.";
+      rangeValidationEl.textContent = T.fromBeforeTo;
       return;
     }
     rangeValidationEl.hidden = true;
@@ -225,13 +241,13 @@
 
     rangeStatusEl.hidden = false;
     rangeStatusEl.classList.remove("is-error");
-    rangeStatusEl.textContent = "Loading…";
+    rangeStatusEl.textContent = T.loading;
 
     fetch(analyticsUrl + "?start_date=" + encodeURIComponent(from) + "&end_date=" + encodeURIComponent(to))
       .then(function (response) {
         if (!response.ok) {
           return response.json().catch(function () { return {}; }).then(function (body) {
-            throw new Error(body.error || "Request failed (" + response.status + ")");
+            throw new Error(body.error || T.requestFailed.replace("{status}", response.status));
           });
         }
         return response.json();
@@ -242,7 +258,7 @@
       })
       .catch(function (err) {
         rangeStatusEl.classList.add("is-error");
-        rangeStatusEl.textContent = "Could not load trend charts: " + err.message;
+        rangeStatusEl.textContent = T.couldNotLoadTrends.replace("{error}", err.message);
         rangeStatusEl.hidden = false;
       });
   }

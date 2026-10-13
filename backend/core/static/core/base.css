@@ -114,3 +114,13 @@ a { color: inherit; }
 
 /* Django form validation errors (<ul class="errorlist">). */
 .errorlist { list-style: none; padding: 0; margin: 4px 0 0; color: var(--error); font-size: 0.85em; }
+
+/* Bootstrap's .card has no padding of its own (it expects a .card-body
+   wrapper); the app's cards hold their content directly, so every card gets
+   inner spacing here. :where() keeps this at zero specificity - a page's own
+   .xxx-card padding rule still wins. */
+:where(.card) { padding: 20px 24px; }
+:where(.card.metric-card) { padding: 14px 16px; }
+@media (max-width: 576px) {
+  :where(.card) { padding: 14px 16px; }
+}

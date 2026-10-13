@@ -63,6 +63,15 @@ class UserSettings(models.Model):
         null=True, blank=True,
         help_text="Own daily energy balance target (kcal/day) when the fitness goal is Custom; negative for a deficit",
     )
+
+    # Language of the whole app, and - in English - of the Fineli food names
+    # (Finnish UI always shows the Finnish food database).
+    LANGUAGE_CHOICES = [('en', 'English'), ('fi', 'Suomi')]
+    language = models.CharField(max_length=5, choices=LANGUAGE_CHOICES, default='en', help_text="App language")
+    food_language = models.CharField(
+        max_length=5, choices=LANGUAGE_CHOICES, default='fi',
+        help_text="Language of Fineli food names when the app language is English",
+    )
     
     # Macro goals (grams per day)
     protein_goal_g = models.FloatField(default=150.0, help_text="Daily protein goal in grams")
@@ -96,6 +105,10 @@ class UserSettings(models.Model):
         settings, created = cls.objects.get_or_create(pk=1)
         return settings
     
+    def effective_food_language(self) -> str:
+        """Finnish app -> Finnish food names; English app -> the user's choice."""
+        return 'fi' if self.language == 'fi' else self.food_language
+
     def goal_adjustment_kcal(self) -> int:
         """Target daily energy balance for the selected goal (kcal/day)."""
         if self.fitness_goal == 'custom':

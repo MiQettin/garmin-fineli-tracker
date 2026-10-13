@@ -11,6 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
+from django.utils.translation import gettext
 from django.views.decorators.http import require_GET
 
 from .analytics import get_health_analytics
@@ -35,7 +36,7 @@ def health_analytics_view(request):
     # health_page.js, which expects a JSON body (it reads `body.error` on a
     # non-ok response) - a login-page redirect would break that parsing.
     if not request.user.is_authenticated:
-        return JsonResponse({"error": "Authentication required"}, status=401)
+        return JsonResponse({"error": gettext("Authentication required")}, status=401)
 
     end_date_param = request.GET.get("end_date")
 
@@ -44,7 +45,7 @@ def health_analytics_view(request):
             end_date = date.fromisoformat(end_date_param)
         except ValueError:
             return JsonResponse(
-                {"error": f"Invalid end_date '{end_date_param}'. Use YYYY-MM-DD."},
+                {"error": gettext("Invalid end date '%(value)s'. Use YYYY-MM-DD.") % {"value": end_date_param}},
                 status=400,
             )
     else:
@@ -57,12 +58,12 @@ def health_analytics_view(request):
             start_date = date.fromisoformat(start_date_param)
         except ValueError:
             return JsonResponse(
-                {"error": f"Invalid start_date '{start_date_param}'. Use YYYY-MM-DD."},
+                {"error": gettext("Invalid start date '%(value)s'. Use YYYY-MM-DD.") % {"value": start_date_param}},
                 status=400,
             )
         if start_date > end_date:
             return JsonResponse(
-                {"error": "start_date must be on or before end_date."},
+                {"error": gettext("From date must be on or before To date.")},
                 status=400,
             )
 

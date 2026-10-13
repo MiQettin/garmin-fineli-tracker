@@ -1,6 +1,7 @@
 {% extends "core/base.html" %}
+{% load i18n core_extras %}
 
-{% block title %}{{ parent.name }} Recipe - HealthManager{% endblock %}
+{% block title %}{{ parent.name }} - {% translate "Recipe" %} - HealthManager{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -123,8 +124,8 @@
 {% block content %}
 <div class="card recipe-card">
   <div class="header-row">
-    <h1>🧪 Recipe: {{ parent.name }}</h1>
-    <a href="{% url 'recipe_list' %}">&larr; Back to Recipes</a>
+    <h1>🧪 {% translate "Recipe" %}: {{ parent.name }}</h1>
+    <a href="{% url 'recipe_list' %}">&larr; {% translate "Back to recipes" %}</a>
   </div>
 
   {% if error %}
@@ -132,65 +133,65 @@
   {% endif %}
 
   <div class="section" id="ingredients">
-    <h2>Ingredients{% if ingredient_rows %} <span class="count">{{ ingredient_rows|length }}</span>{% endif %}</h2>
+    <h2>{% translate "Ingredients" %}{% if ingredient_rows %} <span class="count">{{ ingredient_rows|length }}</span>{% endif %}</h2>
     {% if ingredient_rows %}
     <ul class="ing-list">
       {% for row in ingredient_rows %}
       <li class="ing-row">
-        <span class="ing-name">{{ row.name }}{% if row.kind != "Fineli" %} <small>{{ row.kind }}</small>{% endif %}</span>
+        <span class="ing-name">{{ row.name }}{% if row.kind != "Fineli" %} <small>{{ row.kind_label }}</small>{% endif %}</span>
         <form method="post" action="{% url 'remove_recipe_ingredient' parent.id row.ingredient.id %}" class="ing-remove-form">
           {% csrf_token %}
-          <button type="submit" class="ing-remove" data-confirm="Remove?" title="Remove" aria-label="Remove {{ row.name }}">&times;</button>
+          <button type="submit" class="ing-remove" data-confirm="{% translate 'Remove?' %}" title="{% translate 'Remove' %}" aria-label="{% blocktranslate with name=row.name %}Remove {{ name }}{% endblocktranslate %}">&times;</button>
         </form>
         <span class="ing-facts">
           <b>{{ row.ingredient.amount_grams|floatformat:"-1" }} g</b>
           <span>{% if row.kcal is not None %}{{ row.kcal|floatformat:0 }}{% else %}–{% endif %} kcal</span>
-          <span>C {% if row.carbs is not None %}{{ row.carbs|floatformat:1 }}{% else %}–{% endif %} g</span>
-          <span>P {% if row.protein is not None %}{{ row.protein|floatformat:1 }}{% else %}–{% endif %} g</span>
+          <span>{% translate "C" context "carbs" %} {% if row.carbs is not None %}{{ row.carbs|floatformat:1 }}{% else %}–{% endif %} g</span>
+          <span>{% translate "P" context "protein" %} {% if row.protein is not None %}{{ row.protein|floatformat:1 }}{% else %}–{% endif %} g</span>
         </span>
       </li>
       {% endfor %}
       <li class="ing-row ing-total">
-        <span class="ing-name">Total</span>
+        <span class="ing-name">{% translate "Total" %}</span>
         <span class="ing-facts">
           <b>{{ total_grams|floatformat:"-1" }} g</b>
           <span>{% if ingredient_partial.kcal %}&ge; {% endif %}{{ ingredient_totals.kcal|floatformat:0 }} kcal</span>
-          <span>C {% if ingredient_partial.carbs %}&ge; {% endif %}{{ ingredient_totals.carbs|floatformat:1 }} g</span>
-          <span>P {% if ingredient_partial.protein %}&ge; {% endif %}{{ ingredient_totals.protein|floatformat:1 }} g</span>
+          <span>{% translate "C" context "carbs" %} {% if ingredient_partial.carbs %}&ge; {% endif %}{{ ingredient_totals.carbs|floatformat:1 }} g</span>
+          <span>{% translate "P" context "protein" %} {% if ingredient_partial.protein %}&ge; {% endif %}{{ ingredient_totals.protein|floatformat:1 }} g</span>
         </span>
       </li>
     </ul>
     {% if parent.cooked_weight_g or serving_grams %}
-    <p class="ing-yield">{% if parent.cooked_weight_g %}Finished dish {{ parent.cooked_weight_g|floatformat:"-1" }} g{% endif %}{% if parent.cooked_weight_g and serving_grams %} &middot; {% endif %}{% if serving_grams %}{{ parent.servings|floatformat:"-1" }} serving{{ parent.servings|pluralize }} &middot; 1 serving &asymp; {{ serving_grams|floatformat:1 }} g{% endif %}</p>
+    <p class="ing-yield">{% if parent.cooked_weight_g %}{% blocktranslate with grams=parent.cooked_weight_g|floatformat:"-1" %}Finished dish {{ grams }} g{% endblocktranslate %}{% endif %}{% if parent.cooked_weight_g and serving_grams %} &middot; {% endif %}{% if serving_grams %}{% blocktranslate with n=parent.servings|floatformat:"-1" %}servings: {{ n }}{% endblocktranslate %} &middot; {% blocktranslate with grams=serving_grams|floatformat:1 %}1 serving ≈ {{ grams }} g{% endblocktranslate %}{% endif %}</p>
     {% endif %}
     {% if ingredient_partial.kcal or ingredient_partial.carbs or ingredient_partial.protein %}
-    <p class="ing-yield">&ge; = an ingredient doesn't report this value, so the total is at least this much.</p>
+    <p class="ing-yield">{% translate "≥ = an ingredient doesn't report this value, so the total is at least this much." %}</p>
     {% endif %}
     {% else %}
-    <p class="empty-state">No ingredients yet - add them below.</p>
+    <p class="empty-state">{% translate "No ingredients yet - add them below." %}</p>
     {% endif %}
   </div>
 
   <div class="section" id="add-fineli">
-    <h2>Add from Fineli</h2>
+    <h2>{% translate "Add from Fineli" %}</h2>
     <form method="get" class="search-form mb-2" id="fineliSearchForm">
-      <input class="form-control" type="search" name="q" id="fineliSearchInput" value="{{ query }}" placeholder="Search Fineli foods" autocomplete="off" enterkeyhint="search">
-      <button type="submit" class="btn btn-secondary">Search</button>
+      <input class="form-control" type="search" name="q" id="fineliSearchInput" value="{{ query }}" placeholder="{% translate 'Search Fineli foods' %}" autocomplete="off" enterkeyhint="search">
+      <button type="submit" class="btn btn-secondary">{% translate "Search" %}</button>
     </form>
     <div class="search-status" id="fineliSearchStatus" aria-live="polite"></div>
     <div class="picker" id="fineliPicker">
       <div class="pick-list" id="fineliResults">
         {% for food in fineli_results %}{% include "nutrition/_recipe_pick_fineli.html" %}{% endfor %}
-        {% if query and not fineli_results %}<p class="empty-state">No Fineli foods matched "{{ query }}".</p>{% endif %}
+        {% if query and not fineli_results %}<p class="empty-state">{% blocktranslate %}No Fineli foods matched "{{ query }}".{% endblocktranslate %}</p>{% endif %}
       </div>
       <div id="fineliFavorites"{% if query %} hidden{% endif %}>
-        <h3 class="sub-heading">&#9733; Favorites</h3>
+        <h3 class="sub-heading">&#9733; {% translate "Favorites" %}</h3>
         {% if favorite_fineli_foods %}
         <div class="pick-list">
           {% for food in favorite_fineli_foods %}{% include "nutrition/_recipe_pick_fineli.html" %}{% endfor %}
         </div>
         {% else %}
-        <p class="empty-state">No favorites yet - star foods in the food diary's Add Food dialog and they appear here.</p>
+        <p class="empty-state">{% translate "No favorites yet - star foods in the food diary's Add Food dialog and they appear here." %}</p>
         {% endif %}
       </div>
     </div>
@@ -200,29 +201,29 @@
       <input type="hidden" name="q" data-keep="fineliSearchInput">
       <div class="pick-panel-head">
         <span class="pick-panel-name" data-panel-name></span>
-        <button type="button" class="pick-panel-close" data-cancel aria-label="Cancel">&times;</button>
+        <button type="button" class="pick-panel-close" data-cancel aria-label="{% translate 'Cancel' %}">&times;</button>
       </div>
       <div class="pick-panel-fields">
-        <label>Amount
+        <label>{% translate "Amount" %}
           <input class="form-control" type="number" name="amount" step="0.01" min="0.01" inputmode="decimal" required>
         </label>
-        <label>Unit
+        <label>{% translate "Unit" %}
           <select class="form-select" name="unit"></select>
         </label>
       </div>
       <div class="pick-preview" data-preview></div>
       <div class="pick-panel-actions">
-        <button type="button" class="btn btn-outline-light" data-cancel>Cancel</button>
-        <button type="submit" class="btn btn-primary">Add to recipe</button>
+        <button type="button" class="btn btn-outline-light" data-cancel>{% translate "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% translate "Add to recipe" %}</button>
       </div>
     </form>
   </div>
 
   <div class="section" id="add-own">
-    <h2>Add from My Foods</h2>
+    <h2>{% translate "Add from My Foods" %}</h2>
     {% if own_foods %}
     <div class="search-form mb-2">
-      <input class="form-control" type="search" id="ownFoodSearch" value="{{ own_query }}" placeholder="Search my foods" autocomplete="off" aria-label="Search my foods">
+      <input class="form-control" type="search" id="ownFoodSearch" value="{{ own_query }}" placeholder="{% translate 'Search my foods' %}" autocomplete="off" aria-label="{% translate 'Search my foods' %}">
     </div>
     <div class="search-status" id="ownFoodStatus" aria-live="polite"></div>
     <div class="picker" id="ownPicker">
@@ -242,70 +243,70 @@
       <input type="hidden" name="own" data-keep="ownFoodSearch">
       <div class="pick-panel-head">
         <span class="pick-panel-name" data-panel-name></span>
-        <button type="button" class="pick-panel-close" data-cancel aria-label="Cancel">&times;</button>
+        <button type="button" class="pick-panel-close" data-cancel aria-label="{% translate 'Cancel' %}">&times;</button>
       </div>
       <div class="pick-panel-fields">
-        <label>Amount (g)
+        <label>{% translate "Amount (g)" %}
           <input class="form-control" type="number" name="amount_grams" step="0.01" min="0.01" inputmode="decimal" required>
         </label>
       </div>
       <div class="pick-panel-actions">
-        <button type="button" class="btn btn-outline-light" data-cancel>Cancel</button>
-        <button type="submit" class="btn btn-primary">Add to recipe</button>
+        <button type="button" class="btn btn-outline-light" data-cancel>{% translate "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% translate "Add to recipe" %}</button>
       </div>
     </form>
     {% else %}
-    <p class="empty-state">You have no other custom foods to add yet.</p>
+    <p class="empty-state">{% translate "You have no other own foods to add yet." %}</p>
     {% endif %}
   </div>
 
   <details class="section fold" id="recipe-details"{% if settings_form.errors %} open{% endif %}>
-    <summary><h2>Recipe details</h2><span class="fold-hint">{% if parent.servings %}{{ parent.servings|floatformat:"-1" }} serving{{ parent.servings|pluralize }}{% endif %}{% if parent.servings and parent.cooked_weight_g %} &middot; {% endif %}{% if parent.cooked_weight_g %}finished {{ parent.cooked_weight_g|floatformat:"-1" }} g{% endif %}{% if not parent.servings and not parent.cooked_weight_g %}name, servings, weight, duplicate, delete{% endif %}</span></summary>
+    <summary><h2>{% translate "Recipe details" %}</h2><span class="fold-hint">{% if parent.servings %}{% blocktranslate with n=parent.servings|floatformat:"-1" %}servings: {{ n }}{% endblocktranslate %}{% endif %}{% if parent.servings and parent.cooked_weight_g %} &middot; {% endif %}{% if parent.cooked_weight_g %}{% blocktranslate with grams=parent.cooked_weight_g|floatformat:"-1" %}finished {{ grams }} g{% endblocktranslate %}{% endif %}{% if not parent.servings and not parent.cooked_weight_g %}{% translate "name, servings, weight, duplicate, delete" %}{% endif %}</span></summary>
     <form method="post" action="{% url 'update_recipe_settings' parent.id %}" class="settings-form">
       {% csrf_token %}
-      <label>Name *{{ settings_form.name }}{{ settings_form.name.errors }}</label>
-      <label>Brand / note{{ settings_form.brand }}{{ settings_form.brand.errors }}</label>
-      <label>Servings{{ settings_form.servings }}{{ settings_form.servings.errors }}
-        <small>Optional. Lets you log "1 × annos" as well as grams.</small></label>
-      <label>Finished dish weight (g){{ settings_form.cooked_weight_g }}{{ settings_form.cooked_weight_g.errors }}
-        <small>Optional. Weigh the cooked dish - values per 100 g then account for water lost in cooking.</small></label>
+      <label>{% translate "Name" %} *{{ settings_form.name }}{{ settings_form.name.errors }}</label>
+      <label>{% translate "Brand / note" %}{{ settings_form.brand }}{{ settings_form.brand.errors }}</label>
+      <label>{% translate "Servings" %}{{ settings_form.servings }}{{ settings_form.servings.errors }}
+        <small>{% translate "Optional. Lets you log one serving as well as grams." %}</small></label>
+      <label>{% translate "Finished dish weight (g)" %}{{ settings_form.cooked_weight_g }}{{ settings_form.cooked_weight_g.errors }}
+        <small>{% translate "Optional. Weigh the cooked dish - values per 100 g then account for water lost in cooking." %}</small></label>
       <div class="settings-actions">
-        <button type="submit" class="btn btn-primary">Save details</button>
+        <button type="submit" class="btn btn-primary">{% translate "Save details" %}</button>
       </div>
     </form>
     <div class="recipe-manage">
       <form method="post" action="{% url 'duplicate_recipe' parent.id %}">
         {% csrf_token %}
-        <button type="submit" class="btn btn-outline-light btn-sm">⧉ Duplicate</button>
+        <button type="submit" class="btn btn-outline-light btn-sm">⧉ {% translate "Duplicate" %}</button>
       </form>
       <form method="post" action="{% url 'delete_recipe' parent.id %}">
         {% csrf_token %}
-        <button type="submit" class="btn btn-outline-danger btn-sm" data-confirm="Click again to delete">🗑️ Delete recipe</button>
+        <button type="submit" class="btn btn-outline-danger btn-sm" data-confirm="{% translate 'Click again to delete' %}">🗑️ {% translate "Delete recipe" %}</button>
       </form>
     </div>
   </details>
 
   <details class="section fold" id="final-values" open>
-    <summary><h2>Nutrition</h2><span class="fold-hint" data-basis-hint>per 100 g</span></summary>
+    <summary><h2>{% translate "Nutrition" %}</h2><span class="fold-hint" data-basis-hint>{% translate "per 100 g" %}</span></summary>
 
-    <div class="basis-toggle" role="group" aria-label="Show values per">
-      <button type="button" data-basis="100" data-factor="100" data-label="per 100 g" aria-pressed="true">100 g</button>
-      <button type="button" data-basis="serving" {% if serving_grams %}data-factor="{{ serving_grams|stringformat:'f' }}" data-label="per serving ({{ serving_grams|floatformat:1 }} g)"{% else %}disabled title="Set the servings under Recipe details"{% endif %} aria-pressed="false">Serving{% if serving_grams %} <small>{{ serving_grams|floatformat:1 }} g</small>{% endif %}</button>
-      <button type="button" data-basis="total" {% if yield_grams %}data-factor="{{ yield_grams|stringformat:'f' }}" data-label="per recipe ({{ yield_grams|floatformat:0 }} g)"{% else %}disabled{% endif %} aria-pressed="false">Recipe{% if yield_grams %} <small>{{ yield_grams|floatformat:0 }} g</small>{% endif %}</button>
+    <div class="basis-toggle" role="group" aria-label="{% translate 'Show values per' %}">
+      <button type="button" data-basis="100" data-factor="100" data-label="{% translate 'per 100 g' %}" aria-pressed="true">100 g</button>
+      <button type="button" data-basis="serving" {% if serving_grams %}data-factor="{{ serving_grams|stringformat:'f' }}" data-label="{% blocktranslate with grams=serving_grams|floatformat:1 %}per serving ({{ grams }} g){% endblocktranslate %}"{% else %}disabled title="{% translate 'Set the servings under Recipe details' %}"{% endif %} aria-pressed="false">{% translate "Serving" %}{% if serving_grams %} <small>{{ serving_grams|floatformat:1 }} g</small>{% endif %}</button>
+      <button type="button" data-basis="total" {% if yield_grams %}data-factor="{{ yield_grams|stringformat:'f' }}" data-label="{% blocktranslate with grams=yield_grams|floatformat:0 %}per recipe ({{ grams }} g){% endblocktranslate %}"{% else %}disabled{% endif %} aria-pressed="false">{% translate "Recipe" %}{% if yield_grams %} <small>{{ yield_grams|floatformat:0 }} g</small>{% endif %}</button>
     </div>
-    {% if not serving_grams %}<p class="basis-note">Add servings under <a href="#recipe-details" data-open="recipe-details">Recipe details</a> to see values per serving.</p>{% endif %}
+    {% if not serving_grams %}<p class="basis-note">{% blocktranslate %}Add servings under <a href="#recipe-details" data-open="recipe-details">Recipe details</a> to see values per serving.{% endblocktranslate %}</p>{% endif %}
 
     <table class="nutr-table">
       {% for row in nutrition_rows %}
       <tr{% if row.sub %} class="sub"{% endif %}>
         <th>{{ row.label }}</th>
-        <td data-per100="{% if row.value is not None %}{{ row.value|stringformat:'r' }}{% endif %}" data-unit="{{ row.unit }}">{% if row.display is not None %}{{ row.display }} {{ row.unit }}{% else %}<span class="unknown">unknown</span>{% endif %}</td>
+        <td data-per100="{% if row.value is not None %}{{ row.value|stringformat:'r' }}{% endif %}" data-unit="{{ row.unit }}">{% if row.display is not None %}{{ row.display }} {{ row.unit }}{% else %}<span class="unknown">{% translate "unknown" %}</span>{% endif %}</td>
       </tr>
       {% endfor %}
     </table>
 
     <details class="subfold">
-      <summary>{% if recipe_language == "fi" %}Muut ravintoaineet{% else %}Other nutrients{% endif %} <span class="fold-hint">{{ aux_nutrients|length }}</span></summary>
+      <summary>{% translate "Other nutrients" %} <span class="fold-hint">{{ aux_nutrients|length }}</span></summary>
       {% if aux_nutrients %}
       <table class="nutr-table">
         {% for n in aux_nutrients %}
@@ -316,36 +317,34 @@
         {% endfor %}
       </table>
       {% else %}
-      <p class="empty-state">No other nutrient data.</p>
+      <p class="empty-state">{% translate "No other nutrient data." %}</p>
       {% endif %}
     </details>
 
     <details class="subfold"{% if final_values_form.errors %} open{% endif %}>
-      <summary>Correct values per 100 g</summary>
+      <summary>{% translate "Correct values per 100 g" %}</summary>
       <p class="info-text">
-        Values are calculated from the ingredients automatically. Correct one by hand here if needed;
-        leave a field blank for unknown - it will never be shown or saved as zero.
-        Recalculate discards manual corrections.
+        {% translate "Values are calculated from the ingredients automatically. Correct one by hand here if needed; leave a field blank for unknown - it will never be shown or saved as zero. Recalculate discards manual corrections." %}
       </p>
       <form method="post" action="{% url 'recalculate_recipe' parent.id %}" class="mb-2">
         {% csrf_token %}
-        <button type="submit" class="btn btn-outline-light btn-sm">🔄 Recalculate from ingredients</button>
+        <button type="submit" class="btn btn-outline-light btn-sm">🔄 {% translate "Recalculate from ingredients" %}</button>
       </form>
       <form method="post" action="{% url 'save_recipe_final_values' parent.id %}">
         {% csrf_token %}
         <div class="table-responsive">
         <table class="table table-dark table-sm table-hover nutrition-form">
-          <tr><th>Energy (kcal)</th><td>{{ final_values_form.energy_kcal_per_100g }}</td></tr>
-          <tr><th>Protein (g)</th><td>{{ final_values_form.protein_per_100g }}</td></tr>
-          <tr><th>Carbohydrate (g)</th><td>{{ final_values_form.carbs_per_100g }}</td></tr>
-          <tr><th>Sugar (g)</th><td>{{ final_values_form.sugar_per_100g }}</td></tr>
-          <tr><th>Fat (g)</th><td>{{ final_values_form.fat_per_100g }}</td></tr>
-          <tr><th>Saturated fat (g)</th><td>{{ final_values_form.sat_fat_per_100g }}</td></tr>
-          <tr><th>Fiber (g)</th><td>{{ final_values_form.fiber_per_100g }}</td></tr>
-          <tr><th>Salt (g)</th><td>{{ final_values_form.salt_per_100g }}</td></tr>
+          <tr><th>{% translate "Energy (kcal)" %}</th><td>{{ final_values_form.energy_kcal_per_100g }}</td></tr>
+          <tr><th>{% translate "Protein (g)" %}</th><td>{{ final_values_form.protein_per_100g }}</td></tr>
+          <tr><th>{% translate "Carbohydrates (g)" %}</th><td>{{ final_values_form.carbs_per_100g }}</td></tr>
+          <tr><th>{% translate "of which sugars (g)" %}</th><td>{{ final_values_form.sugar_per_100g }}</td></tr>
+          <tr><th>{% translate "Fat (g)" %}</th><td>{{ final_values_form.fat_per_100g }}</td></tr>
+          <tr><th>{% translate "of which saturated (g)" %}</th><td>{{ final_values_form.sat_fat_per_100g }}</td></tr>
+          <tr><th>{% translate "Fiber (g)" %}</th><td>{{ final_values_form.fiber_per_100g }}</td></tr>
+          <tr><th>{% translate "Salt (g)" %}</th><td>{{ final_values_form.salt_per_100g }}</td></tr>
         </table>
         </div>
-        <button type="submit" class="btn btn-success">💾 Save values</button>
+        <button type="submit" class="btn btn-success">💾 {% translate "Save values" %}</button>
       </form>
     </details>
   </details>
@@ -355,6 +354,15 @@
 
 {% block extra_js %}
 <script>
+const T = {
+  noMatch: {% jstrans 'No Fineli foods matched "{query}".' %},
+  searching: {% jstrans "Searching..." %},
+  suggestions: {% jstrans "{n} suggestions - tap one to add it" %},
+  searchFailed: {% jstrans "Search failed - press Search to try again." %},
+  typeMore: {% jstrans "Type at least 2 characters" %},
+  noOwnMatch: {% jstrans 'No own foods matched "{query}".' %},
+  mostUsed: {% jstrans "Your {n} most-used foods - type to search all {total}." %},
+};
 // Recipe ingredient pickers, two steps: tap a food in a list (live Fineli
 // suggestions, Fineli favorites or My Foods), then set the amount in the
 // panel that opens. Food names are always inserted as text, never HTML.
@@ -464,7 +472,7 @@
   function renderFineli(foods, query) {
     results.replaceChildren();
     if (!foods.length) {
-      results.append(el('p', {class: 'empty-state'}, `No Fineli foods matched "${query}".`));
+      results.append(el('p', {class: 'empty-state'}, T.noMatch.replace('{query}', query)));
       return;
     }
     for (const food of foods) {
@@ -480,16 +488,16 @@
   async function search(query) {
     if (controller) controller.abort();
     controller = new AbortController();
-    status.textContent = 'Searching…';
+    status.textContent = T.searching;
     try {
       const resp = await fetch(`${searchUrl}?q=${encodeURIComponent(query)}`, {signal: controller.signal});
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || resp.status);
       const foods = data.results || [];
       renderFineli(foods, query);
-      status.textContent = foods.length ? `${foods.length}${foods.length === 20 ? '+' : ''} suggestions - tap one to add it` : '';
+      status.textContent = foods.length ? T.suggestions.replace('{n}', `${foods.length}${foods.length === 20 ? '+' : ''}`) : '';
     } catch (err) {
-      if (err.name !== 'AbortError') status.textContent = 'Search failed - press Search to try again.';
+      if (err.name !== 'AbortError') status.textContent = T.searchFailed;
     }
   }
 
@@ -501,7 +509,7 @@
     if (query.length < 2) {
       if (controller) controller.abort();
       results.replaceChildren();
-      status.textContent = query ? 'Type at least 2 characters' : '';
+      status.textContent = query ? T.typeMore : '';
       return;
     }
     timer = setTimeout(() => search(query), 250);
@@ -573,10 +581,10 @@
         if (visible) shown++;
       }
       if (query) {
-        ownStatus.textContent = matches ? '' : `No own foods matched "${ownSearch.value.trim()}".`;
+        ownStatus.textContent = matches ? '' : T.noOwnMatch.replace('{query}', ownSearch.value.trim());
       } else {
         ownStatus.textContent = items.length > SHOW_WHEN_EMPTY
-          ? `Your ${SHOW_WHEN_EMPTY} most-used foods - type to search all ${items.length}.` : '';
+          ? T.mostUsed.replace('{n}', SHOW_WHEN_EMPTY).replace('{total}', items.length) : '';
       }
     };
     ownSearch.addEventListener('input', filterOwn);

@@ -1,0 +1,1715 @@
+# HealthManager - Finnish translations.
+# Update with: python manage.py update_translations
+# Compile with: python manage.py compile_translations
+msgid ""
+msgstr "Project-Id-Version: HealthManager\nLanguage: fi\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Sedentary (little or no exercise)"
+msgstr "Liikkumaton (vähän tai ei lainkaan liikuntaa)"
+
+msgid "Lightly active (1-3 days/week)"
+msgstr "Kevyesti aktiivinen (1-3 päivää/vko)"
+
+msgid "Moderately active (3-5 days/week)"
+msgstr "Kohtalaisen aktiivinen (3-5 päivää/vko)"
+
+msgid "Very active (6-7 days/week)"
+msgstr "Hyvin aktiivinen (6-7 päivää/vko)"
+
+msgid "Extra active (athlete/physical job)"
+msgstr "Erittäin aktiivinen (urheilija/fyysinen työ)"
+
+msgid "Aggressive cut (-500 kcal) - significant fat to lose"
+msgstr "Voimakas pudotus (-500 kcal) - paljon pudotettavaa"
+
+msgid "Moderate cut (-300 kcal) - standard fat loss"
+msgstr "Maltillinen pudotus (-300 kcal) - tavallinen rasvanpudotus"
+
+msgid "Mild cut (-200 kcal) - lean/active individuals"
+msgstr "Kevyt pudotus (-200 kcal) - hoikat/aktiiviset"
+
+msgid "Maintenance (0 kcal) - maintain current weight"
+msgstr "Ylläpito (0 kcal) - nykyisen painon ylläpito"
+
+msgid "Lean bulk (+250 kcal) - slow muscle gain"
+msgstr "Maltillinen massakausi (+250 kcal) - hidas lihaskasvu"
+
+msgid "Bulk (+400 kcal) - faster muscle gain"
+msgstr "Massakausi (+400 kcal) - nopeampi lihaskasvu"
+
+msgid "Custom - set your own kcal/day"
+msgstr "Oma - aseta oma kcal/päivä"
+
+msgid "Finnish (Fineli's Finnish names)"
+msgstr "Suomi (Finelin suomenkieliset nimet)"
+
+msgid "English (Fineli's English names)"
+msgstr "Englanti (Finelin englanninkieliset nimet)"
+
+msgid "Toggle navigation"
+msgstr "Avaa valikko"
+
+msgid "Dashboard"
+msgstr "Yhteenveto"
+
+msgid "Training"
+msgstr "Harjoittelu"
+
+msgid "Activities"
+msgstr "Aktiviteetit"
+
+msgid "Running"
+msgstr "Juoksu"
+
+msgid "Health & Recovery"
+msgstr "Terveys ja palautuminen"
+
+msgid "Overview"
+msgstr "Yleiskatsaus"
+
+msgid "Nutrition"
+msgstr "Ravinto"
+
+msgid "Diary"
+msgstr "Päiväkirja"
+
+msgid "Foods"
+msgstr "Tuotteet"
+
+msgid "Favorites"
+msgstr "Suosikit"
+
+msgid "Recipes"
+msgstr "Reseptit"
+
+msgid "Settings"
+msgstr "Asetukset"
+
+msgid "Sync Garmin"
+msgstr "Synkronoi Garmin"
+
+msgid "Last sync:"
+msgstr "Viimeksi synkronoitu:"
+
+msgid "Never synced"
+msgstr "Ei vielä synkronoitu"
+
+msgid "Log out (%(name)s)"
+msgstr "Kirjaudu ulos (%(name)s)"
+
+msgid "Log in"
+msgstr "Kirjaudu sisään"
+
+msgid "Syncing..."
+msgstr "Synkronoidaan..."
+
+msgid "Sync failed"
+msgstr "Synkronointi epäonnistui"
+
+msgid "Network error:"
+msgstr "Verkkovirhe:"
+
+msgid "Settings were not saved. Check these fields:"
+msgstr "Asetuksia ei tallennettu. Tarkista nämä kentät:"
+
+msgid "Fineli food names:"
+msgstr "Finelin ruokien nimet:"
+
+msgid "In English you can keep the Finnish food database or use Fineli's English names. In Finnish, food names are always Finnish."
+msgstr "Englanniksi voit pitää suomenkielisen ruokatietokannan tai käyttää Finelin englanninkielisiä nimiä. Suomeksi ruokien nimet ovat aina suomeksi."
+
+msgid "Physical data"
+msgstr "Perustiedot"
+
+msgid "Weight (kg):"
+msgstr "Paino (kg):"
+
+msgid "Your current weight in kilograms"
+msgstr "Nykyinen painosi kilogrammoina"
+
+msgid "Height (cm):"
+msgstr "Pituus (cm):"
+
+msgid "Your height in centimetres"
+msgstr "Pituutesi senttimetreinä"
+
+msgid "Age:"
+msgstr "Ikä:"
+
+msgid "Your age in years"
+msgstr "Ikäsi vuosina"
+
+msgid "Sex:"
+msgstr "Sukupuoli:"
+
+msgid "Male"
+msgstr "Mies"
+
+msgid "Female"
+msgstr "Nainen"
+
+msgid "Biological sex for metabolic calculations"
+msgstr "Biologinen sukupuoli aineenvaihdunnan laskentaan"
+
+msgid "Activity level:"
+msgstr "Aktiivisuustaso:"
+
+msgid "Your typical weekly activity level"
+msgstr "Tavallinen viikoittainen aktiivisuutesi"
+
+msgid "Fitness goal:"
+msgstr "Tavoite:"
+
+msgid "Your current fitness objective"
+msgstr "Nykyinen tavoitteesi"
+
+msgid "Custom goal (kcal/day):"
+msgstr "Oma tavoite (kcal/päivä):"
+
+msgid "e.g. 100 or -350"
+msgstr "esim. 100 tai -350"
+
+msgid "Your own daily energy balance target. Positive for a surplus, negative for a deficit."
+msgstr "Oma päivittäinen energiatasapainon tavoitteesi. Positiivinen ylijäämälle, negatiivinen vajeelle."
+
+msgid "Warning thresholds"
+msgstr "Varoitusrajat"
+
+msgid "Use automatic thresholds based on fitness goal"
+msgstr "Käytä tavoitteeseen perustuvia automaattisia rajoja"
+
+msgid "When enabled, warnings are calculated from your selected goal above"
+msgstr "Kun valittuna, varoitukset lasketaan yllä valitsemasi tavoitteen mukaan"
+
+msgid "Warning threshold (kcal below goal):"
+msgstr "Varoitusraja (kcal alle tavoitteen):"
+
+msgid "Used when automatic thresholds are disabled. The alert threshold is twice this value."
+msgstr "Käytössä, kun automaattiset rajat eivät ole päällä. Hälytysraja on kaksinkertainen."
+
+msgid "Garmin calorie adjustment (kcal/day):"
+msgstr "Garmin-kulutuksen korjaus (kcal/päivä):"
+
+msgid "Added to Garmin's daily expenditure. Use a negative value when Garmin overestimates and a positive value when it underestimates."
+msgstr "Lisätään Garminin päivittäiseen kulutukseen. Käytä negatiivista arvoa, jos Garmin yliarvioi, ja positiivista, jos se aliarvioi."
+
+msgid "Macro goals"
+msgstr "Makrotavoitteet"
+
+msgid "Target:"
+msgstr "Tavoite:"
+
+msgid "kcal/day"
+msgstr "kcal/päivä"
+
+msgid "Protein"
+msgstr "Proteiini"
+
+msgid "Carbs"
+msgstr "Hiilihydraatit"
+
+msgid "Fat"
+msgstr "Rasva"
+
+msgid "Total"
+msgstr "Yhteensä"
+
+msgid "Display preferences"
+msgstr "Näkymäasetukset"
+
+msgid "Week starts on:"
+msgstr "Viikko alkaa:"
+
+msgid "Monday"
+msgstr "maanantaina"
+
+msgid "Sunday"
+msgstr "sunnuntaina"
+
+msgid "First day of the week for weekly summaries"
+msgstr "Viikon ensimmäinen päivä viikkoyhteenvedoissa"
+
+msgid "Save settings"
+msgstr "Tallenna asetukset"
+
+msgid "Weekly training, recovery and nutrition overview"
+msgstr "Viikon harjoittelu, palautuminen ja ravinto"
+
+msgid "Current"
+msgstr "Kuluva"
+
+msgid "%(n)s wk ago"
+msgstr "%(n)s vk sitten"
+
+msgid "Nutrition &mdash; last %(n)s days"
+msgstr "Ravinto &mdash; viimeiset %(n)s päivää"
+
+msgid "%(logged)s / %(total)s days logged"
+msgstr "%(logged)s / %(total)s päivää kirjattu"
+
+msgid "Avg intake"
+msgstr "Saanti keskimäärin"
+
+msgid "Avg expenditure"
+msgstr "Kulutus keskimäärin"
+
+msgid "Avg daily balance"
+msgstr "Päivätasapaino keskimäärin"
+
+msgid "Goal %(goal)s kcal/day"
+msgstr "Tavoite %(goal)s kcal/päivä"
+
+msgid "on track"
+msgstr "tavoitteessa"
+
+msgid "alert below %(limit)s"
+msgstr "hälytys alle %(limit)s"
+
+msgid "Macros"
+msgstr "Makrot"
+
+msgid "Unknown"
+msgstr "Ei tiedossa"
+
+msgid "Energy-share %% needs complete data for all three macros this period."
+msgstr "Energiaosuus-%% vaatii kaikkien kolmen makron täydelliset tiedot tältä jaksolta."
+
+msgid "Daily breakdown (%(n)s days)"
+msgstr "Päiväkohtaisesti (%(n)s päivää)"
+
+msgid "Date"
+msgstr "Päivä"
+
+msgid "In"
+msgstr "Saanti"
+
+msgid "Out"
+msgstr "Kulutus"
+
+msgid "Balance"
+msgstr "Tasapaino"
+
+msgid "workouts this week"
+msgstr "harjoitusta tällä viikolla"
+
+msgid "Minutes"
+msgstr "Minuutit"
+
+msgid "Burned (kcal)"
+msgstr "Kulutettu (kcal)"
+
+msgid "No workouts logged"
+msgstr "Ei kirjattuja harjoituksia"
+
+msgid "Recovery"
+msgstr "Palautuminen"
+
+msgid "resting heart rate"
+msgstr "leposyke"
+
+msgid "Baseline (bpm)"
+msgstr "Perustaso (bpm)"
+
+msgid "Deviation"
+msgstr "Poikkeama"
+
+msgid "Elevated for %(n)s days"
+msgstr "Koholla %(n)s päivää"
+
+msgid "No heart rate data available"
+msgstr "Ei syketietoja"
+
+msgid "This week's activities"
+msgstr "Viikon aktiviteetit"
+
+msgid "Workout"
+msgstr "Harjoitus"
+
+msgid "Light week"
+msgstr "Kevyt viikko"
+
+msgid "Ready to train"
+msgstr "Valmis harjoittelemaan"
+
+msgid "Average per day"
+msgstr "Keskimäärin päivässä"
+
+msgid "Average on logged days"
+msgstr "Keskimäärin kirjattuina päivinä"
+
+msgid "On track for your goal"
+msgstr "Tavoitteessa"
+
+msgid "Eating above target - slower progress"
+msgstr "Syöt yli tavoitteen - eteneminen hidastuu"
+
+msgid "Intake improving"
+msgstr "Saanti paranee"
+
+msgid "Normal load"
+msgstr "Normaali kuorma"
+
+msgid "Train cautiously"
+msgstr "Harjoittele varoen"
+
+msgid "Prioritize recovery"
+msgstr "Panosta palautumiseen"
+
+msgid "Settings saved."
+msgstr "Asetukset tallennettu."
+
+msgid "Authentication required"
+msgstr "Kirjautuminen vaaditaan"
+
+msgid "Garmin data synced."
+msgstr "Garmin-tiedot synkronoitu."
+
+msgid "Deficit deepening"
+msgstr "Vaje syvenee"
+
+msgid "Stable pattern"
+msgstr "Tasainen"
+
+msgid "%(kcal)s kcal (3-day avg)"
+msgstr "%(kcal)s kcal (3 pv keskiarvo)"
+
+msgid "High volume"
+msgstr "Suuri määrä"
+
+msgid "Very high - ensure recovery"
+msgstr "Erittäin suuri - huolehdi palautumisesta"
+
+msgid "Sync timed out. Try again later."
+msgstr "Synkronointi aikakatkaistiin. Yritä myöhemmin uudelleen."
+
+msgid "%(kcal)s kcal below target"
+msgstr "%(kcal)s kcal alle tavoitteen"
+
+msgid "Undereating - %(kcal)s kcal below goal"
+msgstr "Liian vähän syötyä - %(kcal)s kcal alle tavoitteen"
+
+msgid "Failed to fetch Garmin data: %(error)s"
+msgstr "Garmin-tietojen haku epäonnistui: %(error)s"
+
+msgid "Sync failed: %(error)s"
+msgstr "Synkronointi epäonnistui: %(error)s"
+
+msgid "%(kcal)s kcal deeper - watch energy levels"
+msgstr "%(kcal)s kcal syvemmällä - seuraa jaksamista"
+
+msgid "%(kcal)s kcal too deep - muscle loss risk"
+msgstr "%(kcal)s kcal liian syvällä - lihaskadon riski"
+
+msgid "Breakfast"
+msgstr "Aamiainen"
+
+msgid "Lunch"
+msgstr "Lounas"
+
+msgid "Dinner"
+msgstr "Päivällinen"
+
+msgid "Snack"
+msgstr "Välipala"
+
+msgid "Evening snack"
+msgstr "Iltapala"
+
+msgid "Nutrition values are per 100 g, so give the package size in grams (e.g. 250 g), choose values per 100 ml, or leave the package size empty."
+msgstr "Ravintoarvot ovat / 100 g, joten anna pakkauskoko grammoina (esim. 250 g), valitse arvot / 100 ml tai jätä pakkauskoko tyhjäksi."
+
+msgid "Nutrition values are per 100 ml, so give the package size in ml, dl or l, choose values per 100 g, or leave the package size empty."
+msgstr "Ravintoarvot ovat / 100 ml, joten anna pakkauskoko millilitroina, desilitroina tai litroina, valitse arvot / 100 g tai jätä pakkauskoko tyhjäksi."
+
+msgid "Servings must be more than 0."
+msgstr "Annoksia pitää olla enemmän kuin 0."
+
+msgid "Weight must be more than 0 g."
+msgstr "Painon pitää olla yli 0 g."
+
+msgid "The amount must be more than 0 g."
+msgstr "Määrän pitää olla yli 0 g."
+
+msgid "A recipe cannot contain itself as an ingredient."
+msgstr "Resepti ei voi olla oma ainesosansa."
+
+msgid "This ingredient would create a circular recipe reference."
+msgstr "Tämä ainesosa tekisi resepteistä kehän (resepti sisältäisi itsensä)."
+
+msgid "Name"
+msgstr "Nimi"
+
+msgid "Brand (optional)"
+msgstr "Merkki (valinnainen)"
+
+msgid "Nutrition values per"
+msgstr "Ravintoarvot per"
+
+msgid "Energy (kcal per 100 g/ml)"
+msgstr "Energia (kcal / 100 g/ml)"
+
+msgid "Protein (g per 100 g/ml)"
+msgstr "Proteiini (g / 100 g/ml)"
+
+msgid "Carbohydrates (g per 100 g/ml)"
+msgstr "Hiilihydraatit (g / 100 g/ml)"
+
+msgid "of which sugars (g per 100 g/ml)"
+msgstr "josta sokereita (g / 100 g/ml)"
+
+msgid "Fat (g per 100 g/ml)"
+msgstr "Rasva (g / 100 g/ml)"
+
+msgid "of which saturated (g per 100 g/ml)"
+msgstr "josta tyydyttynyttä (g / 100 g/ml)"
+
+msgid "Fiber (g per 100 g/ml)"
+msgstr "Kuitu (g / 100 g/ml)"
+
+msgid "Salt (g per 100 g/ml)"
+msgstr "Suola (g / 100 g/ml)"
+
+msgid "Package size (optional)"
+msgstr "Pakkauskoko (valinnainen)"
+
+msgid "For example 55 g, 2 dl or 1 l. When set, the food diary also offers one package as a portion. Leave empty for foods you measure, such as syrup."
+msgstr "Esimerkiksi 55 g, 2 dl tai 1 l. Kun pakkauskoko on annettu, päiväkirja tarjoaa myös yhden pakkauksen annokseksi. Jätä tyhjäksi ruoille, jotka mitataan, kuten siirappi."
+
+msgid "Nutritional data: Finnish Institute for Health and Welfare (THL), <a href=\"https://fineli.fi/\" target=\"_blank\" rel=\"noopener\">Fineli®</a>, licensed under <a href=\"https://creativecommons.org/licenses/by/4.0/\" target=\"_blank\" rel=\"noopener\">CC BY 4.0</a>. Energy converted from kJ to kcal and salt from mg to g. HealthManager is not affiliated with THL."
+msgstr "Ravintoarvotiedot: Terveyden ja hyvinvoinnin laitos (THL), <a href=\"https://fineli.fi/\" target=\"_blank\" rel=\"noopener\">Fineli®</a>, lisenssi <a href=\"https://creativecommons.org/licenses/by/4.0/\" target=\"_blank\" rel=\"noopener\">CC BY 4.0</a>. Energia muunnettu kilojouleista kilokaloreiksi ja suola milligrammoista grammoiksi. HealthManager ei ole THL:n palvelu."
+
+msgid "Create recipe"
+msgstr "Luo resepti"
+
+msgid "Back to recipes"
+msgstr "Takaisin resepteihin"
+
+msgid "Build a recipe from Fineli foods or your own foods. Nutrition values are calculated from the ingredients and can be corrected by hand."
+msgstr "Kokoa resepti Finelin ruoista tai omista ruoistasi. Ravintoarvot lasketaan ainesosista, ja niitä voi korjata käsin."
+
+msgid "Recipe name"
+msgstr "Reseptin nimi"
+
+msgid "Create recipe and add ingredients"
+msgstr "Luo resepti ja lisää ainesosat"
+
+msgid "Edit product"
+msgstr "Muokkaa tuotetta"
+
+msgid "Save changes"
+msgstr "Tallenna muutokset"
+
+msgid "Cancel"
+msgstr "Peruuta"
+
+msgid "Edit"
+msgstr "Muokkaa"
+
+msgid "Food name"
+msgstr "Ruoan nimi"
+
+msgid "Meal"
+msgstr "Ateria"
+
+msgid "Amount (× %(unit_label)s)"
+msgstr "Määrä (× %(unit_label)s)"
+
+msgid "Grams"
+msgstr "Grammat"
+
+msgid "Nutrition values follow the amount automatically - change the count or the grams."
+msgstr "Ravintoarvot muuttuvat määrän mukana - muuta kappalemäärää tai grammoja."
+
+msgid "Nutrition values follow the amount automatically."
+msgstr "Ravintoarvot muuttuvat määrän mukana."
+
+msgid "Edit nutrition values (whole portion)"
+msgstr "Muokkaa ravintoarvoja (koko annos)"
+
+msgid "Only needed to correct a value. Leave a field empty if it is unknown."
+msgstr "Tarpeen vain arvon korjaamiseen. Jätä kenttä tyhjäksi, jos arvoa ei tiedetä."
+
+msgid "Energy (kcal)"
+msgstr "Energia (kcal)"
+
+msgid "Protein (g)"
+msgstr "Proteiini (g)"
+
+msgid "Carbohydrates (g)"
+msgstr "Hiilihydraatit (g)"
+
+msgid "of which sugars (g)"
+msgstr "josta sokereita (g)"
+
+msgid "Fat (g)"
+msgstr "Rasva (g)"
+
+msgid "of which saturated (g)"
+msgstr "josta tyydyttynyttä (g)"
+
+msgid "Fiber (g)"
+msgstr "Kuitu (g)"
+
+msgid "Salt (g)"
+msgstr "Suola (g)"
+
+msgid "Notes"
+msgstr "Muistiinpanot"
+
+msgid "Save"
+msgstr "Tallenna"
+
+msgid "Favorites are quick picks in the food diary's Favorites tab and in recipe ingredient search. Tap ★ to remove one, or search below to add more."
+msgstr "Suosikit ovat pikavalintoja päiväkirjan Suosikit-välilehdellä ja reseptin ainesosahaussa. Poista suosikki napauttamalla ★ tai lisää uusia alla olevalla haulla."
+
+msgid "Your favorites"
+msgstr "Suosikkisi"
+
+msgid "Fineli"
+msgstr "Fineli"
+
+msgid "Remove %(name)s from favorites"
+msgstr "Poista %(name)s suosikeista"
+
+msgid "Own food"
+msgstr "Oma ruoka"
+
+msgid "No favorites yet - search below and tap ☆ to add some."
+msgstr "Ei vielä suosikkeja - hae alta ja lisää napauttamalla ☆."
+
+msgid "Add favorites"
+msgstr "Lisää suosikkeja"
+
+msgid "Search Fineli and my foods"
+msgstr "Hae Finelistä ja omista ruoista"
+
+msgid "Search foods to add to favorites"
+msgstr "Hae ruokia suosikkeihin"
+
+msgid "My foods"
+msgstr "Omat ruoat"
+
+msgid "Add {name} to favorites"
+msgstr "Lisää {name} suosikkeihin"
+
+msgid "Remove {name} from favorites"
+msgstr "Poista {name} suosikeista"
+
+msgid "Removed from favorites"
+msgstr "Poistettu suosikeista"
+
+msgid "Added to favorites"
+msgstr "Lisätty suosikkeihin"
+
+msgid "Could not update favorites - try again."
+msgstr "Suosikkien päivitys epäonnistui - yritä uudelleen."
+
+msgid "Searching..."
+msgstr "Haetaan..."
+
+msgid "Nothing matched \"{query}\"."
+msgstr "Ei osumia haulle \"{query}\"."
+
+msgid "Search failed - try again."
+msgstr "Haku epäonnistui - yritä uudelleen."
+
+msgid "Type at least 2 characters"
+msgstr "Kirjoita vähintään 2 merkkiä"
+
+msgid "Food Diary"
+msgstr "Ruokapäiväkirja"
+
+msgid "Previous"
+msgstr "Edellinen"
+
+msgid "Today"
+msgstr "Tänään"
+
+msgid "Next"
+msgstr "Seuraava"
+
+msgid "Import Diary CSV"
+msgstr "Tuo päiväkirja (CSV)"
+
+msgid "Calories In"
+msgstr "Energiansaanti"
+
+msgid "sugar"
+msgstr "sokeri"
+
+msgid "sat."
+msgstr "tyydytt."
+
+msgid "Fiber"
+msgstr "Kuitu"
+
+msgid "Salt"
+msgstr "Suola"
+
+msgid "Add Food"
+msgstr "Lisää ruoka"
+
+msgctxt "protein"
+msgid "P"
+msgstr "P"
+
+msgctxt "carbs"
+msgid "C"
+msgstr "H"
+
+msgctxt "fat"
+msgid "F"
+msgstr "R"
+
+msgid "Edit %(name)s"
+msgstr "Muokkaa: %(name)s"
+
+msgid "Delete"
+msgstr "Poista"
+
+msgid "Delete %(name)s"
+msgstr "Poista: %(name)s"
+
+msgid "Search Fineli"
+msgstr "Hae Finelistä"
+
+msgid "My Foods"
+msgstr "Omat ruoat"
+
+msgid "Recent"
+msgstr "Viimeisimmät"
+
+msgid "Frequent"
+msgstr "Useimmin"
+
+msgid "Diary CSV"
+msgstr "Päiväkirja-CSV"
+
+msgid "Manual Entry"
+msgstr "Käsin"
+
+msgid "Search Fineli foods..."
+msgstr "Hae Finelin ruokia..."
+
+msgid "Loading favorites..."
+msgstr "Ladataan suosikkeja..."
+
+msgid "Filter my foods..."
+msgstr "Suodata omia ruokia..."
+
+msgid "Create New Food"
+msgstr "Uusi tuote"
+
+msgid "Loading your foods..."
+msgstr "Ladataan omia ruokia..."
+
+msgid "Your recently logged foods."
+msgstr "Viimeksi kirjaamasi ruoat."
+
+msgid "Loading recent foods..."
+msgstr "Ladataan viimeisimpiä..."
+
+msgid "Your most-logged foods."
+msgstr "Useimmin kirjaamasi ruoat."
+
+msgid "Loading frequent foods..."
+msgstr "Ladataan useimmin kirjattuja..."
+
+msgid "Import foods from a Fineli diary CSV export. Each entry uses the file's own date and meal, the same as the import button at the top of the page."
+msgstr "Tuo ruoat Finelin päiväkirjan CSV-viennistä. Jokainen merkintä saa tiedoston oman päivän ja aterian, kuten sivun yläreunan tuontinapissa."
+
+msgid "Open Diary CSV Import"
+msgstr "Avaa päiväkirjan CSV-tuonti"
+
+msgid "Food name:"
+msgstr "Ruoan nimi:"
+
+msgid "Portion (g):"
+msgstr "Annos (g):"
+
+msgid "Calories:"
+msgstr "Energia (kcal):"
+
+msgid "Protein (g):"
+msgstr "Proteiini (g):"
+
+msgid "Carbs (g):"
+msgstr "Hiilihydraatit (g):"
+
+msgid "Sugar (g):"
+msgstr "Sokeri (g):"
+
+msgid "Fat (g):"
+msgstr "Rasva (g):"
+
+msgid "Sat. fat (g):"
+msgstr "Tyydytt. rasva (g):"
+
+msgid "Fiber (g):"
+msgstr "Kuitu (g):"
+
+msgid "Salt (g):"
+msgstr "Suola (g):"
+
+msgid "Add Entry"
+msgstr "Lisää merkintä"
+
+msgid "Select portion"
+msgstr "Valitse annos"
+
+msgid "Amount:"
+msgstr "Määrä:"
+
+msgid "Unit:"
+msgstr "Yksikkö:"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "Import Fineli diary"
+msgstr "Tuo Finelin päiväkirja"
+
+msgid "Import individual foods from Fineli diary CSV exports"
+msgstr "Tuo ruoat yksitellen Finelin päiväkirjan CSV-vienneistä"
+
+msgid "Select one or more diary_*.csv files"
+msgstr "Valitse yksi tai useampi diary_*.csv-tiedosto"
+
+msgid "Each food row becomes a diary entry, using the file's own date and meal"
+msgstr "Jokaisesta ruokarivistä tulee merkintä tiedoston omalle päivälle ja aterialle"
+
+msgid "Re-importing adds missing rows and updates imported ones - nothing is deleted"
+msgstr "Uudelleentuonti lisää puuttuvat rivit ja päivittää tuodut - mitään ei poisteta"
+
+msgid "Entries you added yourself are never changed"
+msgstr "Itse lisäämiisi merkintöihin ei kosketa"
+
+msgid "Select CSV file(s):"
+msgstr "Valitse CSV-tiedosto(t):"
+
+msgid "Import all days"
+msgstr "Tuo kaikki päivät"
+
+msgid "Start searching for foods..."
+msgstr "Aloita ruokien haku..."
+
+msgid "No results found"
+msgstr "Ei tuloksia"
+
+msgid "Failed to load foods:"
+msgstr "Ruokien lataus epäonnistui:"
+
+msgid "No own foods yet."
+msgstr "Ei vielä omia ruokia."
+
+msgid "Create your first food using the button above!"
+msgstr "Luo ensimmäinen tuote yllä olevalla napilla!"
+
+msgid "Add to favorites"
+msgstr "Lisää suosikkeihin"
+
+msgid "Remove from favorites"
+msgstr "Poista suosikeista"
+
+msgid "Log in to save favorites"
+msgstr "Kirjaudu sisään tallentaaksesi suosikkeja"
+
+msgid "per 100 g"
+msgstr "/ 100 g"
+
+msgid "per 100 ml"
+msgstr "/ 100 ml"
+
+msgid "No favorites yet. Star a food to save it here."
+msgstr "Ei vielä suosikkeja. Merkitse ruoka tähdellä, niin se tallentuu tänne."
+
+msgid "Failed to load favorites:"
+msgstr "Suosikkien lataus epäonnistui:"
+
+msgid "No recently logged foods yet."
+msgstr "Ei vielä kirjattuja ruokia."
+
+msgid "Failed to load recent foods:"
+msgstr "Viimeisimpien lataus epäonnistui:"
+
+msgid "No usage history yet."
+msgstr "Ei vielä käyttöhistoriaa."
+
+msgid "Failed to load frequent foods:"
+msgstr "Useimmin kirjattujen lataus epäonnistui:"
+
+msgid "Grams (g)"
+msgstr "Grammat (g)"
+
+msgid "Please enter a valid amount"
+msgstr "Anna kelvollinen määrä"
+
+msgid "Food added"
+msgstr "Ruoka lisätty"
+
+msgid "Failed to add food:"
+msgstr "Ruoan lisäys epäonnistui:"
+
+msgid "Unknown error"
+msgstr "Tuntematon virhe"
+
+msgid "Failed to add food. Please try again."
+msgstr "Ruoan lisäys epäonnistui. Yritä uudelleen."
+
+msgid "Entry added"
+msgstr "Merkintä lisätty"
+
+msgid "Failed to add entry. Please check all fields."
+msgstr "Merkinnän lisäys epäonnistui. Tarkista kaikki kentät."
+
+msgid "Failed to add entry. Please try again."
+msgstr "Merkinnän lisäys epäonnistui. Yritä uudelleen."
+
+msgid "Click the delete button again within 3 seconds to confirm"
+msgstr "Vahvista poisto napauttamalla poistonappia uudelleen 3 sekunnin sisällä"
+
+msgid "Entry deleted"
+msgstr "Merkintä poistettu"
+
+msgid "Failed to delete entry"
+msgstr "Merkinnän poisto epäonnistui"
+
+msgid "Failed to delete entry. Please try again."
+msgstr "Merkinnän poisto epäonnistui. Yritä uudelleen."
+
+msgid "Please select at least one CSV file"
+msgstr "Valitse vähintään yksi CSV-tiedosto"
+
+msgid "Importing..."
+msgstr "Tuodaan..."
+
+msgid "Processing {n} file(s)..."
+msgstr "Käsitellään {n} tiedostoa..."
+
+msgid "{new} new, {updated} updated"
+msgstr "{new} uutta, {updated} päivitetty"
+
+msgid "Reloading in {n}..."
+msgstr "Päivitetään {n} s kuluttua..."
+
+msgid "Reloading now..."
+msgstr "Päivitetään..."
+
+msgid "Import failed"
+msgstr "Tuonti epäonnistui"
+
+msgid "Import failed. Please try again."
+msgstr "Tuonti epäonnistui. Yritä uudelleen."
+
+msgid "Network error. Please try again."
+msgstr "Verkkovirhe. Yritä uudelleen."
+
+msgid "My products"
+msgstr "Omat tuotteet"
+
+msgid "Add products that are not in the Fineli database, with the nutrition values from the label per 100 g or per 100 ml."
+msgstr "Lisää tuotteita, joita ei ole Finelissä, pakkauksen ravintoarvoilla / 100 g tai / 100 ml."
+
+msgid "Homemade dishes built from ingredients are on the <a href=\"%(recipes_url)s\">Recipes</a> page."
+msgstr "Ainesosista kootut kotiruoat ovat <a href=\"%(recipes_url)s\">Reseptit</a>-sivulla."
+
+msgid "Add product"
+msgstr "Lisää tuote"
+
+msgid "Enter the nutrition values from the label."
+msgstr "Syötä ravintoarvot pakkauksesta."
+
+msgid "Save product"
+msgstr "Tallenna tuote"
+
+msgid "Saved products"
+msgstr "Tallennetut tuotteet"
+
+msgid "protein"
+msgstr "proteiini"
+
+msgid "carbs"
+msgstr "hiilihydr."
+
+msgid "fat"
+msgstr "rasva"
+
+msgid "Package:"
+msgstr "Pakkaus:"
+
+msgid "Click again to delete"
+msgstr "Vahvista poisto napauttamalla uudelleen"
+
+msgid "No products yet."
+msgstr "Ei vielä tuotteita."
+
+msgid "Add your first product using the form above!"
+msgstr "Lisää ensimmäinen tuotteesi yllä olevalla lomakkeella!"
+
+msgid "Recipe"
+msgstr "Resepti"
+
+msgid "Ingredients"
+msgstr "Ainesosat"
+
+msgid "Remove?"
+msgstr "Poistetaanko?"
+
+msgid "Remove"
+msgstr "Poista"
+
+msgid "Remove %(name)s"
+msgstr "Poista %(name)s"
+
+msgid "Finished dish %(grams)s g"
+msgstr "Valmis ruoka %(grams)s g"
+
+msgid "servings: %(n)s"
+msgstr "annoksia: %(n)s"
+
+msgid "1 serving ≈ %(grams)s g"
+msgstr "1 annos ≈ %(grams)s g"
+
+msgid "≥ = an ingredient doesn't report this value, so the total is at least this much."
+msgstr "≥ = jokin ainesosa ei kerro tätä arvoa, joten yhteismäärä on vähintään tämän verran."
+
+msgid "No ingredients yet - add them below."
+msgstr "Ei vielä ainesosia - lisää ne alta."
+
+msgid "Add from Fineli"
+msgstr "Lisää Finelistä"
+
+msgid "Search Fineli foods"
+msgstr "Hae Finelin ruokia"
+
+msgid "Search"
+msgstr "Hae"
+
+msgid "No Fineli foods matched \"%(query)s\"."
+msgstr "Finelistä ei löytynyt hakua \"%(query)s\" vastaavia ruokia."
+
+msgid "No favorites yet - star foods in the food diary's Add Food dialog and they appear here."
+msgstr "Ei vielä suosikkeja - merkitse ruokia tähdellä päiväkirjan Lisää ruoka -ikkunassa, niin ne näkyvät täällä."
+
+msgid "Amount"
+msgstr "Määrä"
+
+msgid "Unit"
+msgstr "Yksikkö"
+
+msgid "Add to recipe"
+msgstr "Lisää reseptiin"
+
+msgid "Add from My Foods"
+msgstr "Lisää omista ruoista"
+
+msgid "Search my foods"
+msgstr "Hae omista ruoista"
+
+msgid "Amount (g)"
+msgstr "Määrä (g)"
+
+msgid "You have no other own foods to add yet."
+msgstr "Sinulla ei ole vielä muita omia ruokia lisättäväksi."
+
+msgid "Recipe details"
+msgstr "Reseptin tiedot"
+
+msgid "finished %(grams)s g"
+msgstr "valmis %(grams)s g"
+
+msgid "name, servings, weight, duplicate, delete"
+msgstr "nimi, annokset, paino, kopiointi, poisto"
+
+msgid "Brand / note"
+msgstr "Merkki / huomio"
+
+msgid "Servings"
+msgstr "Annokset"
+
+msgid "Optional. Lets you log one serving as well as grams."
+msgstr "Valinnainen. Päiväkirjaan voi silloin kirjata annoksen grammojen lisäksi."
+
+msgid "Finished dish weight (g)"
+msgstr "Valmiin ruoan paino (g)"
+
+msgid "Optional. Weigh the cooked dish - values per 100 g then account for water lost in cooking."
+msgstr "Valinnainen. Punnitse valmis ruoka - arvot / 100 g ottavat silloin huomioon kypsennyksessä haihtuneen veden."
+
+msgid "Save details"
+msgstr "Tallenna tiedot"
+
+msgid "Duplicate"
+msgstr "Kopioi"
+
+msgid "Delete recipe"
+msgstr "Poista resepti"
+
+msgid "Show values per"
+msgstr "Näytä arvot"
+
+msgid "per serving (%(grams)s g)"
+msgstr "/ annos (%(grams)s g)"
+
+msgid "Set the servings under Recipe details"
+msgstr "Aseta annosmäärä kohdassa Reseptin tiedot"
+
+msgid "Serving"
+msgstr "Annos"
+
+msgid "per recipe (%(grams)s g)"
+msgstr "/ resepti (%(grams)s g)"
+
+msgid "Add servings under <a href=\"#recipe-details\" data-open=\"recipe-details\">Recipe details</a> to see values per serving."
+msgstr "Lisää annosmäärä kohdassa <a href=\"#recipe-details\" data-open=\"recipe-details\">Reseptin tiedot</a>, niin näet arvot annosta kohden."
+
+msgid "unknown"
+msgstr "ei tiedossa"
+
+msgid "Other nutrients"
+msgstr "Muut ravintoaineet"
+
+msgid "No other nutrient data."
+msgstr "Ei muita ravintoainetietoja."
+
+msgid "Correct values per 100 g"
+msgstr "Korjaa arvoja / 100 g"
+
+msgid "Values are calculated from the ingredients automatically. Correct one by hand here if needed; leave a field blank for unknown - it will never be shown or saved as zero. Recalculate discards manual corrections."
+msgstr "Arvot lasketaan ainesosista automaattisesti. Korjaa arvoa tarvittaessa käsin; jätä kenttä tyhjäksi, jos arvoa ei tiedetä - sitä ei koskaan näytetä eikä tallenneta nollana. Uudelleenlaskenta hylkää käsin tehdyt korjaukset."
+
+msgid "Recalculate from ingredients"
+msgstr "Laske uudelleen ainesosista"
+
+msgid "Save values"
+msgstr "Tallenna arvot"
+
+msgid "No Fineli foods matched \"{query}\"."
+msgstr "Finelistä ei löytynyt hakua \"{query}\" vastaavia ruokia."
+
+msgid "{n} suggestions - tap one to add it"
+msgstr "{n} ehdotusta - napauta lisätäksesi"
+
+msgid "Search failed - press Search to try again."
+msgstr "Haku epäonnistui - yritä uudelleen Hae-napilla."
+
+msgid "No own foods matched \"{query}\"."
+msgstr "Omista ruoista ei löytynyt hakua \"{query}\" vastaavia."
+
+msgid "Your {n} most-used foods - type to search all {total}."
+msgstr "{n} eniten käyttämääsi ruokaa - kirjoita hakeaksesi kaikista {total}:stä."
+
+msgid "e.g. Pancake"
+msgstr "esim. Pannukakku"
+
+msgid "Brand / note (optional)"
+msgstr "Merkki / huomio (valinnainen)"
+
+msgid "Create and add ingredients"
+msgstr "Luo ja lisää ainesosat"
+
+msgid "Search recipes"
+msgstr "Hae reseptejä"
+
+msgid "%(n)s ingredient"
+msgid_plural "%(n)s ingredients"
+msgstr[0] "%(n)s ainesosa"
+msgstr[1] "%(n)s ainesosaa"
+
+msgid "%(grams)s g total"
+msgstr "yhteensä %(grams)s g"
+
+msgid "No ingredients yet"
+msgstr "Ei vielä ainesosia"
+
+msgid "logged %(n)s×"
+msgstr "kirjattu %(n)s×"
+
+msgid "Show details"
+msgstr "Näytä tiedot"
+
+msgid "Per 100 g of the finished dish (%(grams)s g)"
+msgstr "/ 100 g valmista ruokaa (%(grams)s g)"
+
+msgid "Per 100 g"
+msgstr "/ 100 g"
+
+msgid "Energy"
+msgstr "Energia"
+
+msgid "Carbohydrates"
+msgstr "Hiilihydraatit"
+
+msgid "of which sugars"
+msgstr "josta sokereita"
+
+msgid "of which saturated"
+msgstr "josta tyydyttynyttä"
+
+msgid "Open recipe"
+msgstr "Avaa resepti"
+
+msgid "No recipes matched."
+msgstr "Ei vastaavia reseptejä."
+
+msgid "No recipes yet - press <strong>+ Create recipe</strong> to make your first one."
+msgstr "Ei vielä reseptejä - luo ensimmäinen napilla <strong>+ Luo resepti</strong>."
+
+msgid "Select a valid Fineli food."
+msgstr "Valitse kelvollinen Finelin ruoka."
+
+msgid "Select one of your own foods."
+msgstr "Valitse jokin omista ruoistasi."
+
+msgid "Nutrition values recalculated from the ingredients."
+msgstr "Ravintoarvot laskettu uudelleen ainesosista."
+
+msgid "%(done)s - nutrition values recalculated."
+msgstr "%(done)s - ravintoarvot laskettu uudelleen."
+
+msgid "Enter a valid portion amount."
+msgstr "Anna kelvollinen määrä."
+
+msgid "Added %(name)s (%(grams)s g)"
+msgstr "Lisätty %(name)s (%(grams)s g)"
+
+msgid "Recipe details saved"
+msgstr "Reseptin tiedot tallennettu"
+
+msgid "Recipe details saved."
+msgstr "Reseptin tiedot tallennettu."
+
+msgid "Copied as \"%(name)s\" - rename it under Recipe details."
+msgstr "Kopioitu nimellä \"%(name)s\" - nimeä se uudelleen kohdassa Reseptin tiedot."
+
+msgid "Final nutrition values saved."
+msgstr "Ravintoarvot tallennettu."
+
+msgid "Manual"
+msgstr "Käsin"
+
+msgid "CSV import"
+msgstr "CSV-tuonti"
+
+msgid "Product"
+msgstr "Tuote"
+
+msgid "Also recalculated the recipes that use %(name)s: %(recipes)s."
+msgstr "Laskettiin uudelleen myös reseptit, joissa %(name)s on ainesosana: %(recipes)s."
+
+msgid "%(name)s (copy)"
+msgstr "%(name)s (kopio)"
+
+msgid "Deleted %(name)s."
+msgstr "Poistettu: %(name)s."
+
+msgid "No files uploaded"
+msgstr "Tiedostoja ei lähetetty"
+
+msgid "No files were imported because one or more files could not be validated."
+msgstr "Mitään ei tuotu, koska yhtä tai useampaa tiedostoa ei voitu tarkistaa."
+
+msgid "Imported %(rows)s food entries: %(new)s new and %(updated)s updated day(s) from %(files)s file(s)"
+msgstr "Tuotiin %(rows)s ruokamerkintää: %(new)s uutta ja %(updated)s päivitettyä päivää %(files)s tiedostosta"
+
+msgid "Saved %(name)s."
+msgstr "Tallennettu: %(name)s."
+
+msgid "%(name)s is an ingredient in %(recipes)s - remove it there first."
+msgstr "%(name)s on ainesosana resepteissä %(recipes)s - poista se niistä ensin."
+
+msgid "%(done)s, but the nutrition values could not be recalculated: %(error)s"
+msgstr "%(done)s, mutta ravintoarvoja ei voitu laskea uudelleen: %(error)s"
+
+msgid "Recipes using %(name)s could not be recalculated: %(error)s"
+msgstr "Reseptejä, joissa %(name)s on ainesosana, ei voitu laskea uudelleen: %(error)s"
+
+msgid "Select a valid portion unit for this Fineli food."
+msgstr "Valitse tälle ruoalle kelvollinen annosyksikkö."
+
+msgid "Removed %(name)s"
+msgstr "Poistettu %(name)s"
+
+msgid "Unknown food"
+msgstr "Tuntematon ruoka"
+
+msgid "Invalid amount"
+msgstr "Virheellinen määrä"
+
+msgid "No food rows found in file"
+msgstr "Tiedostosta ei löytynyt ruokarivejä"
+
+msgid "Unknown Fineli food"
+msgstr "Tuntematon Finelin ruoka"
+
+msgid "CSV format error: %(error)s"
+msgstr "CSV-muotovirhe: %(error)s"
+
+msgid "Unknown portion unit: %(unit)s"
+msgstr "Tuntematon annosyksikkö: %(unit)s"
+
+msgid "This recipe has no servings set"
+msgstr "Tälle reseptille ei ole asetettu annosmäärää"
+
+msgid "This food must be logged in a volume unit"
+msgstr "Tämä ruoka kirjataan tilavuusyksikössä"
+
+msgid "This food must be logged in grams"
+msgstr "Tämä ruoka kirjataan grammoina"
+
+msgid "Walking"
+msgstr "Kävely"
+
+msgid "Cycling"
+msgstr "Pyöräily"
+
+msgid "Strength training"
+msgstr "Voimaharjoittelu"
+
+msgid "Dancing"
+msgstr "Tanssi"
+
+msgid "Other"
+msgstr "Muu"
+
+msgid "Warm-up"
+msgstr "Lämmittely"
+
+msgid "Run"
+msgstr "Juoksu"
+
+msgid "Cool-down"
+msgstr "Jäähdyttely"
+
+msgid "Interval"
+msgstr "Intervalli"
+
+msgid "Rest"
+msgstr "Lepo"
+
+msgid "Strength"
+msgstr "Voima"
+
+msgid "Total activities"
+msgstr "Aktiviteetteja yhteensä"
+
+msgid "workouts"
+msgstr "harjoitusta"
+
+msgid "Total distance"
+msgstr "Matka yhteensä"
+
+msgid "Total time"
+msgstr "Aika yhteensä"
+
+msgid "Avg distance"
+msgstr "Keskimatka"
+
+msgid "Avg pace"
+msgstr "Keskivauhti"
+
+msgid "Avg heart rate"
+msgstr "Keskisyke"
+
+msgid "Recent activities (last 30)"
+msgstr "Viimeisimmät aktiviteetit (30 viimeisintä)"
+
+msgid "Untitled activity"
+msgstr "Nimetön aktiviteetti"
+
+msgid "%(date)s at %(time)s"
+msgstr "%(date)s klo %(time)s"
+
+msgid "Duration"
+msgstr "Kesto"
+
+msgid "Distance"
+msgstr "Matka"
+
+msgid "Avg HR"
+msgstr "Keskisyke"
+
+msgid "Max HR"
+msgstr "Maksimisyke"
+
+msgid "Calories"
+msgstr "Kalorit"
+
+msgid "Elevation gain"
+msgstr "Nousu"
+
+msgid "Avg cadence"
+msgstr "Keskikadenssi"
+
+msgid "No activities found"
+msgstr "Aktiviteetteja ei löytynyt"
+
+msgid "Sync your Garmin data to see your activities here."
+msgstr "Synkronoi Garmin-tietosi nähdäksesi aktiviteettisi täällä."
+
+msgid "Activity"
+msgstr "Aktiviteetti"
+
+msgid "Back to activities"
+msgstr "Takaisin aktiviteetteihin"
+
+msgid "Distance (km)"
+msgstr "Matka (km)"
+
+msgid "Avg pace (min/km)"
+msgstr "Keskivauhti (min/km)"
+
+msgid "Avg heart rate (bpm)"
+msgstr "Keskisyke (bpm)"
+
+msgid "Stats"
+msgstr "Tilastot"
+
+msgid "Intervals"
+msgstr "Intervallit"
+
+msgid "HR zones"
+msgstr "Sykealueet"
+
+msgid "Detailed metrics"
+msgstr "Tarkemmat tiedot"
+
+msgid "Average speed"
+msgstr "Keskinopeus"
+
+msgid "Maximum heart rate"
+msgstr "Maksimisyke"
+
+msgid "Elevation loss"
+msgstr "Lasku"
+
+msgid "Average cadence"
+msgstr "Keskikadenssi"
+
+msgid "Total steps"
+msgstr "Askeleet yhteensä"
+
+msgid "VO2 max estimate"
+msgstr "VO2max-arvio"
+
+msgid "Activity ID"
+msgstr "Aktiviteetin tunniste"
+
+msgid "Laps and intervals"
+msgstr "Kierrokset ja intervallit"
+
+msgid "Total laps: %(n)s"
+msgstr "Kierroksia: %(n)s"
+
+msgid "Best pace: %(pace)s (lap %(lap)s)"
+msgstr "Paras vauhti: %(pace)s (kierros %(lap)s)"
+
+msgid "Slowest pace: %(pace)s (lap %(lap)s)"
+msgstr "Hitain vauhti: %(pace)s (kierros %(lap)s)"
+
+msgid "Step type"
+msgstr "Vaihe"
+
+msgid "All"
+msgstr "Kaikki"
+
+msgid "Lap"
+msgstr "Kierros"
+
+msgid "Time"
+msgstr "Aika"
+
+msgid "Cumulative"
+msgstr "Kertymä"
+
+msgid "Ascent"
+msgstr "Nousu"
+
+msgid "Cadence"
+msgstr "Kadenssi"
+
+msgid "Summary"
+msgstr "Yhteenveto"
+
+msgid "No lap data available for this activity."
+msgstr "Tälle aktiviteetille ei ole kierrostietoja."
+
+msgid "Heart rate zones"
+msgstr "Sykealueet"
+
+msgid "Your average heart rate was in <span class=\"current-hr-indicator\">zone %(zone)s</span>"
+msgstr "Keskisykkeesi oli <span class=\"current-hr-indicator\">alueella %(zone)s</span>"
+
+msgid "Zone 5 - Maximum"
+msgstr "Alue 5 - Maksimi"
+
+msgid "Zone 4 - Threshold"
+msgstr "Alue 4 - Kynnys"
+
+msgid "Zone 3 - Tempo"
+msgstr "Alue 3 - Tempo"
+
+msgid "Zone 2 - Aerobic"
+msgstr "Alue 2 - Aerobinen"
+
+msgid "Zone 1 - Recovery"
+msgstr "Alue 1 - Palauttava"
+
+msgid "Running analytics"
+msgstr "Juoksuanalytiikka"
+
+msgid "Running performance analytics"
+msgstr "Juoksusuoritusten analytiikka"
+
+msgid "Track your running interval progress over time (excludes warm-ups, cool-downs and walks)"
+msgstr "Seuraa juoksuintervalliesi kehitystä ajan mittaan (ilman lämmittelyjä, jäähdyttelyjä ja kävelyjä)"
+
+msgid "Base"
+msgstr "Peruskunto"
+
+msgid "Long"
+msgstr "Pitkä"
+
+msgid "Lap filters"
+msgstr "Kierrossuodattimet"
+
+msgid "Search workout names..."
+msgstr "Hae harjoitusten nimistä..."
+
+msgid "Clear filter"
+msgstr "Tyhjennä suodatin"
+
+msgid "Run workouts"
+msgstr "Juoksuharjoitukset"
+
+msgid "Total work laps"
+msgstr "Työkierroksia yhteensä"
+
+msgid "Best avg pace"
+msgstr "Paras keskivauhti"
+
+msgid "Overall avg pace"
+msgstr "Keskivauhti kaikkiaan"
+
+msgid "Total km (intervals)"
+msgstr "Km yhteensä (intervallit)"
+
+msgid "Progress over time"
+msgstr "Kehitys ajan mittaan"
+
+msgid "Pace"
+msgstr "Vauhti"
+
+msgid "Heart rate"
+msgstr "Syke"
+
+msgid "Work laps"
+msgstr "Työkierrokset"
+
+msgid "Workout history"
+msgstr "Harjoitushistoria"
+
+msgid "Best pace"
+msgstr "Paras vauhti"
+
+msgid "No matching workouts"
+msgstr "Ei osuvia harjoituksia"
+
+msgid "No running workouts found matching your filter"
+msgstr "Suodatintasi vastaavia juoksuharjoituksia ei löytynyt"
+
+msgid "Clear filters and show all"
+msgstr "Tyhjennä suodattimet ja näytä kaikki"
+
+msgid "No running data yet"
+msgstr "Ei vielä juoksutietoja"
+
+msgid "Sync your Garmin activities to see your running performance analytics."
+msgstr "Synkronoi Garmin-aktiviteettisi nähdäksesi juoksuanalytiikan."
+
+msgid "Go to activities"
+msgstr "Siirry aktiviteetteihin"
+
+msgid "Average pace (min/km)"
+msgstr "Keskivauhti (min/km)"
+
+msgid "Pace (min/km)"
+msgstr "Vauhti (min/km)"
+
+msgid "Best work lap pace"
+msgstr "Paras työkierroksen vauhti"
+
+msgid "Average heart rate (bpm)"
+msgstr "Keskisyke (bpm)"
+
+msgid "Heart rate (bpm)"
+msgstr "Syke (bpm)"
+
+msgid "Total interval distance (km)"
+msgstr "Intervallimatka yhteensä (km)"
+
+msgid "No interval data to display"
+msgstr "Ei näytettäviä intervallitietoja"
+
+msgid "Snapshot date"
+msgstr "Tarkastelupäivä"
+
+msgid "current snapshot"
+msgstr "valittu päivä"
+
+msgid "Resting heart rate"
+msgstr "Leposyke"
+
+msgid "Sleep"
+msgstr "Uni"
+
+msgid "Score:"
+msgstr "Pisteet:"
+
+msgid "Stress (avg)"
+msgstr "Stressi (ka)"
+
+msgid "Body Battery (end of day)"
+msgstr "Body Battery (päivän lopussa)"
+
+msgid "Steps"
+msgstr "Askeleet"
+
+msgid "HRV and resting heart rate trends"
+msgstr "HRV- ja leposyketrendit"
+
+msgid "From"
+msgstr "Alkaen"
+
+msgid "To"
+msgstr "Asti"
+
+msgid "No HRV data in this range."
+msgstr "Tältä ajalta ei ole HRV-tietoja."
+
+msgid "No resting heart rate data in this range."
+msgstr "Tältä ajalta ei ole leposyketietoja."
+
+msgid "Recovery and health trends"
+msgstr "Palautumisen ja terveyden trendit"
+
+msgid "reference averages for the snapshot date above"
+msgstr "vertailukeskiarvot yllä valitulle päivälle"
+
+msgid "Metric"
+msgstr "Mittari"
+
+msgctxt "value now"
+msgid "Current"
+msgstr "Nyt"
+
+msgid "7d avg"
+msgstr "7 pv ka"
+
+msgid "28d avg"
+msgstr "28 pv ka"
+
+msgid "90d avg"
+msgstr "90 pv ka"
+
+msgid "Δ vs 28d"
+msgstr "Δ vs 28 pv"
+
+msgid "Samples"
+msgstr "Näytteet"
+
+msgid "Resting HR"
+msgstr "Leposyke"
+
+msgid "Sleep duration"
+msgstr "Unen kesto"
+
+msgid "Sleep score"
+msgstr "Unipisteet"
+
+msgid "Start / end of day"
+msgstr "Päivän alku / loppu"
+
+msgid "Start"
+msgstr "Alku"
+
+msgid "End"
+msgstr "Loppu"
+
+msgid "Charge activity"
+msgstr "Lataus ja kulutus"
+
+msgid "Charged"
+msgstr "Ladattu"
+
+msgid "Drained"
+msgstr "Kulutettu"
+
+msgid "Average heart rate"
+msgstr "Keskisyke"
+
+msgid "Average stress"
+msgstr "Keskimääräinen stressi"
+
+msgid "Respiration and SpO2"
+msgstr "Hengitys ja SpO2"
+
+msgid "Respiration"
+msgstr "Hengitys"
+
+msgid "Waking"
+msgstr "Valveilla"
+
+msgid "Daily"
+msgstr "Päivä"
+
+msgid "Daily activity"
+msgstr "Päivän aktiivisuus"
+
+msgid "Moderate intensity minutes"
+msgstr "Kohtuullisen tehon minuutit"
+
+msgid "Vigorous intensity minutes"
+msgstr "Rasittavan tehon minuutit"
+
+msgid "Loading..."
+msgstr "Ladataan..."
+
+msgid "Request failed ({status})"
+msgstr "Pyyntö epäonnistui ({status})"
+
+msgid "Could not load health data: {error}"
+msgstr "Terveystietojen lataus epäonnistui: {error}"
+
+msgid "Could not load trend charts: {error}"
+msgstr "Trendikaavioiden lataus epäonnistui: {error}"
+
+msgid "No data"
+msgstr "Ei tietoja"
+
+msgid "Current:"
+msgstr "Nyt:"
+
+msgid "vs 28d avg"
+msgstr "vs 28 pv ka"
+
+msgid "28d avg:"
+msgstr "28 pv ka:"
+
+msgid "7d: {n7} samples · 28d: {n28} samples · 90d: {n90} samples"
+msgstr "7 pv: {n7} näytettä · 28 pv: {n28} näytettä · 90 pv: {n90} näytettä"
+
+msgid "From date must be on or before To date."
+msgstr "Alkupäivän on oltava sama tai ennen loppupäivää."
+
+msgid "HRV (ms)"
+msgstr "HRV (ms)"
+
+msgid "Resting HR (bpm)"
+msgstr "Leposyke (bpm)"
+
+msgid "Invalid end date '%(value)s'. Use YYYY-MM-DD."
+msgstr "Virheellinen loppupäivä '%(value)s'. Käytä muotoa VVVV-KK-PP."
+
+msgid "Invalid start date '%(value)s'. Use YYYY-MM-DD."
+msgstr "Virheellinen alkupäivä '%(value)s'. Käytä muotoa VVVV-KK-PP."

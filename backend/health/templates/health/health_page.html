@@ -1,7 +1,7 @@
 {% extends "core/base.html" %}
-{% load static %}
+{% load static i18n core_extras %}
 
-{% block title %}Health & Recovery - HealthManager{% endblock %}
+{% block title %}{% translate "Health & Recovery" as title %}{{ title|force_escape }} - HealthManager{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -14,7 +14,6 @@
     gap: 12px;
   }
   .health-header-text h1 { font-size: 1.5em; }
-  .health-header-text p { color: var(--gray-500); font-size: 0.9em; margin-top: 2px; }
 
   .health-date-field { display: flex; align-items: center; gap: 8px; }
   .health-date-field label { color: var(--gray-600); font-size: 0.85em; white-space: nowrap; }
@@ -171,11 +170,10 @@
 {% block content %}
 <div class="card health-header">
   <div class="health-header-text">
-    <h1>Health &amp; Recovery</h1>
-    <p>Garmin-derived recovery and wellness metrics. Data only - no scores or interpretation.</p>
+    <h1>{% translate "Health & Recovery" as title %}{{ title|force_escape }}</h1>
   </div>
   <div class="health-date-field">
-    <label for="health-date">Snapshot date</label>
+    <label for="health-date">{% translate "Snapshot date" %}</label>
     <input type="date" id="health-date">
   </div>
 </div>
@@ -183,7 +181,7 @@
 <div id="health-status" class="status-banner" hidden></div>
 
 <div class="health-section">
-  <div class="health-section-title">Overview <span class="subtitle">current snapshot</span></div>
+  <div class="health-section-title">{% translate "Overview" %} <span class="subtitle">{% translate "current snapshot" %}</span></div>
   <div class="card">
     <div class="overview-hero-grid">
       <div class="overview-hero-card accent-hrv">
@@ -192,30 +190,30 @@
         <div class="overview-hero-sub" id="ov-hrv-sub"></div>
       </div>
       <div class="overview-hero-card accent-rhr">
-        <div class="overview-hero-label">Resting heart rate</div>
+        <div class="overview-hero-label">{% translate "Resting heart rate" %}</div>
         <div class="overview-hero-value" id="ov-rhr-value">—</div>
         <div class="overview-hero-sub" id="ov-rhr-sub"></div>
       </div>
       <div class="overview-hero-card accent-sleep">
-        <div class="overview-hero-label">Sleep</div>
+        <div class="overview-hero-label">{% translate "Sleep" %}</div>
         <div class="overview-hero-value" id="ov-sleep-duration-value">—</div>
         <div class="overview-hero-sub" id="ov-sleep-duration-sub"></div>
-        <div class="overview-hero-secondary">Score: <b id="ov-sleep-score-value">—</b> · <span id="ov-sleep-score-sub"></span></div>
+        <div class="overview-hero-secondary">{% translate "Score:" %} <b id="ov-sleep-score-value">—</b> · <span id="ov-sleep-score-sub"></span></div>
       </div>
     </div>
     <div class="overview-secondary-grid">
       <div class="overview-secondary-card accent-stress">
-        <div class="overview-secondary-label">Stress (avg)</div>
+        <div class="overview-secondary-label">{% translate "Stress (avg)" %}</div>
         <div class="overview-secondary-value" id="ov-stress-value">—</div>
         <div class="overview-secondary-sub" id="ov-stress-sub"></div>
       </div>
       <div class="overview-secondary-card accent-bb">
-        <div class="overview-secondary-label">Body Battery (end of day)</div>
+        <div class="overview-secondary-label">{% translate "Body Battery (end of day)" %}</div>
         <div class="overview-secondary-value" id="ov-bb-end-value">—</div>
         <div class="overview-secondary-sub" id="ov-bb-end-sub"></div>
       </div>
       <div class="overview-secondary-card accent-steps">
-        <div class="overview-secondary-label">Steps</div>
+        <div class="overview-secondary-label">{% translate "Steps" %}</div>
         <div class="overview-secondary-value" id="ov-steps-value">—</div>
         <div class="overview-secondary-sub" id="ov-steps-sub"></div>
       </div>
@@ -224,16 +222,16 @@
 </div>
 
 <div class="health-section">
-  <div class="health-section-title">HRV &amp; resting heart rate trends</div>
+  <div class="health-section-title">{% translate "HRV and resting heart rate trends" %}</div>
   <div class="card">
     <div class="trend-controls-row">
       <div class="health-range-fields">
         <div class="health-date-field">
-          <label for="range-from">From</label>
+          <label for="range-from">{% translate "From" %}</label>
           <input type="date" id="range-from">
         </div>
         <div class="health-date-field">
-          <label for="range-to">To</label>
+          <label for="range-to">{% translate "To" %}</label>
           <input type="date" id="range-to">
         </div>
         <span id="range-validation" hidden></span>
@@ -248,34 +246,34 @@
           <span class="chart-card-now" id="hrv-chart-now"></span>
         </div>
         <div class="chart-wrap"><canvas id="hrv-chart"></canvas></div>
-        <div class="chart-empty-note" id="hrv-chart-empty" hidden>No HRV data in this range.</div>
+        <div class="chart-empty-note" id="hrv-chart-empty" hidden>{% translate "No HRV data in this range." %}</div>
       </div>
       <div class="chart-card">
         <div class="chart-card-header">
-          <span class="chart-card-title accent-rhr">Resting heart rate <span class="unit">bpm</span></span>
+          <span class="chart-card-title accent-rhr">{% translate "Resting heart rate" %} <span class="unit">bpm</span></span>
           <span class="chart-card-now" id="rhr-chart-now"></span>
         </div>
         <div class="chart-wrap"><canvas id="rhr-chart"></canvas></div>
-        <div class="chart-empty-note" id="rhr-chart-empty" hidden>No resting heart rate data in this range.</div>
+        <div class="chart-empty-note" id="rhr-chart-empty" hidden>{% translate "No resting heart rate data in this range." %}</div>
       </div>
     </div>
   </div>
 </div>
 
 <div class="health-section">
-  <div class="health-section-title">Recovery / health trends <span class="subtitle">reference averages for the snapshot date above</span></div>
+  <div class="health-section-title">{% translate "Recovery and health trends" %} <span class="subtitle">{% translate "reference averages for the snapshot date above" %}</span></div>
   <div class="card">
     <div class="trend-table-wrap">
       <table class="trend-table">
         <thead>
-          <tr><th>Metric</th><th>Current</th><th>7d avg</th><th>28d avg</th><th>90d avg</th><th>Δ vs 28d</th><th>Samples</th></tr>
+          <tr><th>{% translate "Metric" %}</th><th>{% translate "Current" context "value now" %}</th><th>{% translate "7d avg" %}</th><th>{% translate "28d avg" %}</th><th>{% translate "90d avg" %}</th><th>{% translate "Δ vs 28d" %}</th><th>{% translate "Samples" %}</th></tr>
         </thead>
         <tbody>
           {% include "health/_trend_row.html" with prefix="trend-hrv" label="HRV" %}
-          {% include "health/_trend_row.html" with prefix="trend-rhr" label="Resting HR" %}
-          {% include "health/_trend_row.html" with prefix="trend-stress" label="Stress (avg)" %}
-          {% include "health/_trend_row.html" with prefix="trend-sleep-duration" label="Sleep duration" %}
-          {% include "health/_trend_row.html" with prefix="trend-sleep-score" label="Sleep score" %}
+          {% include "health/_trend_row.html" with prefix="trend-rhr" label=_("Resting HR") %}
+          {% include "health/_trend_row.html" with prefix="trend-stress" label=_("Stress (avg)") %}
+          {% include "health/_trend_row.html" with prefix="trend-sleep-duration" label=_("Sleep duration") %}
+          {% include "health/_trend_row.html" with prefix="trend-sleep-score" label=_("Sleep score") %}
         </tbody>
       </table>
     </div>
@@ -286,61 +284,61 @@
   <div class="health-section-title">Body Battery</div>
   <div class="card">
     <div class="metric-group">
-      <div class="metric-group-title">Start / end of day</div>
+      <div class="metric-group-title">{% translate "Start / end of day" %}</div>
       <div class="metric-grid">
-        {% include "health/_metric_card.html" with prefix="bb-start" label="Start" %}
-        {% include "health/_metric_card.html" with prefix="bb-end" label="End" %}
+        {% include "health/_metric_card.html" with prefix="bb-start" label=_("Start") %}
+        {% include "health/_metric_card.html" with prefix="bb-end" label=_("End") %}
       </div>
     </div>
     <div class="metric-group">
-      <div class="metric-group-title">Charge activity</div>
+      <div class="metric-group-title">{% translate "Charge activity" %}</div>
       <div class="metric-grid">
-        {% include "health/_metric_card.html" with prefix="bb-charged" label="Charged" %}
-        {% include "health/_metric_card.html" with prefix="bb-drained" label="Drained" %}
+        {% include "health/_metric_card.html" with prefix="bb-charged" label=_("Charged") %}
+        {% include "health/_metric_card.html" with prefix="bb-drained" label=_("Drained") %}
       </div>
     </div>
   </div>
 </div>
 
 <div class="health-section">
-  <div class="health-section-title">Sleep</div>
+  <div class="health-section-title">{% translate "Sleep" %}</div>
   <div class="card">
     <div class="metric-grid">
-      {% include "health/_metric_card.html" with prefix="sleep-duration" label="Duration" %}
-      {% include "health/_metric_card.html" with prefix="sleep-score" label="Sleep score" %}
-      {% include "health/_metric_card.html" with prefix="sleep-hr" label="Average heart rate" %}
-      {% include "health/_metric_card.html" with prefix="sleep-stress" label="Average stress" %}
+      {% include "health/_metric_card.html" with prefix="sleep-duration" label=_("Duration") %}
+      {% include "health/_metric_card.html" with prefix="sleep-score" label=_("Sleep score") %}
+      {% include "health/_metric_card.html" with prefix="sleep-hr" label=_("Average heart rate") %}
+      {% include "health/_metric_card.html" with prefix="sleep-stress" label=_("Average stress") %}
     </div>
   </div>
 </div>
 
 <div class="health-section">
-  <div class="health-section-title">Respiration &amp; SpO2</div>
+  <div class="health-section-title">{% translate "Respiration and SpO2" %}</div>
   <div class="card">
     <div class="metric-group">
-      <div class="metric-group-title">Respiration</div>
+      <div class="metric-group-title">{% translate "Respiration" %}</div>
       <div class="metric-grid">
-        {% include "health/_metric_card.html" with prefix="resp-waking" label="Waking" %}
-        {% include "health/_metric_card.html" with prefix="resp-sleep" label="Sleep" %}
+        {% include "health/_metric_card.html" with prefix="resp-waking" label=_("Waking") %}
+        {% include "health/_metric_card.html" with prefix="resp-sleep" label=_("Sleep") %}
       </div>
     </div>
     <div class="metric-group">
       <div class="metric-group-title">SpO2</div>
       <div class="metric-grid">
-        {% include "health/_metric_card.html" with prefix="spo2-daily" label="Daily" %}
-        {% include "health/_metric_card.html" with prefix="spo2-sleep" label="Sleep" %}
+        {% include "health/_metric_card.html" with prefix="spo2-daily" label=_("Daily") %}
+        {% include "health/_metric_card.html" with prefix="spo2-sleep" label=_("Sleep") %}
       </div>
     </div>
   </div>
 </div>
 
 <div class="health-section">
-  <div class="health-section-title">Daily activity</div>
+  <div class="health-section-title">{% translate "Daily activity" %}</div>
   <div class="card">
     <div class="metric-grid">
-      {% include "health/_metric_card.html" with prefix="steps" label="Steps" %}
-      {% include "health/_metric_card.html" with prefix="mod-min" label="Moderate intensity minutes" %}
-      {% include "health/_metric_card.html" with prefix="vig-min" label="Vigorous intensity minutes" %}
+      {% include "health/_metric_card.html" with prefix="steps" label=_("Steps") %}
+      {% include "health/_metric_card.html" with prefix="mod-min" label=_("Moderate intensity minutes") %}
+      {% include "health/_metric_card.html" with prefix="vig-min" label=_("Vigorous intensity minutes") %}
     </div>
   </div>
 </div>
@@ -348,5 +346,21 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+<script>
+window.HEALTH_I18N = {
+  loading: {% jstrans "Loading..." %},
+  requestFailed: {% jstrans "Request failed ({status})" %},
+  couldNotLoad: {% jstrans "Could not load health data: {error}" %},
+  couldNotLoadTrends: {% jstrans "Could not load trend charts: {error}" %},
+  noData: {% jstrans "No data" %},
+  current: {% jstrans "Current:" %},
+  vs28: {% jstrans "vs 28d avg" %},
+  avg28: {% jstrans "28d avg:" %},
+  samples: {% jstrans "7d: {n7} samples · 28d: {n28} samples · 90d: {n90} samples" %},
+  fromBeforeTo: {% jstrans "From date must be on or before To date." %},
+  hrvLabel: {% jstrans "HRV (ms)" %},
+  rhrLabel: {% jstrans "Resting HR (bpm)" %},
+};
+</script>
 <script src="{% static 'health/health_page.js' %}" data-analytics-url="/api/health/analytics/"></script>
 {% endblock %}

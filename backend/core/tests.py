@@ -505,3 +505,110 @@ class PersonalDataAccessControlTests(TestCase):
         self.assertEqual(resp.status_code, 302)  # existing redirect-to-diary behavior preserved
         entry = MealEntry.objects.get(food_name="Owned Snack")
         self.assertEqual(entry.user, self.user)
+
+
+class TranslationCatalogTests(TestCase):
+    """Every translatable text has a Finnish translation, the compiled .mo
+    matches the .po (run `manage.py update_translations` and
+    `compile_translations` after changing texts), and pages render in Finnish."""
+
+    def test_every_text_has_a_finnish_translation(self):
+        from core.i18n_tools import extract_messages, po_path, read_po
+        entries, _ = read_po(po_path("fi"))
+        missing = [m.msgid for m in extract_messages() if not any(entries.get(m.key, {}).get("msgstr") or [])]
+        self.assertEqual(missing, [], "run `manage.py update_translations` and translate these")
+
+    def test_compiled_catalog_is_up_to_date(self):
+        from core.i18n_tools import compile_mo, mo_path, po_path, read_po
+        entries, header = read_po(po_path("fi"))
+        self.assertEqual(compile_mo(entries, header), mo_path("fi").read_bytes(),
+                         "run `manage.py compile_translations`")
+
+    def test_pages_render_in_finnish(self):
+        user = get_user_model().objects.create_user(username="fiuser", password="pw12345")
+        self.client.force_login(user)
+        UserSettings.objects.update_or_create(pk=1, defaults={"language": "fi"})
+        pages = {
+            reverse("food_diary"): "Ruokapäiväkirja",
+            reverse("manage_custom_foods"): "Omat tuotteet",
+            reverse("recipe_list"): "Reseptit",
+            reverse("manage_favorites"): "Suosikit",
+            reverse("week_view"): "Yhteenveto",
+            reverse("settings"): "Tallenna asetukset",
+        }
+        for url, text in pages.items():
+            with self.subTest(url=url):
+                resp = self.client.get(url)
+                self.assertEqual(resp.status_code, 200)
+                self.assertContains(resp, text)
+                self.assertContains(resp, '<html lang="fi"')
+
+    def test_training_and_health_pages_render_in_finnish(self):
+        from datetime import date, datetime, timezone
+
+        from activities.models import Activity, ActivityLap
+        user = get_user_model().objects.create_user(username="fitrain", password="pw12345")
+        self.client.force_login(user)
+        UserSettings.objects.update_or_create(pk=1, defaults={"language": "fi"})
+        activity = Activity.objects.create(
+            activity_id=9001, activity_type="running", date=date(2026, 8, 1),
+            start_time=datetime(2026, 8, 1, 8, 0, tzinfo=timezone.utc), name="VK 5x1km",
+            duration_minutes=30, distance_km=6,
+        )
+        ActivityLap.objects.create(
+            activity=activity, lap_number=1, step_type="warmup", lap_time_seconds=600,
+            cumulative_time_seconds=600, distance_km=2, avg_pace_min_per_km=5,
+        )
+        pages = {
+            reverse("activities"): "Viimeisimmät aktiviteetit",
+            reverse("activity_detail", args=[activity.pk]): "Lämmittely",
+            reverse("running_analytics"): "Juoksusuoritusten analytiikka",
+            reverse("health_page"): "Tarkastelupäivä",
+        }
+        for url, text in pages.items():
+            with self.subTest(url=url):
+                resp = self.client.get(url)
+                self.assertEqual(resp.status_code, 200)
+                self.assertContains(resp, text)
+                self.assertContains(resp, '<html lang="fi"')
+
+    def test_finnish_settings_form_can_be_saved_as_rendered(self):
+        """Resubmitting the Finnish settings page as a browser would (switching
+        back to English) must save: decimal values such as the activity level
+        1.725 must not be rendered with a decimal comma."""
+        user = get_user_model().objects.create_user(username="firoundtrip", password="pw12345")
+        self.client.force_login(user)
+        UserSettings.objects.update_or_create(pk=1, defaults={
+            "language": "fi", "weight_kg": 54.3, "activity_level": 1.725,
+            "fitness_goal": "custom", "custom_goal_kcal": 100,
+        })
+        html = self.client.get(reverse("settings")).content.decode()
+        form = html[html.index('id="settingsForm"'):html.index("</form>", html.index('id="settingsForm"'))]
+        data = {}
+        for tag in re.findall(r"<input[^>]*>", form):
+            name = re.search(r'name="([^"]+)"', tag)
+            if not name or ('type="checkbox"' in tag and "checked" not in tag):
+                continue
+            value = re.search(r'value="([^"]*)"', tag)
+            data[name.group(1)] = value.group(1) if value else ("on" if 'type="checkbox"' in tag else "")
+        for name, body in re.findall(r'<select[^>]*name="([^"]+)"[^>]*>(.*?)</select>', form, re.S):
+            selected = re.search(r'<option value="([^"]*)"\s*selected', body)
+            data[name] = selected.group(1) if selected else ""
+        self.assertEqual(data["activity_level"], "1.725")
+        data["language"] = "en"
+        resp = self.client.post(reverse("settings"), data)
+        self.assertEqual(resp.status_code, 302, resp.context and resp.context["form"].errors)
+        self.assertEqual(UserSettings.get_settings().language, "en")
+
+    def test_settings_saved_message_uses_the_new_language(self):
+        user = get_user_model().objects.create_user(username="fisave", password="pw12345")
+        self.client.force_login(user)
+        data = {
+            "weight_kg": "70", "height_cm": "170", "age": "40", "sex": "F", "activity_level": "1.55",
+            "fitness_goal": "maintain", "custom_goal_kcal": "", "max_daily_deficit": "100",
+            "garmin_calorie_adjustment": "0", "min_daily_calories": "1500", "max_daily_calories": "3000",
+            "protein_goal_g": "100", "carbs_goal_g": "250", "fat_goal_g": "70", "week_start_day": "0",
+            "language": "fi", "food_language": "fi",
+        }
+        resp = self.client.post(reverse("settings"), data, follow=True)
+        self.assertIn("Asetukset tallennettu.", [str(m) for m in resp.context["messages"]])

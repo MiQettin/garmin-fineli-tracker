@@ -128,7 +128,9 @@ sudo systemctl restart healthmanager
 
 If a migration goes wrong, stop the app and copy the snapshot back over `DATABASE_PATH`.
 
-Migrations that need to reach the server, newest last: `core/0006` (Garmin calorie adjustment), `core/0007` (custom fitness goal), `nutrition/0018` (Fineli portion sizes), `nutrition/0019` (package size, per-100 ml basis), `nutrition/0020` (product/recipe kind, servings, finished weight). `migrate` applies whichever are missing; `python manage.py showmigrations core nutrition` lists them.
+Migrations that need to reach the server, newest last: `core/0006` (Garmin calorie adjustment), `core/0007` (custom fitness goal), `core/0008` (app language and Fineli name language), `nutrition/0018` (Fineli portion sizes), `nutrition/0019` (package size, per-100 ml basis), `nutrition/0020` (product/recipe kind, servings, finished weight). `migrate` applies whichever are missing; `python manage.py showmigrations core nutrition` lists them.
+
+Translations need no extra step: the compiled catalog `backend/locale/fi/LC_MESSAGES/django.mo` is in Git, and GNU gettext is not needed on the server. The restart after `git pull` loads the new catalog.
 
 After a release that changes the Fineli import (as on 2026-10-11), also run `python manage.py import_fineli_csv --data-folder <Fineli folder> --update-existing`. The Fineli folder is not in Git; copy it to the server.
 
@@ -176,6 +178,7 @@ These keep the server's database upgradeable with a plain `migrate`:
 - Never squash or reset migrations, and never run `migrate <app> zero` against server data.
 - A migration that needs to change existing data (not just the schema) must do it inside the migration (`RunPython`). Don't plan on editing the server's database by hand.
 - Before pushing, `python manage.py makemigrations --check --dry-run` should print "No changes detected".
+- After changing UI texts, run `python manage.py update_translations`, translate the new entries in `locale/fi/LC_MESSAGES/django.po`, then `python manage.py compile_translations`, and commit both files.
 
 ## Home network only
 

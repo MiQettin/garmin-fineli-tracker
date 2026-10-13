@@ -3581,7 +3581,7 @@ class RecipeCompositionUITests(TestCase):
         self.assertContains(resp, 'name="unit"')
         self.assertContains(resp, 'data-units="DL|dl|')
 
-    def test_auxiliary_nutrient_labels_follow_fineli_source_language(self):
+    def test_auxiliary_nutrient_labels_follow_app_language(self):
         CustomFoodNutrient.objects.create(
             custom_food=self.parent, nutrient_key="calcium", value=79.216, unit="mg"
         )
@@ -3590,14 +3590,13 @@ class RecipeCompositionUITests(TestCase):
         )
         self.client.force_login(self.user_a)
         response = self.client.get(self._recipe_url())
-        self.assertContains(response, "Kalsium")
+        self.assertContains(response, "Calcium")
         self.assertContains(response, "79.22 mg")
 
-        self.oats.name_fi = ""
-        self.oats.name_en = "Oats"
-        self.oats.save(update_fields=["name_fi", "name_en"])
+        from core.models import UserSettings
+        UserSettings.objects.update_or_create(pk=1, defaults={"language": "fi"})
         response = self.client.get(self._recipe_url())
-        self.assertContains(response, "Calcium")
+        self.assertContains(response, "Kalsium")
 
     def test_final_nutrition_values_are_displayed_to_two_decimals(self):
         self.parent.energy_kcal_per_100g = 256.47832364303275
@@ -3701,7 +3700,7 @@ class RecipeCompositionUITests(TestCase):
         CustomFoodNutrient.objects.create(custom_food=self.parent, nutrient_key="sodium", value=5, unit="mg")
         self.client.force_login(self.user_a)
         resp = self.client.get(self._recipe_url())
-        self.assertContains(resp, "Natrium")
+        self.assertContains(resp, "Sodium")
         self.assertContains(resp, "mg")
 
     def test_lt_auxiliary_renders_with_less_than(self):
@@ -3981,7 +3980,7 @@ class FineliPortionUnitTests(TestCase):
         resp = self.client.get(reverse("search_fineli_api"), {"q": "banaani"})
         units = resp.json()["results"][0]["units"]
         self.assertEqual([u["code"] for u in units], ["KPL_S", "KPL_L", "PORTM", "DL"])
-        self.assertEqual(units[1], {"code": "KPL_L", "label": "iso (kpl)", "grams": 150.0})
+        self.assertEqual(units[1], {"code": "KPL_L", "label": "large piece", "grams": 150.0})
 
     # --- adding an entry ---
 
@@ -3991,7 +3990,7 @@ class FineliPortionUnitTests(TestCase):
         self.assertEqual(entry.portion_grams, 300)  # 2 x 150 g, client's 999 ignored
         self.assertEqual(entry.calories, 300)
         self.assertEqual((entry.source_amount, entry.source_unit), (2, "KPL_L"))
-        self.assertEqual(entry.portion_label, "2 × iso (kpl)")
+        self.assertEqual(entry.portion_label, "2 × large piece")
 
     def test_gram_unit_uses_amount_as_grams(self):
         self._add(amount=80, unit="G")
@@ -4035,7 +4034,7 @@ class FineliPortionUnitTests(TestCase):
     def test_diary_shows_portion_label(self):
         self._add(amount=1, unit="KPL_L")
         resp = self.client.get(reverse("food_diary"), {"date": "2026-10-11"})
-        self.assertContains(resp, "1 × iso (kpl) · 150g")
+        self.assertContains(resp, "1 × large piece · 150g")
 
     def test_csv_imported_portion_also_labelled(self):
         log, _ = DailyLog.objects.get_or_create(date="2026-10-11")
@@ -4110,7 +4109,7 @@ class CustomProductPackageTests(TestCase):
         self.assertEqual(entry.portion_grams, 200)
         self.assertEqual(entry.calories, 120)
         self.assertEqual(entry.protein_g, 20)
-        self.assertEqual(entry.portion_label, "1 × pakkaus")
+        self.assertEqual(entry.portion_label, "1 × package")
 
     def test_half_package(self):
         self._add(self.rahka, amount=0.5, unit="PKG")
@@ -4600,7 +4599,7 @@ class RecipeKindAndYieldTests(TestCase):
         self.assertEqual(self._log(self.recipe, "SERV", 2).status_code, 200)
         entry = MealEntry.objects.get(source_unit="SERV")
         self.assertEqual(entry.portion_grams, 100)
-        self.assertEqual(entry.portion_label, "2 × annos")
+        self.assertEqual(entry.portion_label, "2 × serving")
         self.assertEqual(self._log(self.recipe, "G", 30).status_code, 200)
 
     def test_products_cannot_be_logged_as_servings(self):
@@ -4769,7 +4768,7 @@ class EditMealEntryTests(TestCase):
     def test_edit_page_renders(self):
         resp = self.client.get(self.url)
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "Amount (× iso (kpl))")
+        self.assertContains(resp, "Amount (× large piece)")
         self.assertContains(resp, 'step="any"')
 
     def test_diary_has_edit_link(self):
@@ -4790,7 +4789,7 @@ class EditMealEntryTests(TestCase):
         self._post(portion_amount="3")
         self.assertEqual(self.entry.portion_grams, 450)
         self.assertAlmostEqual(self.entry.calories, 405)
-        self.assertEqual(self.entry.portion_label, "3 × iso (kpl)")
+        self.assertEqual(self.entry.portion_label, "3 × large piece")
 
     def test_hand_corrected_values_are_kept(self):
         self._post(portion_grams="150", calories="200")
@@ -4804,7 +4803,7 @@ class EditMealEntryTests(TestCase):
     def test_meal_and_name_only(self):
         self._post(meal_type="dinner", food_name="Banaani")
         self.assertEqual((self.entry.meal_type, self.entry.food_name, self.entry.calories), ("dinner", "Banaani", 270))
-        self.assertEqual(self.entry.portion_label, "2 × iso (kpl)")
+        self.assertEqual(self.entry.portion_label, "2 × large piece")
 
     def test_imported_meal_name_is_accepted(self):
         MealEntry.objects.filter(pk=self.entry.pk).update(meal_type="Herkku")
@@ -5025,3 +5024,91 @@ class RecipePageMobileFlowTests(TestCase):
                          {"fineli_id": 7, "amount": "100", "unit": "G"})
         self.assertContains(self.client.get(self.url), 'data-per100="" data-unit="g"><span class="unknown">unknown</span>')
 
+
+class LanguageSettingsTests(TestCase):
+    """Settings choose the app language (English / Suomi); in English the
+    Fineli food names can be Finnish or English, in Finnish they are always
+    Finnish. Portion units follow the app language. Nothing stored changes."""
+
+    def setUp(self):
+        from .models import FineliFoodUnit
+        self.user = get_user_model().objects.create_user(username="languser", password="x")
+        self.client.force_login(self.user)
+        self.oats = FineliFood.objects.create(fineli_id=153, name_fi="KAURAHIUTALE", name_en="OATS, ROLLED, OAT FLAKES",
+                                              energy_kcal=380)
+        FineliFoodUnit.objects.create(fineli_food=self.oats, unit_code="DL", mass_g=35)
+        FineliFoodUnit.objects.create(fineli_food=self.oats, unit_code="KPL_L", mass_g=50)
+
+    def _settings(self, **values):
+        from core.models import UserSettings
+        UserSettings.objects.update_or_create(pk=1, defaults=values)
+
+    def _search(self, q="kaura"):
+        return self.client.get(reverse("search_fineli_api"), {"q": q}).json()["results"][0]
+
+    def test_default_is_english_app_with_finnish_food_names(self):
+        food = self._search()
+        self.assertEqual(food["name"], "KAURAHIUTALE")
+        self.assertEqual([u["label"] for u in food["units"]], ["large piece", "dl"])
+
+    def test_english_food_names_when_chosen(self):
+        self._settings(language="en", food_language="en")
+        food = self._search("oat flakes")
+        self.assertEqual(food["name"], "Oats, rolled, oat flakes")
+
+    def test_finnish_app_always_uses_finnish_names_and_units(self):
+        self._settings(language="fi", food_language="en")
+        food = self._search()
+        self.assertEqual(food["name"], "KAURAHIUTALE")
+        self.assertEqual([u["label"] for u in food["units"]], ["iso (kpl)", "dl"])
+
+    def test_finnish_app_translates_django_texts_and_sets_language_header(self):
+        self._settings(language="fi")
+        resp = self.client.get(reverse("food_diary"))
+        self.assertEqual(resp.headers["Content-Language"], "fi")
+
+    def test_diary_shows_logged_and_imported_fineli_entries_in_english(self):
+        import json as _json
+        self.client.post(reverse("add_fineli_entry"), data=_json.dumps({
+            "date": "2026-10-12", "fineli_id": 153, "meal_type": "breakfast", "amount": 1, "unit": "DL",
+        }), content_type="application/json")
+        log = DailyLog.objects.get(date="2026-10-12")
+        MealEntry.objects.create(daily_log=log, user=self.user, source_type="bulk_import", food_name="Kaurahiutale",
+                                 meal_type="breakfast", portion_grams=40, calories=152, source_food_id=153)
+        self.assertEqual(MealEntry.objects.filter(food_name="KAURAHIUTALE").count(), 1)  # stored as logged
+        self._settings(language="en", food_language="en")
+        resp = self.client.get(reverse("food_diary"), {"date": "2026-10-12"})
+        self.assertEqual([e.shown_name for e in resp.context["meal_entries"]], ["Oats, rolled, oat flakes"] * 2)
+        self.assertContains(resp, "1 × dl")
+
+    def test_recipe_pickers_and_ingredients_use_food_language(self):
+        self._settings(language="en", food_language="en")
+        recipe = CustomFood.objects.create(user=self.user, name="Puuro", kind=CustomFood.KIND_RECIPE)
+        CustomFoodIngredient.objects.create(custom_food=recipe, fineli_food=self.oats, amount_grams=40)
+        resp = self.client.get(reverse("recipe_detail", args=[recipe.id]), {"q": "oat"})
+        self.assertEqual(resp.context["ingredient_rows"][0]["name"], "Oats, rolled, oat flakes")
+        self.assertContains(resp, 'data-name="Oats, rolled, oat flakes"')
+
+    def test_settings_page_saves_languages(self):
+        from core.models import UserSettings
+        resp = self.client.get(reverse("settings"))
+        self.assertContains(resp, 'name="language"')
+        self.assertContains(resp, 'name="food_language"')
+        s = UserSettings.get_settings()
+        data = {
+            "weight_kg": "70.5", "height_cm": "170", "age": "40", "sex": "F", "activity_level": "1.725",
+            "fitness_goal": "maintain", "custom_goal_kcal": "", "max_daily_deficit": "100",
+            "garmin_calorie_adjustment": "0", "min_daily_calories": "1500", "max_daily_calories": "3000",
+            "protein_goal_g": "100", "carbs_goal_g": "250", "fat_goal_g": "70", "week_start_day": "0",
+            "language": "fi", "food_language": "en",
+        }
+        self.client.post(reverse("settings"), data)
+        s.refresh_from_db()
+        self.assertEqual((s.language, s.food_language, s.effective_food_language()), ("fi", "en", "fi"))
+
+    def test_finnish_numbers_stay_machine_readable_in_inputs_and_scripts(self):
+        self._settings(language="fi", weight_kg=70.5, height_cm=170, age=40, sex="F")
+        resp = self.client.get(reverse("settings"))
+        self.assertContains(resp, 'value="70.5"')
+        self.assertNotContains(resp, 'value="70,5"')
+        self.assertRegex(resp.content.decode(), r"const TARGET_CALORIES = [0-9.]+;")

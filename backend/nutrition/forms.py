@@ -1,4 +1,5 @@
 from django import forms
+from django.utils.translation import gettext
 from .models import CustomFood, MealEntry
 
 
@@ -48,11 +49,11 @@ class CustomFoodForm(forms.ModelForm):
         package_unit = cleaned.get("package_unit") or "G"
         nutrition_basis = cleaned.get("nutrition_basis") or "G"
         if nutrition_basis == "G" and package_unit != "G":
-            self.add_error("package_unit", "Nutrition values are per 100 g, so give the package size in grams "
-                                           "(e.g. 250 g), choose values per 100 ml, or leave the package size empty.")
+            self.add_error("package_unit", gettext("Nutrition values are per 100 g, so give the package size in grams "
+                                                   "(e.g. 250 g), choose values per 100 ml, or leave the package size empty."))
         if nutrition_basis == "ML" and package_unit == "G":
-            self.add_error("package_unit", "Nutrition values are per 100 ml, so give the package size in ml, dl or l, "
-                                           "choose values per 100 g, or leave the package size empty.")
+            self.add_error("package_unit", gettext("Nutrition values are per 100 ml, so give the package size in ml, dl or l, "
+                                                   "choose values per 100 g, or leave the package size empty."))
         return cleaned
 
     class Meta:
@@ -94,13 +95,13 @@ class RecipeSettingsForm(forms.ModelForm):
     def clean_servings(self):
         value = self.cleaned_data.get("servings")
         if value is not None and not 0 < value <= 1000:
-            raise forms.ValidationError("Servings must be more than 0.")
+            raise forms.ValidationError(gettext("Servings must be more than 0."))
         return value
 
     def clean_cooked_weight_g(self):
         value = self.cleaned_data.get("cooked_weight_g")
         if value is not None and not 0 < value <= 100000:
-            raise forms.ValidationError("Weight must be more than 0 g.")
+            raise forms.ValidationError(gettext("Weight must be more than 0 g."))
         return value
 
 
@@ -186,6 +187,14 @@ class MealEntryEditForm(MealEntryForm):
         # Diary CSV imports keep their own meal names (e.g. "Herkku"); the
         # entry's current meal must stay a valid choice.
         current = self.instance.meal_type
+        # Meal names in the app language (the stored values stay the same).
+        labels = {
+            "breakfast": gettext("Breakfast"), "lunch": gettext("Lunch"), "dinner": gettext("Dinner"),
+            "snack": gettext("Snack"), "evening_snack": gettext("Evening snack"),
+        }
+        self.fields["meal_type"].choices = [
+            (value, labels.get(value, label)) for value, label in self.fields["meal_type"].choices
+        ]
         choices = list(self.fields["meal_type"].choices)
         self._imported_meal = None
         if current and current not in {value for value, _ in choices}:

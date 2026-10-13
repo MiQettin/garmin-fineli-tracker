@@ -4,6 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
+from django.utils import translation
+from django.utils.translation import gettext
 from django.utils.timezone import localdate, now
 from django.http import JsonResponse
 from django.db import transaction
@@ -12,6 +14,7 @@ import json
 from urllib.parse import urlencode
 
 from core.models import DailyLog
+from .food_language import UNIT_LABELS, fineli_name, food_language, name_field, unit_label
 from .models import (
     FineliFood, CustomFood, CustomFoodIngredient, CustomFoodNutrient, FavoriteFood, MealEntry, MealEntryNutrient,
     fineli_unit_sort_key,
@@ -26,6 +29,31 @@ from .recipe_persistence import (
 )
 
 
+def source_label(source_type):
+    """Where a diary entry came from, in the app language."""
+    return {
+        'fineli': gettext('Fineli'),
+        'custom': gettext('Own food'),
+        'manual': gettext('Manual'),
+        'bulk_import': gettext('CSV import'),
+    }.get(source_type, source_type)
+
+
+def _attach_shown_names(entries):
+    """entry.shown_name: an entry stores the food's name as logged (Finnish
+    for Fineli foods). With English food names, Fineli foods - linked, or
+    imported from a diary CSV with their Fineli id - are shown in English."""
+    language = food_language()
+    foods = {}
+    if language == "en":
+        ids = {e.source_food_id for e in entries if not e.fineli_food_id and e.source_food_id}
+        if ids:
+            foods = FineliFood.objects.in_bulk(ids, field_name='fineli_id')
+    for entry in entries:
+        food = entry.fineli_food if entry.fineli_food_id else foods.get(entry.source_food_id)
+        entry.shown_name = fineli_name(food, language) if language == "en" and food is not None else entry.food_name
+
+
 @login_required
 def food_diary_view(request):
     """View for managing daily food diary."""
@@ -37,7 +65,10 @@ def food_diary_view(request):
         current_date = localdate()
     
     daily_log, created = DailyLog.objects.get_or_create(date=current_date)
-    meal_entries = daily_log.meal_entries.filter(user=request.user).order_by('meal_type', '-created_at')
+    meal_entries = list(
+        daily_log.meal_entries.filter(user=request.user).select_related('fineli_food').order_by('meal_type', '-created_at')
+    )
+    _attach_shown_names(meal_entries)
     custom_foods = CustomFood.objects.filter(user=request.user)[:20]
 
     # The 5 standard sections are always shown (so there's always somewhere
@@ -46,11 +77,11 @@ def food_diary_view(request):
     # those get their own section, appended after the standard ones, named
     # verbatim after the CSV's own text rather than forced into one of the 5.
     base_meal_types = [
-        ('breakfast', '🌅 Breakfast'),
-        ('lunch', '🌞 Lunch'),
-        ('dinner', '🌙 Dinner'),
-        ('snack', '🍎 Snack'),
-        ('evening_snack', '🌜 Evening Snack'),
+        ('breakfast', '🌅 ' + gettext('Breakfast')),
+        ('lunch', '🌞 ' + gettext('Lunch')),
+        ('dinner', '🌙 ' + gettext('Dinner')),
+        ('snack', '🍎 ' + gettext('Snack')),
+        ('evening_snack', '🌜 ' + gettext('Evening snack')),
     ]
     base_meal_keys = {key for key, _ in base_meal_types}
     extra_meal_names = sorted({
@@ -97,7 +128,11 @@ def food_diary_view(request):
         'prev_date': prev_date,
         'next_date': next_date,
         'is_today': current_date == localdate(),
+        # Portion unit labels in the app language for the portion picker.
+        'unit_labels': {code: unit_label(code) for code in UNIT_LABELS["en"]},
     }
+    for entry in meal_entries:
+        entry.source_label = source_label(entry.source_type)
     
     return render(request, "nutrition/food_diary.html", context)
 
@@ -199,7 +234,7 @@ def edit_custom_food(request, food_id):
         form = CustomFoodForm(request.POST, instance=food)
         if form.is_valid():
             food = form.save()
-            messages.success(request, f"Saved {food.name}.")
+            messages.success(request, gettext("Saved %(name)s.") % {"name": food.name})
             _update_dependent_recipes(request, food)
             return redirect('manage_custom_foods')
     else:
@@ -216,10 +251,10 @@ def delete_custom_food(request, food_id):
     if request.method == "POST":
         used_in = _recipes_using(food)
         if used_in:
-            messages.error(request, f"{food.name} is an ingredient in {used_in} - remove it there first.")
+            messages.error(request, gettext("%(name)s is an ingredient in %(recipes)s - remove it there first.") % {"name": food.name, "recipes": used_in})
         else:
             food.delete()
-            messages.success(request, f"Deleted {food.name}.")
+            messages.success(request, gettext("Deleted %(name)s.") % {"name": food.name})
     return redirect('manage_custom_foods')
 
 
@@ -274,8 +309,9 @@ def ranked_fineli_search(query, fields=('name_fi', 'name_sv', 'name_en'), limit=
     """FineliFood matches for `query`, best matches first (see
     _match_rank), optionally most-used first. Ranks on the lightweight
     values, then loads only the top `limit` rows with their units."""
+    rank_field = name_field()
     rows = FineliFood.objects.filter(name_search(fields, query)).values_list(
-        'fineli_id', 'name_fi', 'usage_count',
+        'fineli_id', rank_field, 'usage_count',
     )
     words = search_words(query)
     # The first word decides most (it's usually the food itself: "maito"
@@ -362,18 +398,8 @@ RECIPE_NUTRIENT_LABELS = {
 
 
 def _recipe_language(parent):
-    """Use Finnish when the current Fineli catalog is Finnish, and English
-    when a future English-only catalog supplies the ingredient names."""
-    fineli_foods = [
-        ingredient.fineli_food
-        for ingredient in parent.ingredients.select_related("fineli_food")
-        if ingredient.fineli_food is not None
-    ]
-    if fineli_foods and any(food.name_fi for food in fineli_foods):
-        return "fi"
-    if fineli_foods and any(food.name_en for food in fineli_foods):
-        return "en"
-    return "fi"
+    """Micronutrient labels on the recipe page follow the app language."""
+    return "fi" if (translation.get_language() or "en").startswith("fi") else "en"
 
 
 def _back_to_recipe(request, parent, anchor):
@@ -403,12 +429,13 @@ def _ingredient_rows(parent):
     for ing in parent.ingredients.select_related('fineli_food', 'source_custom_food').order_by('id'):
         if ing.fineli_food is not None:
             food = ing.fineli_food
-            name, kind = food.name_fi, "Fineli"
+            name, kind, kind_label = fineli_name(food), "Fineli", "Fineli"
             per_100 = {"kcal": food.energy_kcal, "carbs": food.carbs_g, "protein": food.protein_g}
         else:
             food = ing.source_custom_food
             name = food.name
             kind = "Recipe" if food.kind == CustomFood.KIND_RECIPE else "Product"
+            kind_label = gettext("Recipe") if kind == "Recipe" else gettext("Product")
             per_100 = {"kcal": food.energy_kcal_per_100g, "carbs": food.carbs_per_100g, "protein": food.protein_per_100g}
         values = {}
         for key, value in per_100.items():
@@ -418,7 +445,7 @@ def _ingredient_rows(parent):
             else:
                 values[key] = value * ing.amount_grams / 100
                 totals[key] += values[key]
-        rows.append({"ingredient": ing, "name": name, "kind": kind, **values})
+        rows.append({"ingredient": ing, "name": name, "kind": kind, "kind_label": kind_label, **values})
     return rows, totals, partial
 
 
@@ -438,14 +465,14 @@ def _recipe_detail_context(request, parent, final_values_form=None, settings_for
     nutrition_rows = [
         {"label": label, "value": getattr(parent, field), "unit": unit, "sub": sub}
         for label, field, unit, sub in (
-            ("Energy", "energy_kcal_per_100g", "kcal", False),
-            ("Protein", "protein_per_100g", "g", False),
-            ("Carbohydrate", "carbs_per_100g", "g", False),
-            ("of which sugars", "sugar_per_100g", "g", True),
-            ("Fat", "fat_per_100g", "g", False),
-            ("of which saturated", "sat_fat_per_100g", "g", True),
-            ("Fiber", "fiber_per_100g", "g", False),
-            ("Salt", "salt_per_100g", "g", False),
+            (gettext("Energy"), "energy_kcal_per_100g", "kcal", False),
+            (gettext("Protein"), "protein_per_100g", "g", False),
+            (gettext("Carbohydrates"), "carbs_per_100g", "g", False),
+            (gettext("of which sugars"), "sugar_per_100g", "g", True),
+            (gettext("Fat"), "fat_per_100g", "g", False),
+            (gettext("of which saturated"), "sat_fat_per_100g", "g", True),
+            (gettext("Fiber"), "fiber_per_100g", "g", False),
+            (gettext("Salt"), "salt_per_100g", "g", False),
         )
     ]
     for row in nutrition_rows:
@@ -473,7 +500,7 @@ def _recipe_detail_context(request, parent, final_values_form=None, settings_for
             ).select_related('fineli_food').prefetch_related('fineli_food__units').order_by('-created_at')
         ],
         'query': query,
-        'fineli_results': ranked_fineli_search(query, fields=('name_fi',)) if query else [],
+        'fineli_results': ranked_fineli_search(query, fields=(name_field(),)) if query else [],
         'total_grams': total_recipe_grams(parent),
         'yield_grams': recipe_yield_grams(parent),
         'serving_grams': serving_grams(parent),
@@ -498,9 +525,9 @@ def _recalculate_after_ingredient_change(request, parent, done):
     try:
         recalculate_custom_food_recipe_with_dependencies(parent)
     except RecipeGraphError as e:
-        messages.warning(request, f"{done}, but the nutrition values could not be recalculated: {e}")
+        messages.warning(request, gettext("%(done)s, but the nutrition values could not be recalculated: %(error)s") % {"done": done, "error": e})
         return
-    messages.success(request, f"{done} - nutrition values recalculated.")
+    messages.success(request, gettext("%(done)s - nutrition values recalculated.") % {"done": done})
     _update_dependent_recipes(request, parent)
 
 
@@ -510,11 +537,11 @@ def _update_dependent_recipes(request, food):
     try:
         updated = recalculate_dependent_recipes(food)
     except RecipeGraphError as e:
-        messages.warning(request, f"Recipes using {food.name} could not be recalculated: {e}")
+        messages.warning(request, gettext("Recipes using %(name)s could not be recalculated: %(error)s") % {"name": food.name, "error": e})
         return
     if updated:
         names = ", ".join(recipe.name for recipe in updated)
-        messages.info(request, f"Also recalculated the recipes that use {food.name}: {names}.")
+        messages.info(request, gettext("Also recalculated the recipes that use %(name)s: %(recipes)s.") % {"name": food.name, "recipes": names})
 
 
 @login_required
@@ -535,18 +562,18 @@ def add_recipe_fineli_ingredient(request, food_id):
     ).first() if fineli_id else None
     error = None
     if fineli_food is None:
-        error = "Select a valid Fineli food."
+        error = gettext("Select a valid Fineli food.")
     else:
         unit_code = request.POST.get('unit', 'G')
         amount = _parse_grams(request.POST.get('amount', request.POST.get('amount_grams')))
         if amount is None or amount <= 0:
-            error = "Enter a valid portion amount."
+            error = gettext("Enter a valid portion amount.")
         elif unit_code == 'G':
             amount_grams = amount
         else:
             unit = fineli_food.units.filter(unit_code=unit_code).first()
             if unit is None:
-                error = "Select a valid portion unit for this Fineli food."
+                error = gettext("Select a valid portion unit for this Fineli food.")
             else:
                 amount_grams = amount * unit.mass_g
     if error is None:
@@ -564,7 +591,7 @@ def add_recipe_fineli_ingredient(request, food_id):
         context['error'] = error
         return render(request, "nutrition/recipe_detail.html", context)
     _recalculate_after_ingredient_change(
-        request, parent, f"Added {fineli_food.name_fi} ({amount_grams:g} g)",
+        request, parent, gettext("Added %(name)s (%(grams)s g)") % {"name": fineli_name(fineli_food), "grams": f"{amount_grams:g}"},
     )
     return _back_to_recipe(request, parent, "add-fineli")
 
@@ -584,7 +611,7 @@ def add_recipe_custom_ingredient(request, food_id):
     source = CustomFood.objects.filter(pk=source_id, user=request.user).first() if source_id else None
     error = None
     if source is None:
-        error = "Select one of your own custom foods."
+        error = gettext("Select one of your own foods.")
     else:
         ingredient = CustomFoodIngredient(
             custom_food=parent, source_custom_food=source,
@@ -600,7 +627,7 @@ def add_recipe_custom_ingredient(request, food_id):
         context['error'] = error
         return render(request, "nutrition/recipe_detail.html", context)
     _recalculate_after_ingredient_change(
-        request, parent, f"Added {source.name} ({ingredient.amount_grams:g} g)",
+        request, parent, gettext("Added %(name)s (%(grams)s g)") % {"name": source.name, "grams": f"{ingredient.amount_grams:g}"},
     )
     return _back_to_recipe(request, parent, "add-own")
 
@@ -616,9 +643,9 @@ def remove_recipe_ingredient(request, food_id, ingredient_id):
             pk=ingredient_id, custom_food=parent, custom_food__user=request.user
         ).select_related('fineli_food', 'source_custom_food').first()
         if ingredient is not None:
-            name = ingredient.fineli_food.name_fi if ingredient.fineli_food else ingredient.source_custom_food.name
+            name = fineli_name(ingredient.fineli_food) if ingredient.fineli_food else ingredient.source_custom_food.name
             ingredient.delete()
-            _recalculate_after_ingredient_change(request, parent, f"Removed {name}")
+            _recalculate_after_ingredient_change(request, parent, gettext("Removed %(name)s") % {"name": name})
     return _back_to_recipe(request, parent, "ingredients")
 
 
@@ -641,7 +668,7 @@ def recalculate_recipe_view(request, food_id):
         context = _recipe_detail_context(request, parent)
         context['error'] = error
         return render(request, "nutrition/recipe_detail.html", context)
-    messages.success(request, "Nutrition values recalculated from the ingredients.")
+    messages.success(request, gettext("Nutrition values recalculated from the ingredients."))
     _update_dependent_recipes(request, parent)
     return _back_to_recipe(request, parent, "final-values")
 
@@ -660,9 +687,9 @@ def update_recipe_settings(request, food_id):
     weight_changed = 'cooked_weight_g' in form.changed_data
     form.save()
     if weight_changed and parent.ingredients.exists():
-        _recalculate_after_ingredient_change(request, parent, "Recipe details saved")
+        _recalculate_after_ingredient_change(request, parent, gettext("Recipe details saved"))
     else:
-        messages.success(request, "Recipe details saved.")
+        messages.success(request, gettext("Recipe details saved."))
     return _back_to_recipe(request, parent, "recipe-details")
 
 
@@ -679,7 +706,7 @@ def duplicate_recipe(request, food_id):
         copy = CustomFood.objects.get(pk=source.pk)
         copy.pk = None
         copy._state.adding = True
-        copy.name = f"{source.name} (copy)"[:200]
+        copy.name = (gettext("%(name)s (copy)") % {"name": source.name})[:200]
         copy.use_count = 0
         copy.save()
         for ing in ingredients:
@@ -692,7 +719,7 @@ def duplicate_recipe(request, food_id):
                                unit=n.unit, qualifier=n.qualifier)
             for n in nutrients
         ])
-    messages.success(request, f"Copied as \"{copy.name}\" - rename it under Recipe details.")
+    messages.success(request, gettext('Copied as "%(name)s" - rename it under Recipe details.') % {"name": copy.name})
     return redirect('recipe_detail', food_id=copy.id)
 
 
@@ -704,11 +731,11 @@ def delete_recipe(request, food_id):
     if request.method == "POST":
         used_in = _recipes_using(recipe)
         if used_in:
-            messages.error(request, f"{recipe.name} is an ingredient in {used_in} - remove it there first.")
+            messages.error(request, gettext("%(name)s is an ingredient in %(recipes)s - remove it there first.") % {"name": recipe.name, "recipes": used_in})
             return redirect('recipe_detail', food_id=recipe.id)
         name = recipe.name
         recipe.delete()
-        messages.success(request, f"Deleted {name}.")
+        messages.success(request, gettext("Deleted %(name)s.") % {"name": name})
     return redirect('recipe_list')
 
 
@@ -735,7 +762,7 @@ def save_recipe_final_values(request, food_id):
     form = FinalNutrientValuesForm(request.POST, instance=parent)
     if form.is_valid():
         form.save()
-        messages.success(request, "Final nutrition values saved.")
+        messages.success(request, gettext("Final nutrition values saved."))
         _update_dependent_recipes(request, parent)
         return _back_to_recipe(request, parent, "final-values")
 
@@ -836,13 +863,14 @@ def edit_meal_entry(request, entry_id):
                         nutrient.value *= ratio
                     MealEntryNutrient.objects.bulk_update(aux, ["value"])
                 entry.save()  # also refreshes the day's totals
-            messages.success(request, f"Saved {entry.food_name}.")
+            messages.success(request, gettext("Saved %(name)s.") % {"name": entry.food_name})
             return redirect(diary_url)
     else:
         form = MealEntryEditForm(instance=entry)
 
     return render(request, "nutrition/edit_meal_entry.html", {
         "form": form, "entry": entry, "diary_url": diary_url, "unit_label": unit_label,
+        "source_label": source_label(entry.source_type),
         "grams_per_unit": original_grams / original_amount if unit_label and original_amount else None,
     })
 
@@ -869,7 +897,7 @@ def format_food_for_frontend(food, is_favorite=False):
     """Format FineliFood object for JSON response."""
     return {
         'id': food.fineli_id,
-        'name': food.name_fi,
+        'name': fineli_name(food),
         'name_en': food.name_en or food.name_fi,
         'energy_kcal': _optional_float(food.energy_kcal),
         'protein': _optional_float(food.protein_g),
@@ -995,13 +1023,13 @@ def add_fineli_entry(request):
             # (user=None) one, even by sending its ID directly.
             custom_food = CustomFood.objects.filter(id=custom_food_id, user=request.user).first()
             if custom_food is None:
-                return JsonResponse({'error': 'Unknown food'}, status=404)
+                return JsonResponse({'error': gettext('Unknown food')}, status=404)
         elif fineli_id:
             # Only foods in the local Fineli catalog - a client can no longer
             # create catalog rows (with its own values) by logging an id.
             fineli_food = FineliFood.objects.filter(fineli_id=fineli_id).first()
             if fineli_food is None:
-                return JsonResponse({'error': 'Unknown Fineli food'}, status=404)
+                return JsonResponse({'error': gettext('Unknown Fineli food')}, status=404)
             source_type = 'fineli'
 
         # A Fineli food can be logged as amount x Fineli unit (e.g. 1 x KPL_L).
@@ -1012,15 +1040,15 @@ def add_fineli_entry(request):
             try:
                 amount = float(data.get('amount'))
             except (TypeError, ValueError):
-                return JsonResponse({'error': 'Invalid amount'}, status=400)
+                return JsonResponse({'error': gettext('Invalid amount')}, status=400)
             if amount <= 0:
-                return JsonResponse({'error': 'Invalid amount'}, status=400)
+                return JsonResponse({'error': gettext('Invalid amount')}, status=400)
             if unit_code == 'G':
                 portion_grams = amount
             else:
                 unit = fineli_food.units.filter(unit_code=unit_code).first()
                 if unit is None:
-                    return JsonResponse({'error': f'Unknown portion unit: {unit_code}'}, status=400)
+                    return JsonResponse({'error': gettext('Unknown portion unit: %(unit)s') % {'unit': unit_code}}, status=400)
                 portion_grams = amount * unit.mass_g
             source_amount, source_unit = amount, unit_code
         elif custom_food is not None and unit_code:
@@ -1028,16 +1056,16 @@ def add_fineli_entry(request):
             try:
                 amount = float(data.get('amount'))
             except (TypeError, ValueError):
-                return JsonResponse({'error': 'Invalid amount'}, status=400)
+                return JsonResponse({'error': gettext('Invalid amount')}, status=400)
             if amount <= 0:
-                return JsonResponse({'error': 'Invalid amount'}, status=400)
+                return JsonResponse({'error': gettext('Invalid amount')}, status=400)
             if unit_code == 'SERV':
                 # One serving of a recipe - only when the recipe has servings.
                 grams_per_serving = (
                     serving_grams(custom_food) if custom_food.kind == CustomFood.KIND_RECIPE else None
                 )
                 if not grams_per_serving:
-                    return JsonResponse({'error': 'This recipe has no servings set'}, status=400)
+                    return JsonResponse({'error': gettext('This recipe has no servings set')}, status=400)
                 portion_grams = amount * grams_per_serving
                 source_amount, source_unit = amount, unit_code
             else:
@@ -1051,14 +1079,14 @@ def add_fineli_entry(request):
                     normalized_amount = amount
                     normalized_unit = unit_code
                 else:
-                    return JsonResponse({'error': f'Unknown portion unit: {unit_code}'}, status=400)
+                    return JsonResponse({'error': gettext('Unknown portion unit: %(unit)s') % {'unit': unit_code}}, status=400)
                 if custom_food.nutrition_basis == "ML":
                     if normalized_unit == "G":
-                        return JsonResponse({'error': 'This food must be logged in a volume unit'}, status=400)
+                        return JsonResponse({'error': gettext('This food must be logged in a volume unit')}, status=400)
                     portion_grams = normalized_amount * unit_to_ml[normalized_unit]
                 else:
                     if normalized_unit != "G":
-                        return JsonResponse({'error': 'This food must be logged in grams'}, status=400)
+                        return JsonResponse({'error': gettext('This food must be logged in grams')}, status=400)
                     portion_grams = normalized_amount
                 source_amount, source_unit = amount, unit_code
         else:
@@ -1329,7 +1357,7 @@ def bulk_import_diary_csv(request):
     files = request.FILES.getlist('csv_files')
 
     if not files:
-        return JsonResponse({'error': 'No files uploaded'}, status=400)
+        return JsonResponse({'error': gettext('No files uploaded')}, status=400)
 
     from datetime import datetime
     from django.db import transaction
@@ -1347,7 +1375,7 @@ def bulk_import_diary_csv(request):
                 file_results.append({
                     'filename': uploaded_file.name,
                     'status': 'error',
-                    'message': 'No food rows found in file'
+                    'message': gettext('No food rows found in file')
                 })
                 continue
 
@@ -1367,7 +1395,7 @@ def bulk_import_diary_csv(request):
             file_results.append({
                 'filename': uploaded_file.name,
                 'status': 'error',
-                'message': f'CSV format error: {str(e)}'
+                'message': gettext('CSV format error: %(error)s') % {'error': e}
             })
         except Exception as e:
             file_results.append({
@@ -1380,7 +1408,7 @@ def bulk_import_diary_csv(request):
     if failed_files:
         return JsonResponse({
             'success': False,
-            'error': 'No files were imported because one or more files could not be validated.',
+            'error': gettext('No files were imported because one or more files could not be validated.'),
             'files': file_results,
         }, status=400)
 
@@ -1525,5 +1553,7 @@ def bulk_import_diary_csv(request):
         'total_imported': total_new_days,
         'total_updated': total_updated_days,
         'files': file_results,
-        'message': f'Imported {total_food_rows} food entries across {total_new_days} new day(s) and {total_updated_days} updated day(s) from {len(files)} file(s)'
+        'message': gettext('Imported %(rows)s food entries: %(new)s new and %(updated)s updated day(s) from %(files)s file(s)') % {
+            'rows': total_food_rows, 'new': total_new_days, 'updated': total_updated_days, 'files': len(files),
+        }
     })

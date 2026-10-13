@@ -1,19 +1,21 @@
 # Project Status - HealthManager
 
-Last updated: 2026-10-12
+Last updated: 2026-10-13
 
 ## Current Phase
 
 - Phase: 4 - Nutrition depth (products and recipes, provenance-aware diary import) and Garmin health metrics.
 - Status: in daily use. The food diary runs on the owner's Raspberry Pi server (since 2026-10-11); a development machine has a copy of the database.
 - Current focus:
-  - Ship the 2026-10-12 nutrition work to the server (migrations `core/0006`-`0007`, `nutrition/0018`-`0020`) - see [deployment.md](deployment.md).
+  - Ship the 2026-10-12/13 work to the server (migrations `core/0006`-`0008`, `nutrition/0018`-`0020`) - see [deployment.md](deployment.md).
+  - Next feature: training vs nutrition - completed workouts compared with protein and carbohydrate intake (g/kg).
   - Publish tested changes to the public `garmin-fineli-tracker` repository.
   - Running analytics improvements.
 
 ## What Works Right Now
 
 - **Apps:** `core` (dashboard, settings, `DailyLog`, `UserSettings`, base template, `backup_db`, `/sync-garmin/`), `activities` (activities, laps, running analytics), `nutrition` (Fineli catalog, diary, products, recipes, favorites), `health` (sleep, HRV, stress, Body Battery, respiration, SpO2 and `/api/health/`). Models and rules: [database_guide.md](database_guide.md).
+- **Language (English / Suomi):** Settings → Language switches the whole UI - navigation, dashboard, settings, diary, products, recipes, favorites, activities, running analytics and the health page, including JavaScript messages and chart labels. Fineli food names follow the language: the Finnish UI always uses the Finnish names; the English UI lets you choose Fineli's Finnish or English names. Portion unit names follow the UI language. Units are metric only (g, ml, dl, l, km, min/km). Translations live in `backend/locale/fi/LC_MESSAGES/django.po` (the compiled `.mo` is committed); see [ui_guidelines.md](ui_guidelines.md#translations).
 - **Dashboard:**
   - The 7-day window ends **yesterday** (today is still incomplete). The Daily Breakdown table shows all 7 days; empty days are left out of the averages. Per-day comparison against the 7-day average.
   - Energy balance against the fitness goal (preset or **custom** kcal/day). The **Avg daily balance** row is colored by how far below the goal the average is: green on track → yellow at the warning threshold → red at twice the threshold (blue for a surplus on cut goals), with the goal and thresholds shown. Thresholds are automatic or a custom value.
@@ -36,6 +38,20 @@ Last updated: 2026-10-12
 - **Serving:** gunicorn + whitenoise on the Pi, home network only ([deployment.md](deployment.md)).
 
 ## Recent Changes
+
+### 2026-10-13
+
+Database change (approved by the owner):
+
+- `core/0008` - `UserSettings.language` (`en`/`fi`, default `en`) and `UserSettings.food_language` (`fi`/`en`, default `fi`; used only when the app language is English).
+
+Language support:
+
+- `core.middleware.UserLanguageMiddleware` activates the chosen language for every request and sets the Fineli name language (`nutrition.food_language`).
+- Fineli names: `fineli_name()` / `FineliFood.display_name` (English names sentence-cased); search ranks by the shown language; diary entries linked to Fineli show the name in the current language.
+- Translation tooling without GNU gettext: `manage.py update_translations` (collects texts from templates, `{% jstrans %}` and Python into the .po) and `manage.py compile_translations` (.po → .mo). Tests fail when a text has no Finnish translation or the .mo is stale.
+- Model choices (meal types, activity and lap types, goals) are translated at display time, so they needed no migration.
+- Number formatting: Finnish uses decimal commas on the page; numbers placed in inputs, CSS and JavaScript use `|unlocalize`.
 
 ### 2026-10-12
 

@@ -1,6 +1,10 @@
 from django.conf import settings
 from django.db import models
 
+from django.utils.translation import gettext
+
+from .food_language import fineli_name, unit_label
+
 # Source-value qualifier: the Fineli diary CSV reports some numeric values as
 # a below-detection-limit threshold ("<0.1") rather than an exact number.
 # Only "<" is proven in real export data - no other comparison operator.
@@ -51,9 +55,15 @@ class FineliFood(models.Model):
     def __str__(self):
         return f"{self.name_fi} (ID: {self.fineli_id})"
 
+    @property
+    def display_name(self):
+        """Name in the food language (see nutrition.food_language)."""
+        return fineli_name(self)
+
 
 # Fineli portion unit codes (foodunit_FI.csv THSCODE -> DESCRIPT), in the
-# order the portion picker lists them. "G" is not a Fineli add-unit; it is
+# order the portion picker lists them. Labels shown to users come from
+# food_language.unit_label() in the app language; these are the Finnish ones. "G" is not a Fineli add-unit; it is
 # the diary CSV's code for a plain gram amount.
 FINELI_UNIT_LABELS = {
     "G": "g",
@@ -97,7 +107,7 @@ class FineliFoodUnit(models.Model):
 
     @property
     def label(self):
-        return FINELI_UNIT_LABELS.get(self.unit_code, self.unit_code)
+        return unit_label(self.unit_code)
 
     def __str__(self):
         return f"{self.fineli_food_id}:{self.unit_code}={self.mass_g}g"
@@ -364,8 +374,7 @@ class MealEntry(models.Model):
         when no portion was recorded."""
         if not self.source_unit or self.source_unit == "G" or self.source_amount is None:
             return ""
-        unit = PORTION_UNIT_LABELS.get(self.source_unit, self.source_unit)
-        return f"{self.source_amount:g} × {unit}"
+        return f"{self.source_amount:g} × {unit_label(self.source_unit)}"
 
     def __str__(self):
         return f"{self.food_name} ({self.portion_grams}g) - {self.daily_log.date}"
@@ -656,10 +665,10 @@ class CustomFoodIngredient(models.Model):
         if bool(self.fineli_food_id) == bool(self.source_custom_food_id):
             raise ValidationError("Exactly one of fineli_food or source_custom_food must be set.")
         if self.amount_grams is None or self.amount_grams <= 0:
-            raise ValidationError("amount_grams must be greater than zero.")
+            raise ValidationError(gettext("The amount must be more than 0 g."))
         if self.source_custom_food_id is not None:
             if self.source_custom_food_id == self.custom_food_id:
-                raise ValidationError("A recipe cannot contain itself as an ingredient.")
+                raise ValidationError(gettext("A recipe cannot contain itself as an ingredient."))
             if (
                 self.source_custom_food.user_id is None
                 or self.source_custom_food.user_id != self.custom_food.user_id
@@ -668,7 +677,7 @@ class CustomFoodIngredient(models.Model):
                     "A recipe ingredient's source CustomFood must be owned by the same user as the recipe."
                 )
             if _custom_food_recipe_would_cycle(self.custom_food_id, self.source_custom_food_id):
-                raise ValidationError("This ingredient would create a circular recipe reference.")
+                raise ValidationError(gettext("This ingredient would create a circular recipe reference."))
 
     def save(self, *args, **kwargs):
         self.clean()

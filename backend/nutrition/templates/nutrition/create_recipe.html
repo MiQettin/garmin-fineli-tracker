@@ -1,30 +1,30 @@
 {% extends "core/base.html" %}
+{% load i18n %}
 
-{% block title %}Create Recipe - HealthManager{% endblock %}
+{% block title %}{% translate "Create recipe" %} - HealthManager{% endblock %}
 
 {% block content %}
 <div class="card">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 mb-0">🧪 Create Recipe</h1>
-    <a href="{% url 'manage_custom_foods' %}">&larr; Back to My Foods</a>
+    <h1 class="h4 mb-0">🧪 {% translate "Create recipe" %}</h1>
+    <a href="{% url 'recipe_list' %}">&larr; {% translate "Back to recipes" %}</a>
   </div>
 
   <p class="info-text">
-    Build a recipe from Fineli foods or your own foods. Nutrition values can be
-    calculated from ingredients and adjusted manually when needed.
+    {% translate "Build a recipe from Fineli foods or your own foods. Nutrition values are calculated from the ingredients and can be corrected by hand." %}
   </p>
 
   <form method="post">
     {% csrf_token %}
     <div class="mb-3">
-      <label for="id_name" class="form-label">Recipe Name *</label>
+      <label for="id_name" class="form-label">{% translate "Recipe name" %} *</label>
       {{ form.name }}
     </div>
     <div class="mb-3">
-      <label for="id_brand" class="form-label">Brand (optional)</label>
+      <label for="id_brand" class="form-label">{% translate "Brand (optional)" %}</label>
       {{ form.brand }}
     </div>
-    <button type="submit" class="btn btn-success">Create Recipe &amp; Add Ingredients</button>
+    <button type="submit" class="btn btn-success">{% translate "Create recipe and add ingredients" %}</button>
   </form>
 </div>
 {% endblock %}

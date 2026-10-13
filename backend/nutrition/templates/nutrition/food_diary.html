@@ -1,55 +1,55 @@
 {% extends "core/base.html" %}
-{% load nutrition_filters %}
+{% load i18n core_extras nutrition_filters %}
 
-{% block title %}Food Diary - {{ current_date|date:"d.m.Y" }}{% endblock %}
+{% block title %}{% translate "Food Diary" %} - {{ current_date|date:"d.m.Y" }}{% endblock %}
 
 {% block content %}
 <div class="food-diary-container">
     <div class="diary-header">
-        <h1>🍽️ Food Diary</h1>
+        <h1>🍽️ {% translate "Food Diary" %}</h1>
         
         <!-- Date Navigation -->
         <div class="date-nav">
-            <a href="?date={{ prev_date|date:'Y-m-d' }}" class="date-btn">◀ Previous</a>
+            <a href="?date={{ prev_date|date:'Y-m-d' }}" class="date-btn">◀ {% translate "Previous" %}</a>
             <input type="date" id="datePicker" value="{{ current_date|date:'Y-m-d' }}" 
                    onchange="window.location.href='?date='+this.value" class="date-input">
             {% if not is_today %}
-                <a href="?" class="date-btn today-btn">Today</a>
+                <a href="?" class="date-btn today-btn">{% translate "Today" %}</a>
             {% endif %}
-            <a href="?date={{ next_date|date:'Y-m-d' }}" class="date-btn">Next ▶</a>
-            <button onclick="openBulkImportModal()" class="date-btn bulk-import-btn">📥 Import Diary CSV</button>
+            <a href="?date={{ next_date|date:'Y-m-d' }}" class="date-btn">{% translate "Next" %} ▶</a>
+            <button onclick="openBulkImportModal()" class="date-btn bulk-import-btn">📥 {% translate "Import Diary CSV" %}</button>
         </div>
     </div>
 
     <!-- Daily Totals -->
     <div class="daily-summary">
         <div class="summary-card">
-            <div class="summary-label">Calories In</div>
+            <div class="summary-label">{% translate "Calories In" %}</div>
             <div class="summary-value">{{ day_totals.calories_in|floatformat:0 }}</div>
             <div class="summary-unit">kcal</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Protein</div>
+            <div class="summary-label">{% translate "Protein" %}</div>
             <div class="summary-value">{{ day_totals.protein_g|floatformat:0 }}</div>
             <div class="summary-unit">g</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Carbs</div>
+            <div class="summary-label">{% translate "Carbs" %}</div>
             <div class="summary-value">{{ day_totals.carbs_g|floatformat:0 }}</div>
-            <div class="summary-unit">g (sugar: {{ day_totals.sugar_g|floatformat:0 }}g)</div>
+            <div class="summary-unit">g ({% translate "sugar" %}: {{ day_totals.sugar_g|floatformat:0 }}g)</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Fat</div>
+            <div class="summary-label">{% translate "Fat" %}</div>
             <div class="summary-value">{{ day_totals.fat_g|floatformat:0 }}</div>
-            <div class="summary-unit">g (sat: {{ day_totals.sat_fat_g|floatformat:0 }}g)</div>
+            <div class="summary-unit">g ({% translate "sat." %}: {{ day_totals.sat_fat_g|floatformat:0 }}g)</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Fiber</div>
+            <div class="summary-label">{% translate "Fiber" %}</div>
             <div class="summary-value">{{ day_totals.fiber_g|floatformat:1 }}</div>
             <div class="summary-unit">g</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Salt</div>
+            <div class="summary-label">{% translate "Salt" %}</div>
             <div class="summary-value">{{ day_totals.salt_g|floatformat:1 }}</div>
             <div class="summary-unit">g</div>
         </div>
@@ -60,14 +60,14 @@
     <div class="meal-section">
         <div class="meal-header">
             <h2>{{ meal_label }}</h2>
-            <button class="add-food-btn" onclick="openAddModal('{{ meal_type }}')">+ Add Food</button>
+            <button class="add-food-btn" onclick="openAddModal('{{ meal_type }}')">+ {% translate "Add Food" %}</button>
         </div>
         
         <div class="meal-totals">
             <span>{{ meal_totals|get_item:meal_type|get_item:'calories'|floatformat:0 }} kcal</span>
-            <span>P: {{ meal_totals|get_item:meal_type|get_item:'protein'|floatformat:0 }}g</span>
-            <span>C: {{ meal_totals|get_item:meal_type|get_item:'carbs'|floatformat:0 }}g</span>
-            <span>F: {{ meal_totals|get_item:meal_type|get_item:'fat'|floatformat:0 }}g</span>
+            <span>{% translate "P" context "protein" %}: {{ meal_totals|get_item:meal_type|get_item:'protein'|floatformat:0 }}g</span>
+            <span>{% translate "C" context "carbs" %}: {{ meal_totals|get_item:meal_type|get_item:'carbs'|floatformat:0 }}g</span>
+            <span>{% translate "F" context "fat" %}: {{ meal_totals|get_item:meal_type|get_item:'fat'|floatformat:0 }}g</span>
         </div>
 
         <div class="food-entries">
@@ -75,21 +75,21 @@
                 {% if entry.meal_type == meal_type %}
                 <div class="food-entry">
                     <div class="food-info">
-                        <strong>{{ entry.food_name }}</strong>
+                        <strong>{{ entry.shown_name }}</strong>
                         <span class="food-portion">{% if entry.portion_label %}{{ entry.portion_label }} · {% endif %}{{ entry.portion_grams|floatformat:0 }}g</span>
                         {% if entry.source_type %}
-                            <span class="food-source badge-{{ entry.source_type }}">{{ entry.get_source_type_display }}</span>
+                            <span class="food-source badge-{{ entry.source_type }}">{{ entry.source_label }}</span>
                         {% endif %}
                     </div>
                     <div class="food-macros">
                         <span>{{ entry.calories|floatformat:0 }} kcal</span>
-                        <span>P: {{ entry.protein_g|floatformat:1 }}g</span>
-                        <span>C: {{ entry.carbs_g|floatformat:1 }}g</span>
-                        <span>F: {{ entry.fat_g|floatformat:1 }}g</span>
+                        <span>{% translate "P" context "protein" %}: {{ entry.protein_g|floatformat:1 }}g</span>
+                        <span>{% translate "C" context "carbs" %}: {{ entry.carbs_g|floatformat:1 }}g</span>
+                        <span>{% translate "F" context "fat" %}: {{ entry.fat_g|floatformat:1 }}g</span>
                     </div>
                     <div class="food-actions">
-                        <a href="{% url 'edit_meal_entry' entry.id %}" class="edit-btn" title="Edit" aria-label="Edit {{ entry.food_name }}">✏️</a>
-                        <button onclick="deleteEntry({{ entry.id }})" class="delete-btn" title="Delete" aria-label="Delete {{ entry.food_name }}">🗑️</button>
+                        <a href="{% url 'edit_meal_entry' entry.id %}" class="edit-btn" title="{% translate 'Edit' %}" aria-label="{% blocktranslate with name=entry.shown_name %}Edit {{ name }}{% endblocktranslate %}">✏️</a>
+                        <button onclick="deleteEntry({{ entry.id }})" class="delete-btn" title="{% translate 'Delete' %}" aria-label="{% blocktranslate with name=entry.shown_name %}Delete {{ name }}{% endblocktranslate %}">🗑️</button>
                     </div>
                 </div>
                 {% endif %}
@@ -103,73 +103,73 @@
 <div id="addFoodModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Add Food</h2>
+            <h2>{% translate "Add Food" %}</h2>
             <button class="close-btn" onclick="closeModal()">&times;</button>
         </div>
         
         <div class="modal-tabs">
-            <button class="tab-btn active" onclick="switchTab('fineli')">🔍 Search Fineli</button>
-            <button class="tab-btn" onclick="switchTab('myfoods')">⭐ My Foods</button>
-            <button class="tab-btn" onclick="switchTab('favorites')">★ Favorites</button>
-            <button class="tab-btn" onclick="switchTab('recent')">🕒 Recent</button>
-            <button class="tab-btn" onclick="switchTab('frequent')">🔁 Frequent</button>
-            <button class="tab-btn" onclick="switchTab('csv')">📥 Diary CSV</button>
-            <button class="tab-btn" onclick="switchTab('manual')">✏️ Manual Entry</button>
+            <button class="tab-btn active" data-tab="fineli" onclick="switchTab('fineli')">🔍 {% translate "Search Fineli" %}</button>
+            <button class="tab-btn" data-tab="myfoods" onclick="switchTab('myfoods')">⭐ {% translate "My Foods" %}</button>
+            <button class="tab-btn" data-tab="favorites" onclick="switchTab('favorites')">★ {% translate "Favorites" %}</button>
+            <button class="tab-btn" data-tab="recent" onclick="switchTab('recent')">🕒 {% translate "Recent" %}</button>
+            <button class="tab-btn" data-tab="frequent" onclick="switchTab('frequent')">🔁 {% translate "Frequent" %}</button>
+            <button class="tab-btn" data-tab="csv" onclick="switchTab('csv')">📥 {% translate "Diary CSV" %}</button>
+            <button class="tab-btn" data-tab="manual" onclick="switchTab('manual')">✏️ {% translate "Manual Entry" %}</button>
         </div>
 
         <!-- Fineli Search Tab -->
         <div id="fineliTab" class="tab-content active">
-            <input type="text" id="fineliSearch" placeholder="Search foods (searches ALL 4,232 Fineli foods)..." 
+            <input type="text" id="fineliSearch" placeholder="{% translate 'Search Fineli foods...' %}" 
                    oninput="searchFineli(this.value)" 
                    onfocus="if(this.value.length < 2) searchFineli('')"
                    class="search-input">
             <div id="fineliResults" class="search-results">
-                <p class="search-hint">Loading favorites...</p>
+                <p class="search-hint">{% translate "Loading favorites..." %}</p>
             </div>
         </div>
 
         <!-- My Foods Tab -->
         <div id="myfoodsTab" class="tab-content">
             <div class="my-foods-toolbar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <input type="text" id="myFoodsSearch" placeholder="Filter my foods..." 
+                <input type="text" id="myFoodsSearch" placeholder="{% translate 'Filter my foods...' %}" 
                        oninput="filterMyFoods(this.value)"
                        class="search-input" style="flex: 1; margin-right: 10px;">
                 <a href="{% url 'manage_custom_foods' %}" class="submit-btn" style="white-space: nowrap; text-decoration: none;">
-                    + Create New Food
+                    + {% translate "Create New Food" %}
                 </a>
             </div>
             <div id="myFoodsResults" class="search-results">
-                <p class="search-hint">Loading your foods...</p>
+                <p class="search-hint">{% translate "Loading your foods..." %}</p>
             </div>
         </div>
 
         <!-- Favorites Tab -->
         <div id="favoritesTab" class="tab-content">
             <div id="favoritesResults" class="search-results">
-                <p class="search-hint">Loading favorites...</p>
+                <p class="search-hint">{% translate "Loading favorites..." %}</p>
             </div>
         </div>
 
         <!-- Recent Tab -->
         <div id="recentTab" class="tab-content">
-            <p class="search-hint">Your recently logged foods.</p>
+            <p class="search-hint">{% translate "Your recently logged foods." %}</p>
             <div id="recentResults" class="search-results">
-                <p class="search-hint">Loading recent foods...</p>
+                <p class="search-hint">{% translate "Loading recent foods..." %}</p>
             </div>
         </div>
 
         <!-- Frequent Tab -->
         <div id="frequentTab" class="tab-content">
-            <p class="search-hint">Your most-logged foods.</p>
+            <p class="search-hint">{% translate "Your most-logged foods." %}</p>
             <div id="frequentResults" class="search-results">
-                <p class="search-hint">Loading frequent foods...</p>
+                <p class="search-hint">{% translate "Loading frequent foods..." %}</p>
             </div>
         </div>
 
         <!-- CSV Import Tab -->
         <div id="csvTab" class="tab-content">
-            <p>Import foods from a Fineli diary CSV export. The file's own date and meal columns are used for each entry, so this uses the same historical diary import as the button at the top of the page.</p>
-            <button type="button" class="submit-btn" onclick="closeModal(); openBulkImportModal();">📥 Open Diary CSV Import</button>
+            <p>{% translate "Import foods from a Fineli diary CSV export. Each entry uses the file's own date and meal, the same as the import button at the top of the page." %}</p>
+            <button type="button" class="submit-btn" onclick="closeModal(); openBulkImportModal();">📥 {% translate "Open Diary CSV Import" %}</button>
         </div>
 
         <!-- Manual Entry Tab -->
@@ -177,54 +177,54 @@
             <form id="manualEntryForm">
                 {% csrf_token %}
                 <div class="form-group">
-                    <label>Food Name:</label>
+                    <label>{% translate "Food name:" %}</label>
                     <input type="text" name="food_name" required>
                 </div>
                 <div class="form-group">
-                    <label>Portion (g):</label>
+                    <label>{% translate "Portion (g):" %}</label>
                     <input type="number" name="portion_grams" value="100" step="0.01" required>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Calories:</label>
+                        <label>{% translate "Calories:" %}</label>
                         <input type="number" name="calories" step="0.01" required>
                     </div>
                     <div class="form-group">
-                        <label>Protein (g):</label>
+                        <label>{% translate "Protein (g):" %}</label>
                         <input type="number" name="protein_g" step="0.01" required>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Carbs (g):</label>
+                        <label>{% translate "Carbs (g):" %}</label>
                         <input type="number" name="carbs_g" step="0.01" required>
                     </div>
                     <div class="form-group">
-                        <label>Sugar (g):</label>
+                        <label>{% translate "Sugar (g):" %}</label>
                         <input type="number" name="sugar_g" step="0.01" value="0">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Fat (g):</label>
+                        <label>{% translate "Fat (g):" %}</label>
                         <input type="number" name="fat_g" step="0.01" required>
                     </div>
                     <div class="form-group">
-                        <label>Sat. Fat (g):</label>
+                        <label>{% translate "Sat. fat (g):" %}</label>
                         <input type="number" name="sat_fat_g" step="0.01" value="0">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Fiber (g):</label>
+                        <label>{% translate "Fiber (g):" %}</label>
                         <input type="number" name="fiber_g" step="0.01" value="0">
                     </div>
                     <div class="form-group">
-                        <label>Salt (g):</label>
+                        <label>{% translate "Salt (g):" %}</label>
                         <input type="number" name="salt_g" step="0.01" value="0">
                     </div>
                 </div>
-                <button type="submit" class="submit-btn">Add Entry</button>
+                <button type="submit" class="submit-btn">{% translate "Add Entry" %}</button>
             </form>
         </div>
     </div>
@@ -234,23 +234,23 @@
 <div id="portionModal" class="modal" style="z-index: 2100;">
     <div class="modal-content" style="max-width: 400px;">
         <div class="modal-header">
-            <h3 id="portionFoodName">Select Portion</h3>
+            <h3 id="portionFoodName">{% translate "Select portion" %}</h3>
             <button class="close-btn" onclick="closePortionModal()">&times;</button>
         </div>
         <div style="padding: 20px;">
             <div class="form-group">
-                <label>Amount:</label>
+                <label>{% translate "Amount:" %}</label>
                 <input type="number" id="portionAmount" value="100" step="0.01" min="0" class="form-control" style="margin-bottom: 10px;">
             </div>
             <div class="form-group">
-                <label>Unit:</label>
+                <label>{% translate "Unit:" %}</label>
                 <!-- Options are filled per food by fillPortionUnits(). -->
                 <select id="portionUnit" class="form-control" style="margin-bottom: 8px;"></select>
                 <div id="portionPreview" class="info-text" style="margin-bottom: 20px;"></div>
             </div>
             <div style="display: flex; gap: 10px;">
-                <button onclick="confirmPortion()" class="submit-btn" style="flex: 1;">OK</button>
-                <button onclick="closePortionModal()" class="submit-btn" style="flex: 1; background: #a0aec0;">Cancel</button>
+                <button onclick="confirmPortion()" class="submit-btn" style="flex: 1;">{% translate "OK" %}</button>
+                <button onclick="closePortionModal()" class="submit-btn" style="flex: 1; background: #a0aec0;">{% translate "Cancel" %}</button>
             </div>
         </div>
     </div>
@@ -260,29 +260,29 @@
 <div id="bulkImportModal" class="modal" style="z-index: 2000;">
     <div class="modal-content" style="max-width: 500px;">
         <div class="modal-header">
-            <h2>📥 Bulk Import Fineli Diary</h2>
+            <h2>📥 {% translate "Import Fineli diary" %}</h2>
             <button class="close-btn" onclick="closeBulkImportModal()">&times;</button>
         </div>
         <div style="padding: 20px;">
             <div class="info-box" style="background: var(--info-bg); padding: 15px; border-radius: 4px; border-left: 4px solid var(--primary); margin-bottom: 20px;">
-                <p><strong>Import individual foods from Fineli diary CSV exports</strong></p>
+                <p><strong>{% translate "Import individual foods from Fineli diary CSV exports" %}</strong></p>
                 <p style="margin-top: 10px; font-size: 0.9em; color: var(--gray-600);">
-                    • Select one or more <code>diary_*.csv</code> files<br>
-                    • Each food row becomes a diary entry, using the file's own date and meal<br>
-                    • Re-importing a date replaces only its previously imported rows<br>
-                    • Manually added and Fineli/custom food entries are never affected
+                    • {% translate "Select one or more diary_*.csv files" %}<br>
+                    • {% translate "Each food row becomes a diary entry, using the file's own date and meal" %}<br>
+                    • {% translate "Re-importing adds missing rows and updates imported ones - nothing is deleted" %}<br>
+                    • {% translate "Entries you added yourself are never changed" %}
                 </p>
             </div>
             <form id="bulkImportForm" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="form-group">
-                    <label>Select CSV file(s):</label>
+                    <label>{% translate "Select CSV file(s):" %}</label>
                     <input type="file" name="csv_files" id="bulkCsvFiles" accept=".csv" multiple required 
                            style="padding: 10px; border: 2px dashed var(--border-light); border-radius: 6px; width: 100%; cursor: pointer;">
                 </div>
                 <div id="bulkImportStatus" style="margin: 15px 0; display: none;"></div>
                 <button type="submit" class="submit-btn" style="width: 100%;" id="bulkImportBtn">
-                    📥 Import All Days
+                    📥 {% translate "Import all days" %}
                 </button>
             </form>
         </div>
@@ -842,7 +842,58 @@
 }
 </style>
 
+{{ unit_labels|json_script:"unitLabels" }}
 <script>
+const UNIT_LABELS = JSON.parse(document.getElementById('unitLabels').textContent);
+const T = {
+    yourFavorites: {% jstrans "Your favorites" %},
+    startSearching: {% jstrans "Start searching for foods..." %},
+    searching: {% jstrans "Searching..." %},
+    noResults: {% jstrans "No results found" %},
+    networkError: {% jstrans "Network error:" %},
+    loadingFoods: {% jstrans "Loading your foods..." %},
+    failedFoods: {% jstrans "Failed to load foods:" %},
+    noCustomFoods: {% jstrans "No own foods yet." %},
+    createFirst: {% jstrans "Create your first food using the button above!" %},
+    addToFavorites: {% jstrans "Add to favorites" %},
+    removeFromFavorites: {% jstrans "Remove from favorites" %},
+    loginForFavorites: {% jstrans "Log in to save favorites" %},
+    addedToFavorites: {% jstrans "Added to favorites" %},
+    per100g: {% jstrans "per 100 g" %},
+    per100ml: {% jstrans "per 100 ml" %},
+    loadingFavorites: {% jstrans "Loading favorites..." %},
+    noFavorites: {% jstrans "No favorites yet. Star a food to save it here." %},
+    failedFavorites: {% jstrans "Failed to load favorites:" %},
+    loadingRecent: {% jstrans "Loading recent foods..." %},
+    noRecent: {% jstrans "No recently logged foods yet." %},
+    failedRecent: {% jstrans "Failed to load recent foods:" %},
+    loadingFrequent: {% jstrans "Loading frequent foods..." %},
+    noFrequent: {% jstrans "No usage history yet." %},
+    failedFrequent: {% jstrans "Failed to load frequent foods:" %},
+    grams: {% jstrans "Grams (g)" %},
+    validAmount: {% jstrans "Please enter a valid amount" %},
+    foodAdded: {% jstrans "Food added" %},
+    failedAddFood: {% jstrans "Failed to add food:" %},
+    unknownError: {% jstrans "Unknown error" %},
+    tryAgainAdd: {% jstrans "Failed to add food. Please try again." %},
+    entryAdded: {% jstrans "Entry added" %},
+    checkFields: {% jstrans "Failed to add entry. Please check all fields." %},
+    tryAgainEntry: {% jstrans "Failed to add entry. Please try again." %},
+    confirmDelete: {% jstrans "Click the delete button again within 3 seconds to confirm" %},
+    entryDeleted: {% jstrans "Entry deleted" %},
+    failedDelete: {% jstrans "Failed to delete entry" %},
+    tryAgainDelete: {% jstrans "Failed to delete entry. Please try again." %},
+    selectCsv: {% jstrans "Please select at least one CSV file" %},
+    importing: {% jstrans "Importing..." %},
+    processing: {% jstrans "Processing {n} file(s)..." %},
+    importAllDays: {% jstrans "Import all days" %},
+    fileResult: {% jstrans "{new} new, {updated} updated" %},
+    reloadingIn: {% jstrans "Reloading in {n}..." %},
+    reloadingNow: {% jstrans "Reloading now..." %},
+    importFailed: {% jstrans "Import failed" %},
+    importFailedTryAgain: {% jstrans "Import failed. Please try again." %},
+    networkTryAgain: {% jstrans "Network error. Please try again." %},
+};
 let currentMealType = 'snack';
 const currentDate = '{{ current_date|date:"Y-m-d" }}';
 let searchTimeout;
@@ -863,7 +914,7 @@ function switchTab(tabName) {
     // Find and activate the clicked button
     const buttons = document.querySelectorAll('.tab-btn');
     buttons.forEach(btn => {
-        if (btn.textContent.toLowerCase().includes(tabName)) {
+        if (btn.dataset.tab === tabName) {
             btn.classList.add('active');
         }
     });
@@ -901,47 +952,30 @@ function searchFineli(query) {
             .then(response => response.json())
             .then(data => {
                 if (data.results.length > 0) {
-                    resultsDiv.innerHTML = '<div class="favorites-header">⭐ Your Favorites</div>' +
+                    resultsDiv.innerHTML = `<div class="favorites-header">⭐ ${T.yourFavorites}</div>` +
                         data.results.map(food => formatFoodResult(food)).join('');
                 } else {
-                    resultsDiv.innerHTML = '<p class="search-hint">Start searching for foods...</p>';
+                    resultsDiv.innerHTML = `<p class="search-hint">${T.startSearching}</p>`;
                 }
             });
         return;
     }
     
     searchTimeout = setTimeout(() => {
-        resultsDiv.innerHTML = '<p class="search-hint">Searching Fineli API...</p>';
+        resultsDiv.innerHTML = `<p class="search-hint">${T.searching}</p>`;
         
         fetch(`/food-diary/api/search/?q=${encodeURIComponent(query)}`)
             .then(response => response.json())
             .then(data => {
                 if (data.results.length === 0) {
-                    let errorMsg = 'No results found';
-                    if (data.error) {
-                        errorMsg = data.error;
-                    }
-                    resultsDiv.innerHTML = `<p class="search-error">${errorMsg}</p>`;
+                    resultsDiv.innerHTML = `<p class="search-error">${escapeHtml(data.error || T.noResults)}</p>`;
                     return;
                 }
-                
-                // Show data source indicator
-                let sourceInfo = '';
-                if (data.source === 'api') {
-                    sourceInfo = '<div class="source-api">✓ Live from Fineli API (all 4,232 foods available)</div>';
-                } else if (data.source === 'cache') {
-                    let warning = '⚠️ API unavailable, using cached data';
-                    if (data.error) {
-                        warning += ` (${data.error})`;
-                    }
-                    sourceInfo = `<div class="source-cache">${warning}</div>`;
-                }
-                
-                resultsDiv.innerHTML = sourceInfo + data.results.map(food => formatFoodResult(food)).join('');
+                resultsDiv.innerHTML = data.results.map(food => formatFoodResult(food)).join('');
             })
             .catch(error => {
                 console.error('Search error:', error);
-                resultsDiv.innerHTML = `<p class="search-error">Network error: ${error.message}</p>`;
+                resultsDiv.innerHTML = `<p class="search-error">${T.networkError} ${escapeHtml(error.message)}</p>`;
             });
     }, 300);
 }
@@ -951,7 +985,7 @@ let allMyFoods = [];
 
 function loadMyFoods() {
     const resultsDiv = document.getElementById('myFoodsResults');
-    resultsDiv.innerHTML = '<p class="search-hint">Loading your foods...</p>';
+    resultsDiv.innerHTML = `<p class="search-hint">${T.loadingFoods}</p>`;
     
     fetch('/food-diary/api/custom-foods/')
         .then(response => response.json())
@@ -961,7 +995,7 @@ function loadMyFoods() {
         })
         .catch(error => {
             console.error('Error loading custom foods:', error);
-            resultsDiv.innerHTML = `<p class="search-error">Failed to load foods: ${error.message}</p>`;
+            resultsDiv.innerHTML = `<p class="search-error">${T.failedFoods} ${escapeHtml(error.message)}</p>`;
         });
 }
 
@@ -979,8 +1013,8 @@ function renderMyFoods(foods) {
     
     if (foods.length === 0) {
         resultsDiv.innerHTML = `
-            <p class="search-hint">No custom foods yet.</p>
-            <p class="search-hint">Create your first food using the button above!</p>
+            <p class="search-hint">${T.noCustomFoods}</p>
+            <p class="search-hint">${T.createFirst}</p>
         `;
         return;
     }
@@ -1007,7 +1041,7 @@ function formatCustomFoodResult(food) {
     const brandInfo = food.brand ? ` <span style="color: var(--gray-500);">(${escapeHtml(food.brand)})</span>` : '';
     return `
         <div class="search-result" onclick="selectCustomFood(shownFoods[${foodRef(food)}])">
-            <button type="button" class="favorite-star" title="Add to favorites"
+            <button type="button" class="favorite-star" title="${T.addToFavorites}"
                     onclick="event.stopPropagation(); favoriteFood({custom_food_id: ${Number(food.id)}})">☆</button>
             <div class="result-name">⭐ ${escapeHtml(food.name)}${brandInfo}</div>
             <div class="result-macros">
@@ -1015,7 +1049,7 @@ function formatCustomFoodResult(food) {
                 P: ${fmtNutrient(food.protein, 1)}g |
                 C: ${fmtNutrient(food.carbs, 1)}g |
                 F: ${fmtNutrient(food.fat, 1)}g
-                (per 100g)
+                (${food.nutrition_basis === 'ML' ? T.per100ml : T.per100g})
             </div>
         </div>
     `;
@@ -1031,10 +1065,10 @@ function favoriteFood(payload) {
     })
         .then(response => {
             if (response.status === 401) {
-                showToast('Log in to save favorites', 'error');
+                showToast(T.loginForFavorites, 'error');
                 return;
             }
-            showToast('Added to favorites', 'success');
+            showToast(T.addedToFavorites, 'success');
         })
         .catch(error => console.error('Favorite error:', error));
 }
@@ -1056,7 +1090,7 @@ function formatFavoriteResult(food) {
     const label = isCustom ? `${food.name}${food.brand ? ' (' + food.brand + ')' : ''}` : food.name;
     return `
         <div class="search-result" onclick="${selectFn}(shownFoods[${foodRef(food)}])">
-            <button type="button" class="favorite-star" title="Remove from favorites"
+            <button type="button" class="favorite-star" title="${T.removeFromFavorites}"
                     onclick="event.stopPropagation(); unfavoriteFood({${payloadKey}: ${Number(food.id)}})">★</button>
             <div class="result-name">${escapeHtml(label)}</div>
             <div class="result-macros">
@@ -1064,7 +1098,7 @@ function formatFavoriteResult(food) {
                 P: ${fmtNutrient(food.protein, 1)}g |
                 C: ${fmtNutrient(food.carbs, 1)}g |
                 F: ${fmtNutrient(food.fat, 1)}g
-                (per ${food.nutrition_basis === 'ML' ? '100ml' : '100g'})
+                (${food.nutrition_basis === 'ML' ? T.per100ml : T.per100g})
             </div>
         </div>
     `;
@@ -1072,48 +1106,48 @@ function formatFavoriteResult(food) {
 
 function loadFavorites() {
     const resultsDiv = document.getElementById('favoritesResults');
-    resultsDiv.innerHTML = '<p class="search-hint">Loading favorites...</p>';
+    resultsDiv.innerHTML = `<p class="search-hint">${T.loadingFavorites}</p>`;
     fetch('/food-diary/api/favorites/')
         .then(response => response.json())
         .then(data => {
             if (data.results.length === 0) {
-                resultsDiv.innerHTML = '<p class="search-hint">No favorites yet. Star a food to save it here.</p>';
+                resultsDiv.innerHTML = `<p class="search-hint">${T.noFavorites}</p>`;
                 return;
             }
             resultsDiv.innerHTML = data.results.map(food => formatFavoriteResult(food)).join('');
         })
         .catch(error => {
-            resultsDiv.innerHTML = `<p class="search-error">Failed to load favorites: ${error.message}</p>`;
+            resultsDiv.innerHTML = `<p class="search-error">${T.failedFavorites} ${escapeHtml(error.message)}</p>`;
         });
 }
 
 function loadRecentFoods() {
     const resultsDiv = document.getElementById('recentResults');
-    resultsDiv.innerHTML = '<p class="search-hint">Loading recent foods...</p>';
+    resultsDiv.innerHTML = `<p class="search-hint">${T.loadingRecent}</p>`;
     fetch('/food-diary/api/recent/')
         .then(response => response.json())
         .then(data => {
             resultsDiv.innerHTML = data.results.length
                 ? data.results.map(food => food.source === 'custom' ? formatCustomFoodResult(food) : formatFoodResult(food)).join('')
-                : '<p class="search-hint">No recently logged foods yet.</p>';
+                : `<p class="search-hint">${T.noRecent}</p>`;
         })
         .catch(error => {
-            resultsDiv.innerHTML = `<p class="search-error">Failed to load recent foods: ${error.message}</p>`;
+            resultsDiv.innerHTML = `<p class="search-error">${T.failedRecent} ${escapeHtml(error.message)}</p>`;
         });
 }
 
 function loadFrequentFoods() {
     const resultsDiv = document.getElementById('frequentResults');
-    resultsDiv.innerHTML = '<p class="search-hint">Loading frequent foods...</p>';
+    resultsDiv.innerHTML = `<p class="search-hint">${T.loadingFrequent}</p>`;
     fetch('/food-diary/api/frequent/')
         .then(response => response.json())
         .then(data => {
             resultsDiv.innerHTML = data.results.length
                 ? data.results.map(food => food.source === 'custom' ? formatCustomFoodResult(food) : formatFoodResult(food)).join('')
-                : '<p class="search-hint">No usage history yet.</p>';
+                : `<p class="search-hint">${T.noFrequent}</p>`;
         })
         .catch(error => {
-            resultsDiv.innerHTML = `<p class="search-error">Failed to load frequent foods: ${error.message}</p>`;
+            resultsDiv.innerHTML = `<p class="search-error">${T.failedFrequent} ${escapeHtml(error.message)}</p>`;
         });
 }
 
@@ -1146,7 +1180,7 @@ function formatFoodResult(food) {
     const favoriteIcon = food.is_favorite ? '⭐ ' : '';
     return `
         <div class="search-result" onclick="selectFineliFood(shownFoods[${foodRef(food)}])">
-            <button type="button" class="favorite-star" title="Add to favorites"
+            <button type="button" class="favorite-star" title="${T.addToFavorites}"
                     onclick="event.stopPropagation(); favoriteFood({fineli_id: ${Number(food.id)}})">☆</button>
             <div class="result-name">${favoriteIcon}${escapeHtml(food.name)}</div>
             <div class="result-macros">
@@ -1154,7 +1188,7 @@ function formatFoodResult(food) {
                 P: ${fmtNutrient(food.protein, 1)}g |
                 C: ${fmtNutrient(food.carbs, 1)}g |
                 F: ${fmtNutrient(food.fat, 1)}g
-                (per ${food.nutrition_basis === 'ML' ? '100ml' : '100g'})
+                (${food.nutrition_basis === 'ML' ? T.per100ml : T.per100g})
             </div>
         </div>
     `;
@@ -1178,14 +1212,14 @@ function selectFineliFood(food) {
         // Package size is optional - without one the product is logged by
         // weight (per 100 g) or volume (per 100 ml) only.
         const packageUnits = food.package_amount
-            ? [{code: 'PKG', label: 'pakkaus', grams: food.package_amount * packageMultiplier, display_unit: packagePreviewUnit}]
+            ? [{code: 'PKG', label: UNIT_LABELS.PKG, grams: food.package_amount * packageMultiplier, display_unit: packagePreviewUnit}]
             : [];
         fillPortionUnits([...packageUnits, ...directUnits]);
     } else if (food.source === 'custom') {
         // Recipes: servings when the recipe has them (optional), and grams
         // (values are per 100 g of the recipe).
         const servingUnits = food.serving_grams
-            ? [{code: 'SERV', label: 'annos', grams: food.serving_grams}]
+            ? [{code: 'SERV', label: UNIT_LABELS.SERV, grams: food.serving_grams}]
             : [];
         fillPortionUnits([...servingUnits, GRAM_UNIT]);
     } else {
@@ -1200,7 +1234,7 @@ function selectFineliFood(food) {
 // Store selected food temporarily
 let selectedFood = null;
 
-const GRAM_UNIT = {code: 'G', label: 'Grams (g)', grams: 1};
+const GRAM_UNIT = {code: 'G', label: T.grams, grams: 1};
 let portionUnits = [];  // units offered in the open portion modal
 
 function isGramUnit(code) {
@@ -1257,7 +1291,7 @@ function confirmPortion() {
     const unit = selectedPortionUnit();
 
     if (!amount || amount <= 0 || !unit) {
-        showToast('Please enter a valid amount', 'error');
+        showToast(T.validAmount, 'error');
         return;
     }
 
@@ -1303,15 +1337,15 @@ function confirmPortion() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showToast('Food added successfully', 'success');
+            showToast(T.foodAdded, 'success');
             setTimeout(() => location.reload(), 1000);
         } else {
-            showToast('Failed to add food: ' + (data.error || 'Unknown error'), 'error');
+            showToast(`${T.failedAddFood} ${escapeHtml(data.error || T.unknownError)}`, 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showToast('Failed to add food. Please try again.', 'error');
+        showToast(T.tryAgainAdd, 'error');
     });
 }
 
@@ -1340,21 +1374,21 @@ document.getElementById('manualEntryForm').addEventListener('submit', function(e
     })
     .then(response => {
         if (response.ok) {
-            showToast('Entry added successfully', 'success');
+            showToast(T.entryAdded, 'success');
             setTimeout(() => location.reload(), 1000);
         } else {
-            showToast('Failed to add entry. Please check all fields.', 'error');
+            showToast(T.checkFields, 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showToast('Failed to add entry. Please try again.', 'error');
+        showToast(T.tryAgainEntry, 'error');
     });
 });
 
 function deleteEntry(entryId) {
     // Show confirmation toast with action buttons
-    showToast('Click the delete button again within 3 seconds to confirm deletion', 'warning', 3000);
+    showToast(T.confirmDelete, 'warning', 3000);
     
     // Store the confirmation state
     const confirmKey = `delete_confirm_${entryId}`;
@@ -1370,15 +1404,15 @@ function deleteEntry(entryId) {
         })
         .then(response => {
             if (response.ok) {
-                showToast('Entry deleted', 'success');
+                showToast(T.entryDeleted, 'success');
                 setTimeout(() => location.reload(), 800);
             } else {
-                showToast('Failed to delete entry', 'error');
+                showToast(T.failedDelete, 'error');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showToast('Failed to delete entry. Please try again.', 'error');
+            showToast(T.tryAgainDelete, 'error');
         });
     } else {
         // First click - set confirmation state
@@ -1434,15 +1468,15 @@ document.getElementById('bulkImportForm').addEventListener('submit', function(e)
     const submitBtn = document.getElementById('bulkImportBtn');
     
     if (fileInput.files.length === 0) {
-        showToast('Please select at least one CSV file', 'warning');
+        showToast(T.selectCsv, 'warning');
         return;
     }
     
     // Show loading state
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '⏳ Importing...';
+    submitBtn.innerHTML = '⏳ ' + T.importing;
     statusDiv.style.display = 'block';
-    statusDiv.innerHTML = '<p style="color: var(--gray-600);">Processing ' + fileInput.files.length + ' file(s)...</p>';
+    statusDiv.innerHTML = '<p style="color: var(--gray-600);">' + T.processing.replace('{n}', fileInput.files.length) + '</p>';
     
     const formData = new FormData();
     for (let i = 0; i < fileInput.files.length; i++) {
@@ -1459,20 +1493,20 @@ document.getElementById('bulkImportForm').addEventListener('submit', function(e)
     .then(response => response.json())
     .then(data => {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '📥 Import All Days';
-        
+        submitBtn.innerHTML = '📥 ' + T.importAllDays;
+
         if (data.success) {
             // Show detailed results
             let resultHtml = '<div style="background: var(--success-bg); color: var(--success); padding: 12px; border-radius: 6px; margin-bottom: 10px;">';
-            resultHtml += '<strong>✅ ' + data.message + '</strong></div>';
+            resultHtml += '<strong>✅ ' + escapeHtml(data.message) + '</strong></div>';
             
             if (data.files && data.files.length > 0) {
                 resultHtml += '<ul style="margin: 10px 0; padding-left: 20px;">';
                 data.files.forEach(function(file) {
                     if (file.status === 'success') {
-                        resultHtml += '<li style="color: var(--success);">' + file.filename + ': ' + file.imported + ' new, ' + file.updated + ' updated</li>';
+                        resultHtml += '<li style="color: var(--success);">' + escapeHtml(file.filename) + ': ' + T.fileResult.replace('{new}', file.imported).replace('{updated}', file.updated) + '</li>';
                     } else {
-                        resultHtml += '<li style="color: var(--danger);">' + file.filename + ': ' + file.message + '</li>';
+                        resultHtml += '<li style="color: var(--danger);">' + escapeHtml(file.filename) + ': ' + escapeHtml(file.message) + '</li>';
                     }
                 });
                 resultHtml += '</ul>';
@@ -1482,30 +1516,30 @@ document.getElementById('bulkImportForm').addEventListener('submit', function(e)
             showToast(data.message, 'success');
             
             // Auto-reload with countdown
-            resultHtml += '<p style="color: var(--gray-600); margin-top: 10px;" id="reloadCountdown">Reloading in 2...</p>';
+            resultHtml += '<p style="color: var(--gray-600); margin-top: 10px;" id="reloadCountdown">' + T.reloadingIn.replace('{n}', 2) + '</p>';
             statusDiv.innerHTML = resultHtml;
             
             setTimeout(() => {
                 const countdown = document.getElementById('reloadCountdown');
-                if (countdown) countdown.textContent = 'Reloading in 1...';
+                if (countdown) countdown.textContent = T.reloadingIn.replace('{n}', 1);
             }, 1000);
             
             setTimeout(() => {
                 const countdown = document.getElementById('reloadCountdown');
-                if (countdown) countdown.textContent = 'Reloading now...';
+                if (countdown) countdown.textContent = T.reloadingNow;
                 location.reload();
             }, 2000);
         } else {
-            statusDiv.innerHTML = '<p style="color: var(--danger);">❌ ' + (data.error || 'Import failed') + '</p>';
-            showToast('Import failed: ' + (data.error || 'Unknown error'), 'error');
+            statusDiv.innerHTML = '<p style="color: var(--danger);">❌ ' + escapeHtml(data.error || T.importFailed) + '</p>';
+            showToast(T.importFailed + ': ' + escapeHtml(data.error || T.unknownError), 'error');
         }
     })
     .catch(error => {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '📥 Import All Days';
-        statusDiv.innerHTML = '<p style="color: var(--danger);">❌ Network error. Please try again.</p>';
+        submitBtn.innerHTML = '📥 ' + T.importAllDays;
+        statusDiv.innerHTML = '<p style="color: var(--danger);">❌ ' + T.networkTryAgain + '</p>';
         console.error('Error:', error);
-        showToast('Import failed. Please try again.', 'error');
+        showToast(T.importFailedTryAgain, 'error');
     });
 });
 

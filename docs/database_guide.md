@@ -86,6 +86,8 @@ A singleton (always `pk=1`) - read it with `UserSettings.get_settings()`, never 
 | `garmin_calorie_adjustment` | kcal/day added to Garmin's expenditure in every calculation; the imported Garmin value itself is never changed |
 | `protein_goal_g`, `carbs_goal_g`, `fat_goal_g` | Macro goals |
 | `min_daily_calories`, `max_daily_calories`, `week_start_day`, `last_garmin_sync`, `updated_at` | |
+| `language` | App language, `en` or `fi` (default `en`) |
+| `food_language` | Fineli food name language when `language` is `en` (`fi` by default, or `en`); the Finnish UI always uses Finnish names - see `effective_food_language()` |
 
 `goal_adjustment_kcal()` is the single source of the goal value (preset or custom) - the dashboard, the settings page's target calories and `calculate_recommended_macros()` all use it.
 
@@ -319,7 +321,7 @@ Applied migrations, newest last per app:
 
 | App | Latest | Recent schema changes |
 | --- | --- | --- |
-| `core` | `0007_usersettings_custom_goal_kcal` | `0006` Garmin calorie adjustment, `0007` custom fitness goal |
+| `core` | `0008_usersettings_language` | `0006` Garmin calorie adjustment, `0007` custom fitness goal, `0008` app language and Fineli name language |
 | `nutrition` | `0020_customfood_kind_servings_cooked_weight` | `0018` Fineli portion sizes, `0019` package size and per-100 ml basis, `0020` product/recipe kind, servings, finished weight (also classified existing foods) |
 | `activities` | `0002` | HR zone seconds |
 | `health` | `0001_initial` | |

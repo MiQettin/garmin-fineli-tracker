@@ -63,6 +63,7 @@ Diary and dashboard:
 
 Products and recipes:
 
+- Recipe page for phones: after adding or removing an ingredient the page returns to the same section with the search kept (`_back_to_recipe()`, `?q=`/`?own=` + anchor); Recipe details and the correction form are folded; each ingredient shows its kcal, carbs and protein, with totals; nutrition and other nutrients can be shown per 100 g, per serving or for the whole recipe (switch remembered in the browser).
 - Products and recipes are separate (Foods / Recipes pages). Recipe cards, Create, rename, Duplicate, Delete (two clicks).
 - Two-step ingredient pickers (list → amount panel) with live Fineli suggestions, Fineli favorites and searchable My Foods.
 - Recipes recalculate automatically when ingredients are added or removed, and every recipe using a changed product or recipe is recalculated too (`recalculate_dependent_recipes()`).

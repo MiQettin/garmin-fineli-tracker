@@ -3715,19 +3715,20 @@ class RecipeCompositionUITests(TestCase):
     def test_absent_auxiliary_nutrient_is_not_fabricated(self):
         self.client.force_login(self.user_a)
         resp = self.client.get(self._recipe_url())
-        self.assertContains(resp, "No auxiliary nutrient data.")
+        self.assertContains(resp, "No other nutrient data.")
 
     def test_total_recipe_grams_render_correctly(self):
         CustomFoodIngredient.objects.create(custom_food=self.parent, fineli_food=self.oats, amount_grams=60)
         CustomFoodIngredient.objects.create(custom_food=self.parent, source_custom_food=self.other_own, amount_grams=40)
         self.client.force_login(self.user_a)
         resp = self.client.get(self._recipe_url())
-        self.assertContains(resp, "Total ingredient mass: 100")
+        self.assertContains(resp, '<span class="ing-name">Total</span>')
+        self.assertContains(resp, "<b>100 g</b>")
 
     def test_empty_recipe_has_clear_empty_state(self):
         self.client.force_login(self.user_a)
         resp = self.client.get(self._recipe_url())
-        self.assertContains(resp, "No ingredients added yet.")
+        self.assertContains(resp, "No ingredients yet - add them below.")
 
     # --- MANUAL FOOD ---
 
@@ -4917,4 +4918,110 @@ class DependentRecipeRecalculationTests(TestCase):
         self.assertEqual([r.name for r in recalculate_dependent_recipes(self.quark)], ["Puuro", "Aamiainen"])
         other.refresh_from_db()
         self.assertEqual(other.energy_kcal_per_100g, 999)
+
+
+class RecipePageMobileFlowTests(TestCase):
+    """Recipe page on a phone: every action returns to where it was made
+    (with the search kept), rarely used sections are folded, ingredients
+    show their own kcal/carbs/protein, and nutrition can be shown per 100 g,
+    per serving or for the whole recipe."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="recipemobile", password="x")
+        self.client.force_login(self.user)
+        self.oats = FineliFood.objects.create(fineli_id=153, name_fi="KAURAHIUTALE", energy_kcal=380,
+                                              carbs_g=60, protein_g=13)
+        self.berry = FineliFood.objects.create(fineli_id=7, name_fi="MUSTIKKA", energy_kcal=40, carbs_g=None, protein_g=0.5)
+        self.recipe = CustomFood.objects.create(user=self.user, name="Puuro", kind=CustomFood.KIND_RECIPE)
+        self.url = reverse("recipe_detail", args=[self.recipe.id])
+
+    def _add_oats(self, **extra):
+        data = {"fineli_id": 153, "amount": "50", "unit": "G"}
+        data.update(extra)
+        return self.client.post(reverse("add_recipe_fineli_ingredient", args=[self.recipe.id]), data)
+
+    # --- A: back to the right place ---
+    def test_adding_from_fineli_returns_to_fineli_search_with_query(self):
+        resp = self._add_oats(q="kaura")
+        self.assertRedirects(resp, self.url + "?q=kaura#add-fineli", fetch_redirect_response=False)
+
+    def test_adding_own_food_returns_to_my_foods_with_search(self):
+        quark = CustomFood.objects.create(user=self.user, name="Rahka", energy_kcal_per_100g=60)
+        resp = self.client.post(reverse("add_recipe_custom_ingredient", args=[self.recipe.id]),
+                                {"source_custom_food_id": quark.id, "amount_grams": "100", "own": "rah"})
+        self.assertRedirects(resp, self.url + "?own=rah#add-own", fetch_redirect_response=False)
+        page = self.client.get(self.url, {"own": "rah"})
+        self.assertContains(page, 'id="ownFoodSearch" value="rah"')
+
+    def test_removing_returns_to_ingredients(self):
+        self._add_oats()
+        ing = self.recipe.ingredients.get()
+        resp = self.client.post(reverse("remove_recipe_ingredient", args=[self.recipe.id, ing.id]))
+        self.assertRedirects(resp, self.url + "#ingredients", fetch_redirect_response=False)
+
+    def test_saves_return_to_their_section(self):
+        resp = self.client.post(reverse("update_recipe_settings", args=[self.recipe.id]),
+                                {"name": "Puuro", "brand": "", "servings": "2", "cooked_weight_g": ""})
+        self.assertRedirects(resp, self.url + "#recipe-details", fetch_redirect_response=False)
+        resp = self.client.post(reverse("save_recipe_final_values", args=[self.recipe.id]), {"energy_kcal_per_100g": "100"})
+        self.assertRedirects(resp, self.url + "#final-values", fetch_redirect_response=False)
+
+    def test_page_remembers_searches_in_add_forms(self):
+        CustomFood.objects.create(user=self.user, name="Rahka", energy_kcal_per_100g=60)  # My Foods needs a food
+        resp = self.client.get(self.url)
+        self.assertContains(resp, '<input type="hidden" name="q" data-keep="fineliSearchInput">', html=True)
+        self.assertContains(resp, '<input type="hidden" name="own" data-keep="ownFoodSearch">', html=True)
+
+    # --- B: folded sections, adding near the top ---
+    def test_rarely_used_sections_are_folded(self):
+        content = self.client.get(self.url).content.decode()
+        self.assertIn('<details class="section fold" id="recipe-details">', content)
+        self.assertIn('<details class="subfold">', content)  # other nutrients and corrections
+        order = [content.index(f'id="{i}"') for i in ("ingredients", "add-fineli", "add-own", "recipe-details", "final-values")]
+        self.assertEqual(order, sorted(order))
+
+    def test_folded_section_opens_on_form_errors(self):
+        resp = self.client.post(reverse("update_recipe_settings", args=[self.recipe.id]),
+                                {"name": "", "brand": "", "servings": "", "cooked_weight_g": ""})
+        self.assertContains(resp, '<details class="section fold" id="recipe-details" open>')
+
+    # --- per-ingredient values ---
+    def test_ingredient_rows_show_kcal_carbs_protein(self):
+        self._add_oats()
+        self.client.post(reverse("add_recipe_fineli_ingredient", args=[self.recipe.id]),
+                         {"fineli_id": 7, "amount": "100", "unit": "G"})
+        resp = self.client.get(self.url)
+        rows = resp.context["ingredient_rows"]
+        self.assertEqual([(r["name"], r["kcal"], r["carbs"], r["protein"]) for r in rows],
+                         [("KAURAHIUTALE", 190, 30, 6.5), ("MUSTIKKA", 40, None, 0.5)])
+        self.assertEqual(resp.context["ingredient_totals"], {"kcal": 230, "carbs": 30, "protein": 7.0})
+        self.assertTrue(resp.context["ingredient_partial"]["carbs"])
+        self.assertContains(resp, "<span>190 kcal</span>", html=True)
+        self.assertContains(resp, "C &ge; 30.0 g")  # berries' carbs unknown -> at least
+
+    def test_remove_needs_a_second_tap(self):
+        self._add_oats()
+        self.assertContains(self.client.get(self.url), 'data-confirm="Remove?"')
+
+    # --- nutrition per 100 g / serving / whole recipe ---
+    def test_basis_switch_with_servings(self):
+        self._add_oats()  # 50 g of oats -> 380 kcal / 100 g
+        self.client.post(reverse("update_recipe_settings", args=[self.recipe.id]),
+                         {"name": "Puuro", "brand": "", "servings": "2", "cooked_weight_g": ""})
+        content = self.client.get(self.url).content.decode()
+        self.assertIn('data-basis="100" data-factor="100"', content)
+        self.assertIn('data-basis="serving" data-factor="25.000000"', content)
+        self.assertIn('data-basis="total" data-factor="50.000000"', content)
+        self.assertIn('data-per100="380.0" data-unit="kcal">380 kcal', content)
+
+    def test_serving_disabled_without_servings(self):
+        self._add_oats()
+        resp = self.client.get(self.url)
+        self.assertContains(resp, 'disabled title="Set the servings under Recipe details"')
+        self.assertContains(resp, "to see values per serving")
+
+    def test_unknown_values_stay_unknown(self):
+        self.client.post(reverse("add_recipe_fineli_ingredient", args=[self.recipe.id]),
+                         {"fineli_id": 7, "amount": "100", "unit": "G"})
+        self.assertContains(self.client.get(self.url), 'data-per100="" data-unit="g"><span class="unknown">unknown</span>')
 

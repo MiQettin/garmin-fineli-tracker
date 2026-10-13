@@ -105,9 +105,16 @@ A recipe is a dish built from ingredients - Fineli foods and your own products o
 
 Each recipe is a card with energy and macros per 100 g, the ingredient count and total mass, and - when set - servings and the size and energy of one serving. **Show details** expands the ingredient list and all values. Each card has **Open recipe**, **Duplicate** and **Delete**. Search appears when you have more than six recipes. **+ Create Recipe** asks for a name and opens the new recipe.
 
-### Building a recipe
+### The recipe page
 
-On a recipe's page:
+From the top, built for adding many ingredients on a phone:
+
+- **Ingredients** - each ingredient with its amount, kcal, carbohydrates (C) and protein (P) for that amount, and a total row. "≥" in a total means an ingredient doesn't report that value. Tap × twice to remove an ingredient.
+- **Add from Fineli** and **Add from My Foods** - see below. After adding or removing, the page comes back to the same place with your search still there.
+- **Recipe details** (folded) - name, servings, finished dish weight, Duplicate, Delete.
+- **Nutrition** - choose **100 g**, **Serving** or **Recipe** (the whole recipe); the main values and **Other nutrients** follow the choice, and the page remembers it. *Serving* needs a servings count under Recipe details. **Correct values per 100 g** (folded) holds the manual correction form and **Recalculate from ingredients**.
+
+### Building a recipe
 
 1. **Add from Fineli** - start typing; suggestions appear as you type (best match first). With an empty search box, your starred Fineli favorites are listed for quick adding.
 2. **Add from My Foods** - search your products and recipes; your most-used foods are shown first.
@@ -123,9 +130,9 @@ Adding or removing an ingredient recalculates the recipe at once and confirms it
 - **Duplicate** copies the recipe (ingredients, servings, values) as a starting point for a variation.
 - **Delete** (click twice) removes the recipe. Diary entries keep their values. A recipe used inside another recipe can't be deleted until it is removed there.
 
-### Final values and recalculation
+### Correcting values and recalculation
 
-**Final nutrition values per 100 g** shows the stored values and lets you correct them by hand; saving confirms with a message. Corrected values stay until the recipe's ingredients change. **Recalculate recipe** discards manual corrections and calculates the values from the ingredients again.
+The stored values are per 100 g. **Correct values per 100 g** lets you fix them by hand; saving confirms with a message. Corrected values stay until the recipe's ingredients change. **Recalculate from ingredients** discards manual corrections and calculates the values again.
 
 Recipes never go stale: when a product or recipe changes - edited, recalculated, or its final values saved - every recipe that uses it, also through another recipe, is recalculated, and a message names them.
 

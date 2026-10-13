@@ -9,6 +9,7 @@ from django.http import JsonResponse
 from django.db import transaction
 from django.db.models import Q
 import json
+from urllib.parse import urlencode
 
 from core.models import DailyLog
 from .models import (
@@ -375,6 +376,52 @@ def _recipe_language(parent):
     return "fi"
 
 
+def _back_to_recipe(request, parent, anchor):
+    """Redirect back to the recipe page at `anchor`, keeping the searches
+    that were open, so adding several ingredients on a phone doesn't start
+    from the top of the page every time."""
+    params = {}
+    for key in ("q", "own"):
+        value = request.POST.get(key, "").strip()[:100]
+        if value:
+            params[key] = value
+    url = reverse('recipe_detail', args=[parent.id])
+    if params:
+        url += "?" + urlencode(params)
+    return redirect(f"{url}#{anchor}")
+
+
+def _ingredient_rows(parent):
+    """The recipe's ingredients with each one's energy, carbs and protein for
+    its amount, plus totals. Per-100 g values come from the ingredient's
+    source (a per-100 ml product counts its amount as ml, like the recipe
+    calculation). None stays unknown; a total with an unknown part is marked
+    partial."""
+    rows = []
+    totals = {"kcal": 0.0, "carbs": 0.0, "protein": 0.0}
+    partial = {"kcal": False, "carbs": False, "protein": False}
+    for ing in parent.ingredients.select_related('fineli_food', 'source_custom_food').order_by('id'):
+        if ing.fineli_food is not None:
+            food = ing.fineli_food
+            name, kind = food.name_fi, "Fineli"
+            per_100 = {"kcal": food.energy_kcal, "carbs": food.carbs_g, "protein": food.protein_g}
+        else:
+            food = ing.source_custom_food
+            name = food.name
+            kind = "Recipe" if food.kind == CustomFood.KIND_RECIPE else "Product"
+            per_100 = {"kcal": food.energy_kcal_per_100g, "carbs": food.carbs_per_100g, "protein": food.protein_per_100g}
+        values = {}
+        for key, value in per_100.items():
+            if value is None:
+                values[key] = None
+                partial[key] = True
+            else:
+                values[key] = value * ing.amount_grams / 100
+                totals[key] += values[key]
+        rows.append({"ingredient": ing, "name": name, "kind": kind, **values})
+    return rows, totals, partial
+
+
 def _recipe_detail_context(request, parent, final_values_form=None, settings_form=None):
     query = request.GET.get('q', '').strip()
     language = _recipe_language(parent)
@@ -387,9 +434,37 @@ def _recipe_detail_context(request, parent, final_values_form=None, settings_for
         )
         nutrient.display_value = _format_nutrient_value(nutrient.value)
         aux_nutrients.append(nutrient)
+    ingredient_rows, ingredient_totals, ingredient_partial = _ingredient_rows(parent)
+    nutrition_rows = [
+        {"label": label, "value": getattr(parent, field), "unit": unit, "sub": sub}
+        for label, field, unit, sub in (
+            ("Energy", "energy_kcal_per_100g", "kcal", False),
+            ("Protein", "protein_per_100g", "g", False),
+            ("Carbohydrate", "carbs_per_100g", "g", False),
+            ("of which sugars", "sugar_per_100g", "g", True),
+            ("Fat", "fat_per_100g", "g", False),
+            ("of which saturated", "sat_fat_per_100g", "g", True),
+            ("Fiber", "fiber_per_100g", "g", False),
+            ("Salt", "salt_per_100g", "g", False),
+        )
+    ]
+    for row in nutrition_rows:
+        # Same rounding as the page's per-100 g / serving / whole switch:
+        # whole kcal, otherwise _format_nutrient_value.
+        if row["value"] is None:
+            row["display"] = None
+        elif row["unit"] == "kcal":
+            row["display"] = f"{row['value']:.0f}"
+        else:
+            row["display"] = _format_nutrient_value(row["value"])
     return {
+        'nutrition_rows': nutrition_rows,
         'parent': parent,
-        'ingredients': parent.ingredients.select_related('fineli_food', 'source_custom_food').order_by('id'),
+        'ingredients': [row["ingredient"] for row in ingredient_rows],
+        'ingredient_rows': ingredient_rows,
+        'ingredient_totals': ingredient_totals,
+        'ingredient_partial': ingredient_partial,
+        'own_query': request.GET.get('own', '').strip(),
         # Most-used first: the My Foods picker shows the top ones until you search.
         'own_foods': CustomFood.objects.filter(user=request.user).exclude(pk=parent.pk).order_by('-use_count', 'name'),
         'favorite_fineli_foods': [
@@ -491,7 +566,7 @@ def add_recipe_fineli_ingredient(request, food_id):
     _recalculate_after_ingredient_change(
         request, parent, f"Added {fineli_food.name_fi} ({amount_grams:g} g)",
     )
-    return redirect('recipe_detail', food_id=parent.id)
+    return _back_to_recipe(request, parent, "add-fineli")
 
 
 @login_required
@@ -527,7 +602,7 @@ def add_recipe_custom_ingredient(request, food_id):
     _recalculate_after_ingredient_change(
         request, parent, f"Added {source.name} ({ingredient.amount_grams:g} g)",
     )
-    return redirect('recipe_detail', food_id=parent.id)
+    return _back_to_recipe(request, parent, "add-own")
 
 
 @login_required
@@ -544,7 +619,7 @@ def remove_recipe_ingredient(request, food_id, ingredient_id):
             name = ingredient.fineli_food.name_fi if ingredient.fineli_food else ingredient.source_custom_food.name
             ingredient.delete()
             _recalculate_after_ingredient_change(request, parent, f"Removed {name}")
-    return redirect('recipe_detail', food_id=parent.id)
+    return _back_to_recipe(request, parent, "ingredients")
 
 
 @login_required
@@ -568,7 +643,7 @@ def recalculate_recipe_view(request, food_id):
         return render(request, "nutrition/recipe_detail.html", context)
     messages.success(request, "Nutrition values recalculated from the ingredients.")
     _update_dependent_recipes(request, parent)
-    return redirect('recipe_detail', food_id=parent.id)
+    return _back_to_recipe(request, parent, "final-values")
 
 
 @login_required
@@ -588,7 +663,7 @@ def update_recipe_settings(request, food_id):
         _recalculate_after_ingredient_change(request, parent, "Recipe details saved")
     else:
         messages.success(request, "Recipe details saved.")
-    return redirect('recipe_detail', food_id=parent.id)
+    return _back_to_recipe(request, parent, "recipe-details")
 
 
 @login_required
@@ -662,7 +737,7 @@ def save_recipe_final_values(request, food_id):
         form.save()
         messages.success(request, "Final nutrition values saved.")
         _update_dependent_recipes(request, parent)
-        return redirect('recipe_detail', food_id=parent.id)
+        return _back_to_recipe(request, parent, "final-values")
 
     context = _recipe_detail_context(request, parent, final_values_form=form)
     return render(request, "nutrition/recipe_detail.html", context)

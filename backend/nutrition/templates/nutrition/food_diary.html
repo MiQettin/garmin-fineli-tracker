@@ -59,7 +59,33 @@
         </div>
     </div>
 
-    <!-- Meal Sections: the meals logged this day, plus meals added on the page -->
+    {% if day_micronutrients %}
+    <!-- The day's micronutrients: unknown values are not zero, so each
+         total shows how many of the day's foods it covers. -->
+    <details class="micro-panel">
+        <summary>{% translate "Micronutrients" %}</summary>
+        <div class="micro-groups">
+            {% for group in day_micronutrients %}
+            <div class="micro-group">
+                <h3>{{ group.name }}</h3>
+                <dl>
+                    {% for row in group.rows %}
+                    <div class="micro-row">
+                        <dt>{{ row.label }}</dt>
+                        <dd>{{ row.amount }} {{ row.unit }}{% if row.partial %} <span class="micro-coverage" title="{% translate 'Foods with a known value / all foods of the day' %}">{{ row.known }}/{{ entry_count }}</span>{% endif %}</dd>
+                    </div>
+                    {% endfor %}
+                </dl>
+            </div>
+            {% endfor %}
+        </div>
+        <p class="micro-note">{% translate "x/y: the total includes only the foods with a known value." %}</p>
+    </details>
+    {% endif %}
+
+    <!-- Meal Sections: the meals logged this day, plus meals added on the page.
+         On phones the meal picker moves below the meals once there are any. -->
+    <div class="diary-meals">
     <div class="diary-add-bar">
         <label for="mealName">{% translate "Meal" %}</label>
         {% include "nutrition/includes/meal_picker.html" with input_id="mealName" %}
@@ -68,10 +94,11 @@
     {% for section in meal_sections %}
     <div class="meal-section" data-meal-name="{{ section.name }}" data-meal-key="{{ section.key }}">
         <div class="meal-header">
-            <h2>{{ section.label }}</h2>
+            <h2>{{ section.name }}</h2>
             <div class="meal-actions">
                 <button class="add-food-btn" data-meal="{{ section.name }}" onclick="openAddModal(this.dataset.meal)">+ {% translate "Add Food" %}</button>
                 <button class="delete-btn" onclick="deleteMeal(this)" title="{% translate 'Delete meal' %}" aria-label="{% blocktranslate with name=section.name %}Delete meal {{ name }}{% endblocktranslate %}">🗑️</button>
+                <button type="button" class="meal-toggle" onclick="toggleMeal(this)" aria-expanded="true" aria-label="{% translate 'Show or hide foods' %}">▾</button>
             </div>
         </div>
         
@@ -110,6 +137,7 @@
     <p class="diary-empty" id="diaryEmpty">{% translate "Nothing logged for this day yet." %}</p>
     {% endfor %}
     </div>
+    </div>
 
     <!-- A meal added on the page: shown until its first food is saved. -->
     <template id="newMealSection">
@@ -119,6 +147,7 @@
                 <div class="meal-actions">
                     <button class="add-food-btn" onclick="openAddModal(this.dataset.meal)">+ {% translate "Add Food" %}</button>
                     <button class="delete-btn" onclick="deleteMeal(this)" title="{% translate 'Delete meal' %}" aria-label="{% translate 'Delete meal' %}">🗑️</button>
+                    <button type="button" class="meal-toggle" onclick="toggleMeal(this)" aria-expanded="true" aria-label="{% translate 'Show or hide foods' %}">▾</button>
                 </div>
             </div>
             <div class="meal-totals">
@@ -324,7 +353,8 @@
 
 <style>
 .food-diary-container {
-    max-width: 100%;
+    /* Kept narrow on wide screens so the buttons stay near the names. */
+    max-width: 900px;
     margin: 0 auto;
     padding: 10px;
 }
@@ -465,6 +495,70 @@
     font-size: 1.1em;
     color: var(--gray-800);
 }
+
+/* Show/hide arrow for a meal's foods: phones only, at the right edge so
+   it is reachable with the thumb. */
+.meal-toggle {
+    display: none;
+    flex: none;
+    width: 36px;
+    align-self: stretch;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: var(--gray-50);
+    color: var(--gray-600);
+    font-size: 1em;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.micro-panel {
+    margin-bottom: 12px;
+    background: var(--bg-card);
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+}
+.micro-panel summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    font-weight: 600;
+    color: var(--gray-700);
+    cursor: pointer;
+    list-style: none;
+}
+.micro-panel summary::-webkit-details-marker { display: none; }
+.micro-panel summary::after { content: "▾"; transition: transform 0.2s; }
+.micro-panel:not([open]) summary::after { transform: rotate(-90deg); }
+.micro-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 4px 24px;
+    padding: 0 15px;
+}
+.micro-group h3 {
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-500);
+    margin: 4px 0 6px;
+}
+.micro-group dl { margin: 0 0 8px; }
+.micro-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 0.9em;
+}
+.micro-row dt { font-weight: normal; color: var(--gray-700); }
+.micro-row dd { margin: 0; color: var(--gray-800); font-weight: 600; white-space: nowrap; }
+.micro-coverage { font-weight: normal; font-size: 0.85em; color: var(--gray-500); margin-left: 4px; }
+.micro-note { padding: 0 15px 12px; margin: 0; font-size: 0.8em; color: var(--gray-500); }
 
 .add-food-btn {
     padding: 5px 12px;
@@ -842,6 +936,46 @@
     .date-nav .date-input { flex: 1 1 0; min-width: 0; width: 100%; }
     .bulk-import-btn .btn-text { display: none; }
 
+    /* Meals first, the meal picker below them once there are meals. */
+    .diary-meals { display: flex; flex-direction: column; }
+    .diary-meals:has(.meal-section) .diary-add-bar { order: 1; }
+
+    /* Compact phone layout: smaller title, summary cards and meal cards. */
+    .diary-header { margin-bottom: 10px; }
+    .diary-header h1 { font-size: 1.15em; margin-bottom: 8px; }
+    .daily-summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        margin-bottom: 8px;
+    }
+    .summary-card { min-width: 0; padding: 6px 4px; }
+    .summary-label { font-size: 0.72em; margin-bottom: 0; }
+    .summary-value { font-size: 1.15em; line-height: 1.2; }
+    .summary-unit { font-size: 0.68em; margin-top: 0; }
+
+    .micro-panel { margin-bottom: 8px; }
+    .micro-panel summary { padding: 8px 12px; font-size: 0.9em; }
+
+    .meal-section { padding: 8px 10px; margin-bottom: 8px; }
+    .meal-header { margin-bottom: 6px; padding-bottom: 6px; }
+    .meal-section.collapsed .meal-header { border-bottom: none; padding-bottom: 0; }
+    .add-food-btn { padding: 6px 10px; }
+    .meal-totals { gap: 10px; padding: 4px 8px; font-size: 0.8em; }
+
+    /* The field's placeholder names it; the label stays for screen readers. */
+    .diary-add-bar { padding: 8px 10px; margin-bottom: 8px; }
+    .diary-add-bar label {
+        position: absolute; width: 1px; height: 1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap;
+    }
+
+    /* A collapsed meal shows only its name, buttons and totals. */
+    .meal-toggle { display: inline-block; }
+    .meal-section.collapsed .meal-toggle { transform: rotate(-90deg); }
+    .meal-section.collapsed .food-entries { display: none; }
+    .meal-section.collapsed .meal-totals { margin-bottom: 0; }
+
     /* The dense 3-column desktop row (name | macros | delete) is too
        tight to fit on one line at 360-390px. Let it wrap onto two rows
        instead: name+delete stay together, macros move below - not a
@@ -970,6 +1104,9 @@ let currentMealName = '';
 // The food goes to the meal of the section whose button was clicked.
 function openAddModal(mealName) {
     currentMealName = mealName;
+    const section = [...document.querySelectorAll('#mealSections .meal-section')]
+        .find(s => s.dataset.mealName.toLocaleLowerCase() === mealName.toLocaleLowerCase());
+    if (section) setMealOpen(section, true);
     document.getElementById('addFoodMeal').textContent = mealName;
     document.getElementById('addFoodModal').style.display = 'block';
 }
@@ -985,7 +1122,7 @@ function addMealSection() {
     if (!section) {
         section = document.getElementById('newMealSection').content.firstElementChild.cloneNode(true);
         section.dataset.mealName = name;
-        section.querySelector('h2').textContent = '🍽️ ' + name;
+        section.querySelector('h2').textContent = name;
         section.querySelector('.add-food-btn').dataset.meal = name;
         document.getElementById('mealSections').appendChild(section);
         const empty = document.getElementById('diaryEmpty');
@@ -1533,6 +1670,39 @@ function deleteEntry(entryId) {
         setTimeout(() => delete window[confirmKey], 3000);
     }
 }
+
+// Phones: a meal's foods can be hidden with the arrow by its name. Meals
+// start collapsed; the ones opened stay open (per day, for this tab), so a
+// meal stays open after adding a food reloads the page.
+const OPEN_MEALS_KEY = 'diaryOpenMeals:' + currentDate;
+
+function readOpenMeals() {
+    try { return JSON.parse(sessionStorage.getItem(OPEN_MEALS_KEY)) || []; } catch (e) { return []; }
+}
+
+function setMealOpen(section, open) {
+    section.classList.toggle('collapsed', !open);
+    section.querySelector('.meal-toggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+    const name = (section.dataset.mealName || '').toLocaleLowerCase();
+    if (!name) return;
+    const names = readOpenMeals().filter(n => n !== name);
+    if (open) names.push(name);
+    try { sessionStorage.setItem(OPEN_MEALS_KEY, JSON.stringify(names)); } catch (e) { /* not saved */ }
+}
+
+function toggleMeal(button) {
+    const section = button.closest('.meal-section');
+    setMealOpen(section, section.classList.contains('collapsed'));
+}
+
+(function () {
+    const open = readOpenMeals();
+    document.querySelectorAll('#mealSections .meal-section').forEach(section => {
+        const isOpen = open.includes(section.dataset.mealName.toLocaleLowerCase());
+        section.classList.toggle('collapsed', !isOpen);
+        section.querySelector('.meal-toggle').setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+})();
 
 // Deletes a meal with all of its foods (a second click within 3 seconds
 // confirms, like deleting a food). A meal added on the page but not saved

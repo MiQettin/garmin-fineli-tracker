@@ -5271,3 +5271,60 @@ class LanguageSettingsTests(TestCase):
         self.assertContains(resp, 'value="70.5"')
         self.assertNotContains(resp, 'value="70,5"')
         self.assertRegex(resp.content.decode(), r"const TARGET_CALORIES = [0-9.]+;")
+
+
+class FoodDiaryDayMicronutrientTests(TestCase):
+    """The diary's micronutrient panel: the user's own entries only, an
+    unknown value is not zero (coverage x/y), and nutrients no food reports
+    are left out."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="micros", password="x")
+        self.client.force_login(self.user)
+        self.log = DailyLog.objects.create(date="2026-10-12")
+
+    def _entry(self, user=None, **nutrients):
+        entry = MealEntry.objects.create(
+            daily_log=self.log, user=user or self.user, source_type="manual", food_name="Food",
+            meal_type="lunch", portion_grams=100, calories=100,
+        )
+        for key, value in nutrients.items():
+            MealEntryNutrient.objects.create(meal_entry=entry, nutrient_key=key, value=value, unit=NUTRIENT_UNITS[key])
+        return entry
+
+    def _panel(self):
+        resp = self.client.get(reverse("food_diary"), {"date": "2026-10-12"})
+        return resp, {row["label"]: row for group in resp.context["day_micronutrients"] for row in group["rows"]}
+
+    def test_totals_with_coverage(self):
+        self._entry(iron=2.5, vitamin_d=1.2)
+        self._entry(iron=4.0)
+        self._entry()
+        resp, rows = self._panel()
+        self.assertEqual(rows["Iron"]["amount"], "6.5")
+        self.assertEqual(rows["Iron"]["unit"], "mg")
+        self.assertEqual((rows["Iron"]["known"], rows["Iron"]["partial"]), (2, True))
+        self.assertEqual(rows["Vitamin D"]["unit"], "µg")
+        self.assertNotIn("Calcium", rows)
+        self.assertContains(resp, "2/3")
+
+    def test_complete_coverage_is_not_partial(self):
+        self._entry(calcium=120)
+        self._entry(calcium=300)
+        _, rows = self._panel()
+        self.assertEqual(rows["Calcium"]["amount"], "420")
+        self.assertFalse(rows["Calcium"]["partial"])
+
+    def test_other_users_entries_are_not_counted(self):
+        other = get_user_model().objects.create_user(username="other", password="x")
+        self._entry(iron=1.0)
+        self._entry(user=other, iron=50.0)
+        _, rows = self._panel()
+        self.assertEqual(rows["Iron"]["amount"], "1.0")
+        self.assertFalse(rows["Iron"]["partial"])
+
+    def test_no_panel_without_micronutrients(self):
+        self._entry()
+        resp, rows = self._panel()
+        self.assertEqual(rows, {})
+        self.assertNotContains(resp, "<details class=\"micro-panel\">")

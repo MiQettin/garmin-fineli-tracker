@@ -47,6 +47,17 @@ The Nutrition menu has four pages:
 
 The diary shows the meals logged on that day, in the order they were first logged. 🗑️ on a meal deletes the whole meal with its foods (click twice within 3 seconds, like deleting a food). The meal and day totals update at once. They only count your own entries.
 
+On a wide screen the diary stays about 900 px wide, so the buttons are near the food names. Meals show only their name, no icon.
+
+**On a phone:**
+- Once the day has meals, the **Meal** field moves below them.
+- Each meal has a ▾ arrow at its right edge that shows or hides its foods; a hidden meal shows its name, **+ Add Food**, 🗑️ and its totals. Meals start hidden. A meal you open stays open on that day (in the same browser tab), and **+ Add Food** opens its meal, so the food you add is shown.
+- The day totals and meal cards are compact on a phone.
+
+### Micronutrients
+
+**Micronutrients ▾** under the day totals opens the day's minerals (iron, calcium, magnesium, potassium, zinc, selenium, iodine, phosphorus, sodium), vitamins (D, B12, folate, C, A, E, K, B1, B2, niacin, B6) and fats (omega-3, EPA, DHA, omega-6, trans fat, cholesterol). Only your own entries count. A food with no value for a nutrient (often a manual entry or an own product) is unknown, not zero, so a total that leaves some foods out shows how many of the day's foods it covers, e.g. *Iron 12 mg 8/11*. A nutrient that no food of the day reports is not listed, and the panel is hidden when none is known. A "less than" value (e.g. *<0.1*) counts with its threshold.
+
 ### Add Food tabs
 
 | Tab | What it does |

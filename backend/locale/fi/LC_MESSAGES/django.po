@@ -46,23 +46,26 @@ msgstr "Suomi (Finelin suomenkieliset nimet)"
 msgid "English (Fineli's English names)"
 msgstr "Englanti (Finelin englanninkieliset nimet)"
 
-msgid "Toggle navigation"
-msgstr "Avaa valikko"
-
 msgid "Dashboard"
 msgstr "Yhteenveto"
 
-msgid "Training"
-msgstr "Harjoittelu"
+msgid "Diary"
+msgstr "Päiväkirja"
 
 msgid "Activities"
 msgstr "Aktiviteetit"
 
-msgid "Running"
-msgstr "Juoksu"
-
 msgid "Health & Recovery"
 msgstr "Terveys ja palautuminen"
+
+msgid "Toggle navigation"
+msgstr "Avaa valikko"
+
+msgid "Training"
+msgstr "Harjoittelu"
+
+msgid "Running"
+msgstr "Juoksu"
 
 msgid "Overview"
 msgstr "Yleiskatsaus"
@@ -72,9 +75,6 @@ msgstr "Paino"
 
 msgid "Nutrition"
 msgstr "Ravinto"
-
-msgid "Diary"
-msgstr "Päiväkirja"
 
 msgid "Foods"
 msgstr "Tuotteet"
@@ -403,21 +403,6 @@ msgstr "%(kcal)s kcal syvemmällä - seuraa jaksamista"
 msgid "%(kcal)s kcal too deep - muscle loss risk"
 msgstr "%(kcal)s kcal liian syvällä - lihaskadon riski"
 
-msgid "Breakfast"
-msgstr "Aamiainen"
-
-msgid "Lunch"
-msgstr "Lounas"
-
-msgid "Dinner"
-msgstr "Päivällinen"
-
-msgid "Snack"
-msgstr "Välipala"
-
-msgid "Evening snack"
-msgstr "Iltapala"
-
 msgid "Nutrition values are per 100 g, so give the package size in grams (e.g. 250 g), choose values per 100 ml, or leave the package size empty."
 msgstr "Ravintoarvot ovat / 100 g, joten anna pakkauskoko grammoina (esim. 250 g), valitse arvot / 100 ml tai jätä pakkauskoko tyhjäksi."
 
@@ -429,6 +414,24 @@ msgstr "Annoksia pitää olla enemmän kuin 0."
 
 msgid "Weight must be more than 0 g."
 msgstr "Painon pitää olla yli 0 g."
+
+msgid "Choose a meal or type a name for it."
+msgstr "Valitse ateria tai kirjoita sille nimi."
+
+msgid "Breakfast"
+msgstr "Aamiainen"
+
+msgid "Lunch"
+msgstr "Lounas"
+
+msgid "Snack"
+msgstr "Välipala"
+
+msgid "Dinner"
+msgstr "Päivällinen"
+
+msgid "Supper"
+msgstr "Illallinen"
 
 msgid "The amount must be more than 0 g."
 msgstr "Määrän pitää olla yli 0 g."
@@ -649,8 +652,26 @@ msgstr "Kuitu"
 msgid "Salt"
 msgstr "Suola"
 
+msgid "Micronutrients"
+msgstr "Mikroravinteet"
+
+msgid "Foods with a known value / all foods of the day"
+msgstr "Ruoat, joille arvo tiedetään / päivän kaikki ruoat"
+
+msgid "x/y: the total includes only the foods with a known value."
+msgstr "x/y: summassa ovat mukana vain ruoat, joille arvo tiedetään."
+
 msgid "Add Food"
 msgstr "Lisää ruoka"
+
+msgid "Delete meal"
+msgstr "Poista ateria"
+
+msgid "Delete meal %(name)s"
+msgstr "Poista ateria %(name)s"
+
+msgid "Show or hide foods"
+msgstr "Näytä tai piilota ruoat"
 
 msgctxt "protein"
 msgid "P"
@@ -672,6 +693,9 @@ msgstr "Poista"
 
 msgid "Delete %(name)s"
 msgstr "Poista: %(name)s"
+
+msgid "Nothing logged for this day yet."
+msgstr "Tälle päivälle ei ole vielä merkintöjä."
 
 msgid "Search Fineli"
 msgstr "Hae Finelistä"
@@ -874,6 +898,9 @@ msgstr "Vahvista poisto napauttamalla poistonappia uudelleen 3 sekunnin sisäll�
 msgid "Entry deleted"
 msgstr "Merkintä poistettu"
 
+msgid "Meal deleted"
+msgstr "Ateria poistettu"
+
 msgid "Failed to delete entry"
 msgstr "Merkinnän poisto epäonnistui"
 
@@ -906,6 +933,12 @@ msgstr "Tuonti epäonnistui. Yritä uudelleen."
 
 msgid "Network error. Please try again."
 msgstr "Verkkovirhe. Yritä uudelleen."
+
+msgid "Choose or type a meal"
+msgstr "Valitse tai kirjoita ateria"
+
+msgid "Show meals"
+msgstr "Näytä ateriat"
 
 msgid "My products"
 msgstr "Omat tuotteet"
@@ -1158,6 +1191,15 @@ msgstr "Ei vastaavia reseptejä."
 msgid "No recipes yet - press <strong>+ Create recipe</strong> to make your first one."
 msgstr "Ei vielä reseptejä - luo ensimmäinen napilla <strong>+ Luo resepti</strong>."
 
+msgid "Minerals"
+msgstr "Kivennäisaineet"
+
+msgid "Vitamins"
+msgstr "Vitamiinit"
+
+msgid "Fats"
+msgstr "Rasvat"
+
 msgid "Select a valid Fineli food."
 msgstr "Valitse kelvollinen Finelin ruoka."
 
@@ -1206,6 +1248,9 @@ msgstr "%(name)s (kopio)"
 msgid "Deleted %(name)s."
 msgstr "Poistettu: %(name)s."
 
+msgid "Meal name is too long (at most %(n)s characters)."
+msgstr "Aterian nimi on liian pitkä (enintään %(n)s merkkiä)."
+
 msgid "No files uploaded"
 msgstr "Tiedostoja ei lähetetty"
 
@@ -1232,6 +1277,9 @@ msgstr "Valitse tälle ruoalle kelvollinen annosyksikkö."
 
 msgid "Removed %(name)s"
 msgstr "Poistettu %(name)s"
+
+msgid "Invalid date"
+msgstr "Virheellinen päivämäärä"
 
 msgid "Unknown food"
 msgstr "Tuntematon ruoka"
@@ -1766,33 +1814,3 @@ msgstr "Painomerkintä poistettu."
 
 msgid "Weight saved."
 msgstr "Paino tallennettu."
-
-msgid "Nothing logged for this day yet."
-msgstr "Tälle päivälle ei ole vielä merkintöjä."
-
-msgid "Choose a meal or type a name for it."
-msgstr "Valitse ateria tai kirjoita sille nimi."
-
-msgid "Meal name is too long (at most %(n)s characters)."
-msgstr "Aterian nimi on liian pitkä (enintään %(n)s merkkiä)."
-
-msgid "Supper"
-msgstr "Illallinen"
-
-msgid "Choose or type a meal"
-msgstr "Valitse tai kirjoita ateria"
-
-msgid "Show meals"
-msgstr "Näytä ateriat"
-
-msgid "Delete meal"
-msgstr "Poista ateria"
-
-msgid "Delete meal %(name)s"
-msgstr "Poista ateria %(name)s"
-
-msgid "Meal deleted"
-msgstr "Ateria poistettu"
-
-msgid "Invalid date"
-msgstr "Virheellinen päivämäärä"

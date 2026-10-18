@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import translation
-from django.utils.translation import gettext
+from django.utils.translation import gettext, gettext_lazy
 from django.utils.timezone import localdate, now
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.db import transaction
@@ -17,10 +17,10 @@ from core.models import DailyLog
 from .food_language import UNIT_LABELS, fineli_name, food_language, name_field, unit_label
 from .models import (
     FineliFood, CustomFood, CustomFoodIngredient, CustomFoodNutrient, FavoriteFood, MealEntry, MealEntryNutrient,
-    fineli_unit_sort_key,
+    fineli_unit_sort_key, NUTRIENT_UNITS,
 )
 from .meals import (
-    MEAL_NAME_MAX_LENGTH, STANDARD_MEAL_KEYS, meal_emoji, meal_group_key, meal_label, meal_options,
+    MEAL_NAME_MAX_LENGTH, STANDARD_MEAL_KEYS, meal_group_key, meal_label, meal_options,
     normalize_meal_name,
 )
 from .forms import (
@@ -58,6 +58,63 @@ def _attach_shown_names(entries):
         entry.shown_name = fineli_name(food, language) if language == "en" and food is not None else entry.food_name
 
 
+# Micronutrients in the diary's day panel, in display order per group.
+DAY_MICRONUTRIENT_GROUPS = [
+    (gettext_lazy("Minerals"), ["iron", "calcium", "magnesium", "potassium", "zinc", "selenium",
+                  "iodine", "phosphorus", "sodium"]),
+    (gettext_lazy("Vitamins"), ["vitamin_d", "vitamin_b12", "folate", "vitamin_c", "vitamin_a_rae",
+                  "vitamin_e", "vitamin_k", "thiamine", "riboflavin", "niacin_equivalent",
+                  "vitamin_b6"]),
+    (gettext_lazy("Fats"), ["omega3", "epa", "dha", "omega6", "trans_fat", "cholesterol"]),
+]
+_UNIT_DISPLAY = {"ug": "µg"}
+
+
+def _format_day_amount(value):
+    if value >= 10:
+        return f"{value:.0f}"
+    if value >= 1:
+        return f"{value:.1f}"
+    return f"{value:.2f}".rstrip("0").rstrip(".") or "0"
+
+
+def _day_micronutrients(meal_entries):
+    """The day's micronutrient totals, grouped for the diary page.
+
+    A food with no value for a nutrient is unknown, not zero, so each total
+    tells how many of the day's foods it covers ("12 mg, 8/11 foods").
+    A 'less than' value counts with its threshold. Nutrients no food of the
+    day reports are left out."""
+    if not meal_entries:
+        return []
+    keys = [key for _, group_keys in DAY_MICRONUTRIENT_GROUPS for key in group_keys]
+    totals, known = {}, {}
+    for row in MealEntryNutrient.objects.filter(
+        meal_entry__in=meal_entries, nutrient_key__in=keys
+    ).values_list('nutrient_key', 'value', 'unit'):
+        key, value, unit = row
+        if unit != NUTRIENT_UNITS[key]:
+            continue
+        totals[key] = totals.get(key, 0.0) + value
+        known[key] = known.get(key, 0) + 1
+    labels = RECIPE_NUTRIENT_LABELS[_recipe_language(None)]
+    groups = []
+    for group_name, group_keys in DAY_MICRONUTRIENT_GROUPS:
+        rows = [
+            {
+                'label': labels.get(key, key.replace('_', ' ').capitalize()),
+                'amount': _format_day_amount(totals[key]),
+                'unit': _UNIT_DISPLAY.get(NUTRIENT_UNITS[key], NUTRIENT_UNITS[key]),
+                'known': known[key],
+                'partial': known[key] < len(meal_entries),
+            }
+            for key in group_keys if key in totals
+        ]
+        if rows:
+            groups.append({'name': str(group_name), 'rows': rows})
+    return groups
+
+
 @login_required
 def food_diary_view(request):
     """View for managing daily food diary."""
@@ -87,7 +144,6 @@ def food_diary_view(request):
             group = meal_groups[key] = {
                 'key': key,
                 'name': meal_label(key),
-                'label': f'{meal_emoji(key)} {meal_label(key)}',
                 'entries': [],
                 'first_logged': entry.created_at,
                 'totals': {'calories': 0, 'protein': 0, 'carbs': 0, 'sugar': 0,
@@ -132,6 +188,8 @@ def food_diary_view(request):
         'meal_sections': meal_sections,
         'meal_options': meal_options(),
         'day_totals': day_totals,
+        'day_micronutrients': _day_micronutrients(meal_entries),
+        'entry_count': len(meal_entries),
         'prev_date': prev_date,
         'next_date': next_date,
         'is_today': current_date == localdate(),
@@ -380,6 +438,7 @@ RECIPE_NUTRIENT_LABELS = {
         "trans_fat": "Transrasva", "omega3": "Omega-3", "omega6": "Omega-6",
         "sterols": "Sterolit", "iodine": "Jodi", "selenium": "Seleeni",
         "tryptophan": "Tryptofaani", "niacin_equivalent": "Niasiiniekvivalentti",
+        "vitamin_a_rae": "A-vitamiini (RAE)",
     },
     "en": {
         "alcohol": "Alcohol", "calcium": "Calcium", "cholesterol": "Cholesterol",
@@ -400,6 +459,7 @@ RECIPE_NUTRIENT_LABELS = {
         "trans_fat": "Trans fat", "omega3": "Omega-3", "omega6": "Omega-6",
         "sterols": "Sterols", "iodine": "Iodine", "selenium": "Selenium",
         "tryptophan": "Tryptophan", "niacin_equivalent": "Niacin equivalent",
+        "vitamin_a_rae": "Vitamin A (RAE)",
     },
 }
 

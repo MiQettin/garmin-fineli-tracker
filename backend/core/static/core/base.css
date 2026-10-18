@@ -124,3 +124,15 @@ a { color: inherit; }
 @media (max-width: 576px) {
   :where(.card) { padding: 14px 16px; }
 }
+
+/* Navbar quick links (phones/tablets, core/base.html): the main pages as
+   icons at the left of the bar; the brand is shown from lg up. */
+.nav-quick { display: flex; align-items: center; gap: 4px; margin-left: -6px; }
+.nav-quick-link {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; border-radius: 8px;
+  font-size: 1.25rem; line-height: 1; text-decoration: none;
+  opacity: 0.75;
+}
+.nav-quick-link:hover, .nav-quick-link:focus-visible { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+.nav-quick-link.active { opacity: 1; background: rgba(255, 255, 255, 0.14); }

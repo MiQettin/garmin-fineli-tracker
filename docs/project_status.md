@@ -52,6 +52,11 @@ No database changes (`makemigrations --check` reports nothing; no stored values 
 - **Entry editing** uses the same meal field (free text with the standard suggestions); saving without changing the meal keeps the stored value.
 - `evening_snack` is now shown as **Supper / Illallinen** (was Evening snack / Iltapala), matching the Fineli diary (its "illallinen" was already imported as `evening_snack`). Entries stored verbatim as `Iltapala` show as their own meal.
 - Date navigation: ◀ ▶ arrows without text; on phones the row stays on one line and the CSV import button is the 📥 icon only (with `title`/`aria-label`).
+- **Phones:** the Meal field moves below the meals once there are any; a ▾ arrow at each meal's right edge shows or hides its foods (meals start hidden; opened meals stay open per day in `sessionStorage`; **+ Add Food** opens its meal); compact summary cards and meal cards.
+- **Desktop:** the diary is at most 900 px wide. Meal headings have no emoji.
+- **Day micronutrients:** a **Micronutrients** panel (`<details>`) under the day totals - minerals, vitamins and fats summed from the user's own `MealEntryNutrient` rows, with coverage (*8/11 foods*) when some foods have no value (unknown is not zero). `nutrition.views._day_micronutrients()`.
+- **Navigation on phones and tablets:** the top bar shows the main pages as icons (🏠 Dashboard, 🍽️ Diary, 🏃‍♂️ Activities, ❤️ Health); the ☰ menu still lists every page by name. The icons sit at the left edge; the 🏃 HealthManager brand shows only on wide screens (≥992 px).
+- The standard meal labels in `nutrition/meals.py` are now marked for translation (`gettext_lazy`), so `update_translations` keeps their Finnish names.
 
 ### 2026-10-13
 

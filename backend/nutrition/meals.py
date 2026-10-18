@@ -8,34 +8,29 @@ app language) is stored as that meal's key.
 """
 from django.conf import settings
 from django.utils import translation
-from django.utils.translation import gettext
+from django.utils.translation import gettext_lazy
 
 MEAL_NAME_MAX_LENGTH = 50
 
-# key, English label (translated at display time), emoji - in day order,
+# key, label (lazy: translated at display time) - in day order,
 # like the Fineli diary's own meals (aamiainen, lounas, välipala,
 # päivällinen, illallinen; a diary CSV's "illallinen" is evening_snack).
 STANDARD_MEALS = [
-    ('breakfast', 'Breakfast', '🌅'),
-    ('lunch', 'Lunch', '🌞'),
-    ('snack', 'Snack', '🍎'),
-    ('dinner', 'Dinner', '🌙'),
-    ('evening_snack', 'Supper', '🌜'),
+    ('breakfast', gettext_lazy('Breakfast')),
+    ('lunch', gettext_lazy('Lunch')),
+    ('snack', gettext_lazy('Snack')),
+    ('dinner', gettext_lazy('Dinner')),
+    ('evening_snack', gettext_lazy('Supper')),
 ]
-STANDARD_MEAL_KEYS = [key for key, _, _ in STANDARD_MEALS]
-_ENGLISH_LABELS = {key: label for key, label, _ in STANDARD_MEALS}
-_EMOJIS = {key: emoji for key, _, emoji in STANDARD_MEALS}
+STANDARD_MEAL_KEYS = [key for key, _ in STANDARD_MEALS]
+_LABELS = dict(STANDARD_MEALS)
 
 
 def meal_label(meal_type):
     """The meal's name in the app language; own names are shown as typed."""
-    if meal_type in _ENGLISH_LABELS:
-        return gettext(_ENGLISH_LABELS[meal_type])
+    if meal_type in _LABELS:
+        return str(_LABELS[meal_type])
     return meal_type
-
-
-def meal_emoji(meal_type):
-    return _EMOJIS.get(meal_type, '🍽️')
 
 
 def _standard_lookup():
@@ -43,8 +38,8 @@ def _standard_lookup():
     lookup = {key: key for key in STANDARD_MEAL_KEYS}
     for code, _ in settings.LANGUAGES:
         with translation.override(code):
-            for key, label, _ in STANDARD_MEALS:
-                lookup[gettext(label).casefold()] = key
+            for key, label in STANDARD_MEALS:
+                lookup[str(label).casefold()] = key
     return lookup
 
 

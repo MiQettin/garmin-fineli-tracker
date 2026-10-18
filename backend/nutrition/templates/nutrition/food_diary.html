@@ -1,7 +1,11 @@
 {% extends "core/base.html" %}
-{% load i18n core_extras nutrition_filters %}
+{% load i18n static core_extras nutrition_filters %}
 
 {% block title %}{% translate "Food Diary" %} - {{ current_date|date:"d.m.Y" }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'nutrition/meal_picker.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="food-diary-container">
@@ -10,14 +14,14 @@
         
         <!-- Date Navigation -->
         <div class="date-nav">
-            <a href="?date={{ prev_date|date:'Y-m-d' }}" class="date-btn">◀ {% translate "Previous" %}</a>
+            <a href="?date={{ prev_date|date:'Y-m-d' }}" class="date-btn" title="{% translate 'Previous' %}" aria-label="{% translate 'Previous' %}">◀</a>
             <input type="date" id="datePicker" value="{{ current_date|date:'Y-m-d' }}" 
                    onchange="window.location.href='?date='+this.value" class="date-input">
             {% if not is_today %}
                 <a href="?" class="date-btn today-btn">{% translate "Today" %}</a>
             {% endif %}
-            <a href="?date={{ next_date|date:'Y-m-d' }}" class="date-btn">{% translate "Next" %} ▶</a>
-            <button onclick="openBulkImportModal()" class="date-btn bulk-import-btn">📥 {% translate "Import Diary CSV" %}</button>
+            <a href="?date={{ next_date|date:'Y-m-d' }}" class="date-btn" title="{% translate 'Next' %}" aria-label="{% translate 'Next' %}">▶</a>
+            <button onclick="openBulkImportModal()" class="date-btn bulk-import-btn" title="{% translate 'Import Diary CSV' %}" aria-label="{% translate 'Import Diary CSV' %}">📥<span class="btn-text"> {% translate "Import Diary CSV" %}</span></button>
         </div>
     </div>
 
@@ -55,24 +59,31 @@
         </div>
     </div>
 
-    <!-- Meal Sections -->
-    {% for meal_type, meal_label in meal_types %}
-    <div class="meal-section">
+    <!-- Meal Sections: the meals logged this day, plus meals added on the page -->
+    <div class="diary-add-bar">
+        <label for="mealName">{% translate "Meal" %}</label>
+        {% include "nutrition/includes/meal_picker.html" with input_id="mealName" %}
+    </div>
+    <div id="mealSections">
+    {% for section in meal_sections %}
+    <div class="meal-section" data-meal-name="{{ section.name }}" data-meal-key="{{ section.key }}">
         <div class="meal-header">
-            <h2>{{ meal_label }}</h2>
-            <button class="add-food-btn" onclick="openAddModal('{{ meal_type }}')">+ {% translate "Add Food" %}</button>
+            <h2>{{ section.label }}</h2>
+            <div class="meal-actions">
+                <button class="add-food-btn" data-meal="{{ section.name }}" onclick="openAddModal(this.dataset.meal)">+ {% translate "Add Food" %}</button>
+                <button class="delete-btn" onclick="deleteMeal(this)" title="{% translate 'Delete meal' %}" aria-label="{% blocktranslate with name=section.name %}Delete meal {{ name }}{% endblocktranslate %}">🗑️</button>
+            </div>
         </div>
         
         <div class="meal-totals">
-            <span>{{ meal_totals|get_item:meal_type|get_item:'calories'|floatformat:0 }} kcal</span>
-            <span>{% translate "P" context "protein" %}: {{ meal_totals|get_item:meal_type|get_item:'protein'|floatformat:0 }}g</span>
-            <span>{% translate "C" context "carbs" %}: {{ meal_totals|get_item:meal_type|get_item:'carbs'|floatformat:0 }}g</span>
-            <span>{% translate "F" context "fat" %}: {{ meal_totals|get_item:meal_type|get_item:'fat'|floatformat:0 }}g</span>
+            <span>{{ section.totals.calories|floatformat:0 }} kcal</span>
+            <span>{% translate "P" context "protein" %}: {{ section.totals.protein|floatformat:0 }}g</span>
+            <span>{% translate "C" context "carbs" %}: {{ section.totals.carbs|floatformat:0 }}g</span>
+            <span>{% translate "F" context "fat" %}: {{ section.totals.fat|floatformat:0 }}g</span>
         </div>
 
         <div class="food-entries">
-            {% for entry in meal_entries %}
-                {% if entry.meal_type == meal_type %}
+            {% for entry in section.entries %}
                 <div class="food-entry">
                     <div class="food-info">
                         <strong>{{ entry.shown_name }}</strong>
@@ -92,21 +103,43 @@
                         <button onclick="deleteEntry({{ entry.id }})" class="delete-btn" title="{% translate 'Delete' %}" aria-label="{% blocktranslate with name=entry.shown_name %}Delete {{ name }}{% endblocktranslate %}">🗑️</button>
                     </div>
                 </div>
-                {% endif %}
             {% endfor %}
         </div>
     </div>
+    {% empty %}
+    <p class="diary-empty" id="diaryEmpty">{% translate "Nothing logged for this day yet." %}</p>
     {% endfor %}
+    </div>
+
+    <!-- A meal added on the page: shown until its first food is saved. -->
+    <template id="newMealSection">
+        <div class="meal-section">
+            <div class="meal-header">
+                <h2></h2>
+                <div class="meal-actions">
+                    <button class="add-food-btn" onclick="openAddModal(this.dataset.meal)">+ {% translate "Add Food" %}</button>
+                    <button class="delete-btn" onclick="deleteMeal(this)" title="{% translate 'Delete meal' %}" aria-label="{% translate 'Delete meal' %}">🗑️</button>
+                </div>
+            </div>
+            <div class="meal-totals">
+                <span>0 kcal</span>
+                <span>{% translate "P" context "protein" %}: 0g</span>
+                <span>{% translate "C" context "carbs" %}: 0g</span>
+                <span>{% translate "F" context "fat" %}: 0g</span>
+            </div>
+            <div class="food-entries"></div>
+        </div>
+    </template>
 </div>
 
 <!-- Add Food Modal -->
 <div id="addFoodModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>{% translate "Add Food" %}</h2>
+            <h2>{% translate "Add Food" %}<span id="addFoodMeal" class="add-food-meal"></span></h2>
             <button class="close-btn" onclick="closeModal()">&times;</button>
         </div>
-        
+
         <div class="modal-tabs">
             <button class="tab-btn active" data-tab="fineli" onclick="switchTab('fineli')">🔍 {% translate "Search Fineli" %}</button>
             <button class="tab-btn" data-tab="myfoods" onclick="switchTab('myfoods')">⭐ {% translate "My Foods" %}</button>
@@ -384,6 +417,33 @@
     margin-top: 2px;
 }
 
+.diary-add-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.diary-add-bar label {
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+.add-food-meal:not(:empty)::before {
+    content: " · ";
+}
+
+.diary-empty {
+    text-align: center;
+    color: var(--gray-500);
+    padding: 24px 0;
+}
+
 .meal-section {
     background: var(--bg-card);
     border-radius: 8px;
@@ -498,6 +558,8 @@
 }
 
 .food-actions { display: flex; gap: 6px; align-items: center; }
+.meal-actions { display: flex; gap: 6px; align-items: center; flex: none; }
+.meal-actions .delete-btn { align-self: stretch; }
 .edit-btn {
     background: var(--bg-hover);
     padding: 4px 8px;
@@ -773,7 +835,12 @@
     /* Header + date nav were a single non-wrapping row - the primary
        source of page-level horizontal overflow on phones. */
     .diary-header { flex-wrap: wrap; }
-    .date-nav { flex-wrap: wrap; }
+    /* The date nav stays on one row: arrows, the date (which shrinks)
+       and the CSV import as an icon only. */
+    .date-nav { width: 100%; gap: 6px; }
+    .date-nav .date-btn { flex: none; padding: 8px 12px; }
+    .date-nav .date-input { flex: 1 1 0; min-width: 0; width: 100%; }
+    .bulk-import-btn .btn-text { display: none; }
 
     /* The dense 3-column desktop row (name | macros | delete) is too
        tight to fit on one line at 360-390px. Let it wrap onto two rows
@@ -881,6 +948,7 @@ const T = {
     tryAgainEntry: {% jstrans "Failed to add entry. Please try again." %},
     confirmDelete: {% jstrans "Click the delete button again within 3 seconds to confirm" %},
     entryDeleted: {% jstrans "Entry deleted" %},
+    mealDeleted: {% jstrans "Meal deleted" %},
     failedDelete: {% jstrans "Failed to delete entry" %},
     tryAgainDelete: {% jstrans "Failed to delete entry. Please try again." %},
     selectCsv: {% jstrans "Please select at least one CSV file" %},
@@ -894,13 +962,52 @@ const T = {
     importFailedTryAgain: {% jstrans "Import failed. Please try again." %},
     networkTryAgain: {% jstrans "Network error. Please try again." %},
 };
-let currentMealType = 'snack';
 const currentDate = '{{ current_date|date:"Y-m-d" }}';
 let searchTimeout;
 
-function openAddModal(mealType) {
-    currentMealType = mealType;
+let currentMealName = '';
+
+// The food goes to the meal of the section whose button was clicked.
+function openAddModal(mealName) {
+    currentMealName = mealName;
+    document.getElementById('addFoodMeal').textContent = mealName;
     document.getElementById('addFoodModal').style.display = 'block';
+}
+
+// Adds the meal typed on the page as an empty section; its own "Add Food"
+// button adds foods to it. A meal already on the page is just shown.
+function addMealSection() {
+    const input = document.getElementById('mealName');
+    const name = input.value.trim().replace(/\s+/g, ' ');
+    if (!name) return;
+    let section = [...document.querySelectorAll('#mealSections .meal-section')]
+        .find(s => s.dataset.mealName.toLocaleLowerCase() === name.toLocaleLowerCase());
+    if (!section) {
+        section = document.getElementById('newMealSection').content.firstElementChild.cloneNode(true);
+        section.dataset.mealName = name;
+        section.querySelector('h2').textContent = '🍽️ ' + name;
+        section.querySelector('.add-food-btn').dataset.meal = name;
+        document.getElementById('mealSections').appendChild(section);
+        const empty = document.getElementById('diaryEmpty');
+        if (empty) empty.remove();
+    }
+    input.value = '';
+    section.scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+
+// The meal is added when a suggestion is picked, on Enter, or when the
+// field is left after typing a name.
+const mealNameInput = document.getElementById('mealName');
+mealNameInput.addEventListener('change', addMealSection);
+mealNameInput.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter' && !this.getAttribute('aria-activedescendant')) {
+        event.preventDefault();
+        addMealSection();
+    }
+});
+
+function selectedMealName() {
+    return currentMealName || null;
 }
 
 function closeModal() {
@@ -1195,6 +1302,8 @@ function formatFoodResult(food) {
 }
 
 function selectFineliFood(food) {
+    // A food always goes to a meal.
+    if (!selectedMealName()) return;
     selectedFood = food;
     document.getElementById('portionFoodName').textContent = food.name;
     if (food.source === 'custom' && !food.is_recipe) {
@@ -1287,6 +1396,8 @@ function closePortionModal() {
 }
 
 function confirmPortion() {
+    const mealName = selectedMealName();
+    if (!mealName) return;
     const amount = parseFloat(document.getElementById('portionAmount').value);
     const unit = selectedPortionUnit();
 
@@ -1310,7 +1421,7 @@ function confirmPortion() {
         fiber: selectedFood.fiber,
         salt: selectedFood.salt,
         portion_grams: portionGrams,
-        meal_type: currentMealType,
+        meal_type: mealName,
         date: currentDate
     };
     if (isCustom) {
@@ -1352,11 +1463,13 @@ function confirmPortion() {
 // Manual Entry
 document.getElementById('manualEntryForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    
+    const mealName = selectedMealName();
+    if (!mealName) return;
+
     const formData = new FormData(this);
     const data = {
         date: currentDate,
-        meal_type: currentMealType,
+        meal_type: mealName,
         source_type: 'manual'
     };
     
@@ -1419,6 +1532,41 @@ function deleteEntry(entryId) {
         window[confirmKey] = true;
         setTimeout(() => delete window[confirmKey], 3000);
     }
+}
+
+// Deletes a meal with all of its foods (a second click within 3 seconds
+// confirms, like deleting a food). A meal added on the page but not saved
+// yet is just removed.
+function deleteMeal(button) {
+    const section = button.closest('.meal-section');
+    if (!section.dataset.deleteConfirm) {
+        showToast(T.confirmDelete, 'warning', 3000);
+        section.dataset.deleteConfirm = '1';
+        setTimeout(() => delete section.dataset.deleteConfirm, 3000);
+        return;
+    }
+    delete section.dataset.deleteConfirm;
+    if (!section.dataset.mealKey) {
+        section.remove();
+        return;
+    }
+    fetch('/food-diary/delete-meal/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCookie('csrftoken')},
+        body: new URLSearchParams({date: currentDate, meal: section.dataset.mealKey})
+    })
+    .then(response => {
+        if (response.ok) {
+            showToast(T.mealDeleted, 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast(T.failedDelete, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast(T.tryAgainDelete, 'error');
+    });
 }
 
 function getCookie(name) {
@@ -1550,4 +1698,8 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 {% include "nutrition/_fineli_attribution.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'nutrition/meal_picker.js' %}"></script>
 {% endblock %}

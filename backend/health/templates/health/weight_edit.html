@@ -1,0 +1,39 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Edit weight" %} - HealthManager{% endblock %}
+
+{% block extra_css %}
+<style>
+  .weight-edit { max-width: 520px; margin: 0 auto; }
+  .weight-edit h1 { font-size: 1.25em; color: var(--gray-900); margin-bottom: 4px; }
+  .weight-edit-note { color: var(--gray-500); font-size: 0.85em; }
+  .weight-edit label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85em; color: var(--gray-600); margin-bottom: 12px; }
+  .weight-edit input { font-size: 16px; min-height: 44px; }
+  .weight-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .weight-edit-actions .btn { min-height: 44px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card weight-edit">
+  <h1>✏️ {% translate "Edit weight" %}</h1>
+  {% if entry.source == "garmin" %}
+    <p class="weight-edit-note">{% translate "This weigh-in came from Garmin. After saving it is kept as your own entry, and a Garmin sync won't change it back. Nothing is changed in Garmin." %}</p>
+  {% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <label>{{ form.date.label }}{{ form.date }}</label>
+    <label>{{ form.weight_kg.label }}{{ form.weight_kg }}</label>
+    {% if form.errors %}
+      <ul class="errorlist mb-3">
+        {% for field in form %}{% for error in field.errors %}<li>{{ field.label }}: {{ error }}</li>{% endfor %}{% endfor %}
+      </ul>
+    {% endif %}
+    <div class="weight-edit-actions">
+      <a class="btn btn-outline-light" href="{% url 'weight_page' %}">{% translate "Cancel" %}</a>
+      <button type="submit" class="btn btn-primary">{% translate "Save" %}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

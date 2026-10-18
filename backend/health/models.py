@@ -113,3 +113,42 @@ class HrvSummary(models.Model):
 
     def __str__(self):
         return f"HRV - {self.night_date}"
+
+
+class WeightEntry(models.Model):
+    """
+    One body-weight measurement: a Garmin weigh-in (scale or entered in
+    Garmin Connect) or a value entered in this app.
+
+    The weight for a day comes from health.weight.weight_on(): a manual entry
+    wins over Garmin entries on the same date, otherwise the latest
+    measurement; days without one use the most recent earlier entry.
+    Garmin entries are only ever read from Garmin - never written back.
+    """
+
+    SOURCE_GARMIN = "garmin"
+    SOURCE_MANUAL = "manual"
+    SOURCE_CHOICES = [(SOURCE_GARMIN, "Garmin"), (SOURCE_MANUAL, "Manual")]
+
+    date = models.DateField(db_index=True, help_text="Local calendar date of the measurement")
+    weight_kg = models.FloatField(help_text="Body weight in kilograms")
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default=SOURCE_MANUAL)
+    garmin_sample_id = models.BigIntegerField(
+        null=True, blank=True, unique=True,
+        help_text="Garmin weigh-in samplePk - a sync never imports the same measurement twice",
+    )
+    measured_at = models.DateTimeField(null=True, blank=True, help_text="Measurement time (Garmin entries)")
+    ignored = models.BooleanField(
+        default=False,
+        help_text="A removed Garmin entry: kept so the next sync doesn't import it again, never used",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-date", "-measured_at", "-id"]
+        verbose_name = "Weight Entry"
+        verbose_name_plural = "Weight Entries"
+
+    def __str__(self):
+        return f"Weight - {self.date}: {self.weight_kg} kg ({self.source})"

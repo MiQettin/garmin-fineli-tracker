@@ -67,6 +67,9 @@ msgstr "Terveys ja palautuminen"
 msgid "Overview"
 msgstr "Yleiskatsaus"
 
+msgid "Weight"
+msgstr "Paino"
+
 msgid "Nutrition"
 msgstr "Ravinto"
 
@@ -1395,6 +1398,20 @@ msgstr "VO2max-arvio"
 msgid "Activity ID"
 msgstr "Aktiviteetin tunniste"
 
+msgid "Workout steps"
+msgstr "Treenin vaiheet"
+
+msgid "Choose the steps that count in running analytics (averages and charts). By default runs count, and warm-up, recovery and cool-down don't."
+msgstr "Valitse vaiheet, jotka lasketaan juoksuanalytiikkaan (keskiarvot ja kaaviot). Oletuksena juoksut lasketaan, lämmittely, palautukset ja jäähdyttely eivät."
+
+msgid "%(n)s lap"
+msgid_plural "%(n)s laps"
+msgstr[0] "%(n)s kierros"
+msgstr[1] "%(n)s kierrosta"
+
+msgid "Save selection"
+msgstr "Tallenna valinta"
+
 msgid "Laps and intervals"
 msgstr "Kierrokset ja intervallit"
 
@@ -1461,8 +1478,8 @@ msgstr "Juoksuanalytiikka"
 msgid "Running performance analytics"
 msgstr "Juoksusuoritusten analytiikka"
 
-msgid "Track your running interval progress over time (excludes warm-ups, cool-downs and walks)"
-msgstr "Seuraa juoksuintervalliesi kehitystä ajan mittaan (ilman lämmittelyjä, jäähdyttelyjä ja kävelyjä)"
+msgid "Averages count the workout steps chosen on each activity's page - by default the runs. Warm-up and cool-down can be added for all workouts with the buttons below."
+msgstr "Keskiarvoihin lasketaan kunkin treenin sivulla valitut vaiheet - oletuksena juoksut. Lämmittelyt ja jäähdyttelyt voi lisätä kaikista treeneistä alla olevilla napeilla."
 
 msgid "Base"
 msgstr "Peruskunto"
@@ -1482,8 +1499,8 @@ msgstr "Tyhjennä suodatin"
 msgid "Run workouts"
 msgstr "Juoksuharjoitukset"
 
-msgid "Total work laps"
-msgstr "Työkierroksia yhteensä"
+msgid "Laps counted"
+msgstr "Laskettuja kierroksia"
 
 msgid "Best avg pace"
 msgstr "Paras keskivauhti"
@@ -1491,8 +1508,8 @@ msgstr "Paras keskivauhti"
 msgid "Overall avg pace"
 msgstr "Keskivauhti kaikkiaan"
 
-msgid "Total km (intervals)"
-msgstr "Km yhteensä (intervallit)"
+msgid "Km counted"
+msgstr "Laskettuja km"
 
 msgid "Progress over time"
 msgstr "Kehitys ajan mittaan"
@@ -1502,9 +1519,6 @@ msgstr "Vauhti"
 
 msgid "Heart rate"
 msgstr "Syke"
-
-msgid "Work laps"
-msgstr "Työkierrokset"
 
 msgid "Workout history"
 msgstr "Harjoitushistoria"
@@ -1545,11 +1559,14 @@ msgstr "Keskisyke (bpm)"
 msgid "Heart rate (bpm)"
 msgstr "Syke (bpm)"
 
-msgid "Total interval distance (km)"
-msgstr "Intervallimatka yhteensä (km)"
-
 msgid "No interval data to display"
 msgstr "Ei näytettäviä intervallitietoja"
+
+msgid "Running analytics selection saved."
+msgstr "Juoksuanalytiikan valinta tallennettu."
+
+msgid "Weight (kg)"
+msgstr "Paino (kg)"
 
 msgid "Snapshot date"
 msgstr "Tarkastelupäivä"
@@ -1708,8 +1725,74 @@ msgstr "HRV (ms)"
 msgid "Resting HR (bpm)"
 msgstr "Leposyke (bpm)"
 
+msgid "Edit weight"
+msgstr "Muokkaa painoa"
+
+msgid "This weigh-in came from Garmin. After saving it is kept as your own entry, and a Garmin sync won't change it back. Nothing is changed in Garmin."
+msgstr "Tämä punnitus tuli Garminista. Tallennuksen jälkeen se säilyy omana merkintänäsi, eikä Garmin-synkronointi muuta sitä takaisin. Garminissa ei muuteta mitään."
+
+msgid "Your weight is only used to scale nutrition targets to your body size (g/kg). It comes from Garmin weigh-ins or the values you add here."
+msgstr "Painoa käytetään vain ravintotavoitteiden suhteuttamiseen kehon kokoon (g/kg). Se tulee Garminin punnituksista tai täällä lisäämistäsi arvoista."
+
+msgid "Weight used in calculations"
+msgstr "Laskennassa käytettävä paino"
+
+msgid "No weight entries yet"
+msgstr "Ei vielä painomerkintöjä"
+
+msgid "Add weight"
+msgstr "Lisää paino"
+
+msgid "History"
+msgstr "Historia"
+
+msgid "Corrected"
+msgstr "Korjattu"
+
+msgid "Showing the latest %(n)s of %(total)s entries."
+msgstr "Näytetään uusimmat %(n)s / %(total)s merkinnästä."
+
+msgid "No weight entries yet. Add one above, or sync Garmin if you weigh yourself with a Garmin scale or in Garmin Connect."
+msgstr "Ei vielä painomerkintöjä. Lisää paino yllä tai synkronoi Garmin, jos punnitset itsesi Garmin-vaa'alla tai kirjaat painon Garmin Connectiin."
+
 msgid "Invalid end date '%(value)s'. Use YYYY-MM-DD."
 msgstr "Virheellinen loppupäivä '%(value)s'. Käytä muotoa VVVV-KK-PP."
 
 msgid "Invalid start date '%(value)s'. Use YYYY-MM-DD."
 msgstr "Virheellinen alkupäivä '%(value)s'. Käytä muotoa VVVV-KK-PP."
+
+msgid "Weight entry removed."
+msgstr "Painomerkintä poistettu."
+
+msgid "Weight saved."
+msgstr "Paino tallennettu."
+
+msgid "Nothing logged for this day yet."
+msgstr "Tälle päivälle ei ole vielä merkintöjä."
+
+msgid "Choose a meal or type a name for it."
+msgstr "Valitse ateria tai kirjoita sille nimi."
+
+msgid "Meal name is too long (at most %(n)s characters)."
+msgstr "Aterian nimi on liian pitkä (enintään %(n)s merkkiä)."
+
+msgid "Supper"
+msgstr "Illallinen"
+
+msgid "Choose or type a meal"
+msgstr "Valitse tai kirjoita ateria"
+
+msgid "Show meals"
+msgstr "Näytä ateriat"
+
+msgid "Delete meal"
+msgstr "Poista ateria"
+
+msgid "Delete meal %(name)s"
+msgstr "Poista ateria %(name)s"
+
+msgid "Meal deleted"
+msgstr "Ateria poistettu"
+
+msgid "Invalid date"
+msgstr "Virheellinen päivämäärä"

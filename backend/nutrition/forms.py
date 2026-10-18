@@ -1,5 +1,6 @@
 from django import forms
 from django.utils.translation import gettext
+from .meals import MEAL_NAME_MAX_LENGTH, meal_label, normalize_meal_name
 from .models import CustomFood, MealEntry
 
 
@@ -182,24 +183,13 @@ class MealEntryEditForm(MealEntryForm):
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "inputmode": "decimal"}),
     )
 
+    # Free text: a standard meal's name (in either app language) or the
+    # user's own meal name.
+    meal_type = forms.CharField(max_length=MEAL_NAME_MAX_LENGTH)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Diary CSV imports keep their own meal names (e.g. "Herkku"); the
-        # entry's current meal must stay a valid choice.
-        current = self.instance.meal_type
-        # Meal names in the app language (the stored values stay the same).
-        labels = {
-            "breakfast": gettext("Breakfast"), "lunch": gettext("Lunch"), "dinner": gettext("Dinner"),
-            "snack": gettext("Snack"), "evening_snack": gettext("Evening snack"),
-        }
-        self.fields["meal_type"].choices = [
-            (value, labels.get(value, label)) for value, label in self.fields["meal_type"].choices
-        ]
-        choices = list(self.fields["meal_type"].choices)
-        self._imported_meal = None
-        if current and current not in {value for value, _ in choices}:
-            self.fields["meal_type"].choices = choices + [(current, current)]
-            self._imported_meal = current
+        self.initial["meal_type"] = meal_label(self.instance.meal_type) if self.instance.meal_type else ""
         # step="any": imported values have more than two decimals (e.g. salt
         # 0.004), which step="0.01" would make the browser refuse to submit.
         self.fields["portion_grams"].widget.attrs.update({"min": "0.01", "step": "any", "inputmode": "decimal"})
@@ -208,12 +198,22 @@ class MealEntryEditForm(MealEntryForm):
         for name in NUTRIENT_ENTRY_FIELDS:
             self.fields[name].widget.attrs.update({"placeholder": "unknown", "step": "any", "inputmode": "decimal"})
 
+    def clean_meal_type(self):
+        typed = self.cleaned_data["meal_type"]
+        if " ".join(typed.split()) == self.initial["meal_type"]:
+            # Unchanged: keep the stored value as it is (e.g. an imported name).
+            return self.instance.meal_type
+        meal = normalize_meal_name(typed)
+        if meal is None:
+            raise forms.ValidationError(gettext("Choose a meal or type a name for it."))
+        return meal
+
     def _get_validation_exclusions(self):
-        # The model field's own choices check would reject the imported meal
-        # name too - skip it only when the entry keeps that existing name.
+        # meal_type is free text (own and imported names); the model field's
+        # choices only list the standard meals, so its check is skipped -
+        # clean_meal_type() validates it instead.
         exclude = super()._get_validation_exclusions()
-        if self._imported_meal and self.cleaned_data.get("meal_type") == self._imported_meal:
-            exclude.add("meal_type")
+        exclude.add("meal_type")
         return exclude
 
 

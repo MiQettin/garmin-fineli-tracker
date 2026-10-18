@@ -41,11 +41,11 @@ The Nutrition menu has four pages:
 
 ## Logging food
 
-1. Open **Nutrition → Diary**. Today is selected; change the day with the date picker or the previous/next buttons.
-2. Click **+ Add Food** on a meal: Breakfast, Lunch, Dinner, Snack, Evening Snack. Diary CSV imports can add their own meal sections (e.g. *Herkku*).
-3. Choose a tab, pick a food, set the portion, and confirm.
+1. Open **Nutrition → Diary**. Today is selected; change the day with the date picker or the ◀ ▶ arrows. On a phone the date row stays on one line and the diary CSV import is the 📥 button.
+2. To start a meal, pick a meal in the **Meal** field above the meals, or type a name and press Enter. Tapping the field lists the standard meals - Breakfast, Lunch, Snack, Dinner, Supper (*Aamiainen, Lounas, Välipala, Päivällinen, Illallinen*) - and typing filters them (*Aam* → Aamiainen). Any other name can be typed as is (e.g. *Ennen kisaa*, at most 50 characters). A typed standard name, in English or Finnish, goes to that standard meal. The new meal appears as an empty section until its first food is saved.
+3. Click **+ Add Food** on the meal, choose a tab, pick a food, set the portion, and confirm.
 
-The meal and day totals update at once. They only count your own entries.
+The diary shows the meals logged on that day, in the order they were first logged. 🗑️ on a meal deletes the whole meal with its foods (click twice within 3 seconds, like deleting a food). The meal and day totals update at once. They only count your own entries.
 
 ### Add Food tabs
 
@@ -80,7 +80,7 @@ For a food that is not in Fineli and not worth saving as a product. Food name, p
 
 ### Editing an entry
 
-Click ✏️ on an entry. You can change the meal, the name and the amount:
+Click ✏️ on an entry. You can change the meal (the same field as when adding: a standard meal or a name of your own), the name and the amount:
 
 - **Grams** - the calories, macros and micronutrients follow the new amount. An entry logged as "2 × iso (kpl)" becomes a plain gram amount.
 - **Portion count** (entries logged in portion units) - "2 × iso (kpl)" → 3 recalculates the grams and keeps the unit.
@@ -156,7 +156,7 @@ Behavior:
 
 - Each food row becomes a diary entry with calories, protein, carbs, fat, saturated fat, sugar, fiber, salt and the micronutrients, plus the original Fineli source details.
 - Energy is converted from kJ to kcal. Below-detection-limit values (`<0.1`) are kept as such, not rounded to a plain number.
-- The 5 standard Finnish meal names map to Breakfast/Lunch/Dinner/Snack/Evening Snack. Any other meal name (e.g. `Herkku`) gets its own section using the CSV's own name.
+- The 5 standard Finnish meal names map to Breakfast/Lunch/Snack/Dinner/Supper (aamiainen, lounas, välipala, päivällinen, illallinen). Any other meal name (e.g. `Herkku`) gets its own section using the CSV's own name; a name that matches a standard meal's label (e.g. `Lounas`) is stored as written but shown in that standard meal's section.
 - Re-importing a file adds only missing food rows and updates matching **CSV-imported** rows. Rows missing from a later file are kept, and entries you added by hand are never touched. Nothing is deleted.
 - All selected files are validated before anything is saved. If one file is invalid, the whole upload is rejected. Each diary day is locked during the import so simultaneous uploads can't create duplicates. If existing duplicate CSV rows are found, the import stops without changing anything.
 

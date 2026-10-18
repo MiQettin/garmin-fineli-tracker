@@ -32,7 +32,7 @@ The database holds four kinds of data, one Django app each:
 | `core` | `UserSettings` (`tracker_usersettings`), `DailyLog` (`tracker_dailylog`) | Profile, goals and settings; one row per day with Garmin daily stats |
 | `nutrition` | `FineliFood`, `FineliFoodNutrient`, `FineliFoodUnit`, `CustomFood`, `CustomFoodNutrient`, `CustomFoodIngredient`, `MealEntry`, `MealEntryNutrient`, `FavoriteFood` | The Fineli catalog, your own products and recipes, the food diary |
 | `activities` | `Activity` (`tracker_activity`), `ActivityLap` (`tracker_activitylap`) | Garmin activities and laps |
-| `health` | `DailyHealth`, `SleepSummary`, `HrvSummary` | Garmin sleep, HRV, stress, Body Battery, respiration, SpO2 |
+| `health` | `DailyHealth`, `SleepSummary`, `HrvSummary`, `WeightEntry` | Garmin sleep, HRV, stress, Body Battery, respiration, SpO2; weight history |
 
 Older models keep `db_table = "tracker_*"` names from before the app was split; newer ones use the default `<app>_<model>` names.
 
@@ -163,7 +163,7 @@ One food in the diary.
 | Fields | Notes |
 | --- | --- |
 | `user`, `daily_log` | Owner and day |
-| `meal_type` | `breakfast`, `lunch`, `dinner`, `snack`, `evening_snack`, or a diary CSV's own meal name verbatim (e.g. `Herkku`) |
+| `meal_type` | `breakfast`, `lunch`, `dinner`, `snack`, `evening_snack`, or a free meal name (max 50 characters): the user's own (e.g. `Ennen kisaa`) or a diary CSV's verbatim (e.g. `Herkku`). The model's `choices` list only the 5 standard keys; the forms validate free names themselves (`nutrition/meals.py`) |
 | `source_type` | `fineli`, `custom`, `manual`, `bulk_import` |
 | `fineli_food`, `custom_food` (null) | Optional link to the source; set to empty if the source is deleted |
 | `food_name`, `portion_grams` | `portion_grams` is ml for per-100 ml products |
@@ -180,7 +180,7 @@ One food in the diary.
 ### activities
 
 - **Activity** - one Garmin activity: `activity_id` (unique), `activity_type`, `date`, `start_time`, `name`, `duration_minutes`, `distance_km`, `pace_min_per_km`, `avg_speed_kmh`, `avg_hr`, `max_hr`, `calories`, elevation, `avg_cadence`, `steps`, `vo2max`, `hr_zone1_seconds` … `hr_zone5_seconds`.
-- **ActivityLap** - one lap: `activity`, `lap_number` (unique together), `step_type` (`warmup`, `run`, `cooldown`, `interval`, `recovery`, `rest`, `other` - only ever from an explicit Garmin signal), times, distance, pace, HR, ascent/descent, cadence.
+- **ActivityLap** - one lap: `activity`, `lap_number` (unique together), `step_type` (straight from Garmin's lap `intensityType`: WARMUP→`warmup`, ACTIVE→`run`, RECOVERY→`recovery`, REST→`rest`, COOLDOWN→`cooldown`, INTERVAL→`interval`; laps without one are `run`), `workout_step` (Garmin `wktStepIndex`), lap time = Garmin's `duration` (laps add up to the activity time), distance, pace, HR, ascent/descent, cadence, and `in_analysis` - the user's per-step choice for running analytics (empty = default: `run` and `interval` laps). Imports never set `in_analysis`, and a re-import removes laps beyond the new last lap.
 
 Pace is stored as decimal minutes per km and shown as `MM:SS.xx`; group averages are total time / total distance.
 
@@ -191,6 +191,7 @@ Written directly by `get_garmindata.py` (no CSV step), shared by all users:
 - **DailyHealth** - per `date` (unique): stress, respiration, SpO2, Body Battery.
 - **SleepSummary** - per Garmin sleep session (`garmin_sleep_id` unique): `wake_date`, stages, score, averages.
 - **HrvSummary** - per `night_date` (unique): weekly/nightly averages, baseline, status.
+- **WeightEntry** - weight history: Garmin weigh-ins (`source='garmin'`, `garmin_sample_id` unique) and entries made on the Weight page or by changing the weight in Settings (`source='manual'`). The sync only inserts new Garmin samples and never changes an existing row: a corrected Garmin entry becomes `manual` and keeps its sample id; a removed Garmin entry is kept with `ignored=True` so it is not imported again. The weight of a day comes from `health.weight.weight_on()` (manual wins on the same date, otherwise the latest measurement; days without one use the most recent earlier entry). The latest weight is copied into `UserSettings.weight_kg` (`sync_settings_weight()`).
 
 ## Rules the code relies on
 
@@ -231,6 +232,7 @@ Views always filter by `request.user`; other users' foods and entries return 404
 | --- | --- |
 | `DailyLog`, `DailyHealth` | `date` unique |
 | `HrvSummary` | `night_date` unique |
+| `WeightEntry` | `garmin_sample_id` unique (empty for manual entries) |
 | `FineliFood` / `Activity` / `SleepSummary` | `fineli_id` / `activity_id` / `garmin_sleep_id` unique |
 | `ActivityLap` | (`activity`, `lap_number`) unique |
 | `*Nutrient` tables | (owner, `nutrient_key`) unique |
@@ -323,8 +325,8 @@ Applied migrations, newest last per app:
 | --- | --- | --- |
 | `core` | `0008_usersettings_language` | `0006` Garmin calorie adjustment, `0007` custom fitness goal, `0008` app language and Fineli name language |
 | `nutrition` | `0020_customfood_kind_servings_cooked_weight` | `0018` Fineli portion sizes, `0019` package size and per-100 ml basis, `0020` product/recipe kind, servings, finished weight (also classified existing foods) |
-| `activities` | `0002` | HR zone seconds |
-| `health` | `0001_initial` | |
+| `activities` | `0003_lap_workout_step_in_analysis` | `0002` HR zone seconds, `0003` lap workout step and analysis choice |
+| `health` | `0002_weightentry` | `0002` weight history |
 
 Rules (they keep the server upgradeable with a plain `migrate`):
 

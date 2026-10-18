@@ -564,6 +564,7 @@ class TranslationCatalogTests(TestCase):
             reverse("activity_detail", args=[activity.pk]): "Lämmittely",
             reverse("running_analytics"): "Juoksusuoritusten analytiikka",
             reverse("health_page"): "Tarkastelupäivä",
+            reverse("weight_page"): "Laskennassa käytettävä paino",
         }
         for url, text in pages.items():
             with self.subTest(url=url):

@@ -207,6 +207,7 @@ class Command(BaseCommand):
         
         laps_imported = 0
         laps_updated = 0
+        last_lap_numbers = {}
         
         for row in lap_rows:
             activity_id = int(row['activity_id'])
@@ -236,6 +237,9 @@ class Command(BaseCommand):
                 'total_ascent_m': float(row['total_ascent_m']) if row['total_ascent_m'] else None,
                 'total_descent_m': float(row['total_descent_m']) if row['total_descent_m'] else None,
                 'avg_cadence': float(row['avg_cadence']) if row['avg_cadence'] else None,
+                # Older CSVs have no workout_step column. in_analysis is the
+                # user's own choice and is never set by an import.
+                'workout_step': int(row['workout_step']) if row.get('workout_step') else None,
             }
             
             # Create or update lap
@@ -249,6 +253,15 @@ class Command(BaseCommand):
                 laps_imported += 1
             else:
                 laps_updated += 1
+            last_lap_numbers[activity.pk] = max(last_lap_numbers.get(activity.pk, 0), lap_number)
+
+        # A re-fetched activity can have fewer laps than before (e.g. Garmin's
+        # lap times instead of the old moving-time split) - drop the leftovers.
+        laps_removed = 0
+        for activity_pk, last_number in last_lap_numbers.items():
+            laps_removed += ActivityLap.objects.filter(activity_id=activity_pk, lap_number__gt=last_number).delete()[0]
+        if laps_removed:
+            self.stdout.write(f'Laps: removed {laps_removed} leftover laps beyond the re-imported ones')
         
         self.stdout.write(
             self.style.SUCCESS(

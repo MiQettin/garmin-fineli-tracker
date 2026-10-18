@@ -46,7 +46,7 @@ backend/data/
 
 # Local notes and private scratch files
 notes/
-tests/
+/tests/
 .agents/
 .codex/
 

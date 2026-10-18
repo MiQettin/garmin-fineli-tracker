@@ -4823,6 +4823,165 @@ class EditMealEntryTests(TestCase):
         self.assertTrue(MealEntry.objects.filter(pk=self.entry.pk).exists())
 
 
+    def test_own_meal_name(self):
+        resp = self._post(meal_type="  Ennen   kisaa ")
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(self.entry.meal_type, "Ennen kisaa")
+
+    def test_standard_meal_name_uses_its_key(self):
+        self._post(meal_type="lounas")
+        self.assertEqual(self.entry.meal_type, "lunch")
+        self._post(meal_type="Illallinen")
+        self.assertEqual(self.entry.meal_type, "evening_snack")
+
+    def test_meal_is_required(self):
+        resp = self._post(meal_type=" ")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self.entry.meal_type, "snack")
+
+    def test_meal_field_shows_name_and_standard_suggestions_only(self):
+        MealEntry.objects.filter(pk=self.entry.pk).update(meal_type="Herkku")
+        resp = self.client.get(self.url)
+        self.assertContains(resp, 'value="Herkku"')
+        self.assertEqual(resp.context["meal_options"], ["Breakfast", "Lunch", "Snack", "Dinner", "Supper"])
+        self.assertContains(resp, 'role="option"', count=5)
+
+    def test_unchanged_meal_keeps_stored_value(self):
+        # An imported "Lounas" is shown in the Lunch section; saving the entry
+        # without changing its meal does not rewrite the stored name.
+        MealEntry.objects.filter(pk=self.entry.pk).update(meal_type="Lounas")
+        self.entry.refresh_from_db()
+        self.assertContains(self.client.get(self.url), 'value="Lounas"')
+        self._post(meal_type="Lounas", food_name="Banaani")
+        self.assertEqual(self.entry.meal_type, "Lounas")
+
+
+class FreeMealNamesTests(TestCase):
+    """The user chooses the meal: the diary shows only the meals logged that
+    day, and any own meal name can be used. Stored names are never rewritten."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="freemeals", password="x")
+        self.client.force_login(self.user)
+        FineliFood.objects.create(fineli_id=11049, name_fi="BANAANI, KUORITTU", energy_kcal=90, protein_g=1.2)
+
+    def _add(self, meal_type, date="2026-10-12"):
+        import json as _json
+        return self.client.post(reverse("add_fineli_entry"), data=_json.dumps({
+            "date": date, "fineli_id": 11049, "name": "BANAANI, KUORITTU", "meal_type": meal_type,
+            "portion_grams": 100,
+        }), content_type="application/json")
+
+    def _diary(self, date="2026-10-12"):
+        return self.client.get(reverse("food_diary"), {"date": date})
+
+    def test_empty_day_has_no_meal_sections(self):
+        resp = self._diary()
+        self.assertEqual(resp.context["meal_sections"], [])
+        self.assertContains(resp, "Nothing logged for this day yet.")
+
+    def test_only_logged_meals_are_shown_in_logging_order(self):
+        self._add("Ennen kisaa")
+        self._add("breakfast")
+        self._add("Ennen kisaa")
+        sections = self._diary().context["meal_sections"]
+        self.assertEqual([s["key"] for s in sections], ["Ennen kisaa", "breakfast"])
+        self.assertEqual([s["name"] for s in sections], ["Ennen kisaa", "Breakfast"])
+        self.assertEqual(len(sections[0]["entries"]), 2)
+        self.assertEqual(sections[0]["totals"]["calories"], 180)
+
+    def test_own_meal_name_is_stored_as_typed(self):
+        resp = self._add("  Kisa   geelit ")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(MealEntry.objects.get().meal_type, "Kisa geelit")
+
+    def test_standard_meal_name_is_stored_as_key_in_both_languages(self):
+        for name in ("Aamiainen", "Lunch", "välipala", "Päivällinen", "Supper"):
+            self._add(name)
+        self.assertEqual(
+            sorted(MealEntry.objects.values_list("meal_type", flat=True)),
+            ["breakfast", "dinner", "evening_snack", "lunch", "snack"],
+        )
+
+    def test_meal_is_required(self):
+        resp = self._add("  ")
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(MealEntry.objects.exists())
+
+    def test_too_long_meal_name_is_rejected(self):
+        resp = self._add("x" * 51)
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(MealEntry.objects.exists())
+
+    def test_manual_entry_uses_chosen_meal(self):
+        resp = self.client.post(reverse("add_meal_entry"), {
+            "date": "2026-10-12", "meal_type": "Yöpala", "food_name": "Leipä", "portion_grams": "50",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(MealEntry.objects.get().meal_type, "Yöpala")
+        resp = self.client.post(reverse("add_meal_entry"), {"date": "2026-10-12", "meal_type": "", "food_name": "X"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_imported_standard_name_shares_section_without_rewrite(self):
+        # A diary CSV import may store a standard meal's name verbatim; it is
+        # shown in that meal's section and the stored value stays as it was.
+        self._add("lunch")
+        self._add("snack")
+        MealEntry.objects.filter(meal_type="snack").update(meal_type="Lounas")
+        sections = self._diary().context["meal_sections"]
+        self.assertEqual([s["key"] for s in sections], ["lunch"])
+        self.assertEqual(len(sections[0]["entries"]), 2)
+        self.assertTrue(MealEntry.objects.filter(meal_type="Lounas").exists())
+
+    def test_meal_suggestions_are_the_five_standard_meals(self):
+        self._add("Herkku", date="2026-10-01")
+        resp = self._diary()
+        self.assertEqual(resp.context["meal_options"], ["Breakfast", "Lunch", "Snack", "Dinner", "Supper"])
+        self.assertContains(resp, 'role="option"', count=5)
+        self.assertContains(resp, 'id="mealName"')
+        # The meal is added on the page; the add-food window has no meal field.
+        self.assertContains(resp, 'id="newMealSection"')
+        self.assertContains(resp, 'id="mealName"', count=1)
+
+    def test_delete_meal_removes_only_that_meals_own_entries(self):
+        self._add("lunch")
+        self._add("lunch", date="2026-10-13")
+        self._add("Ennen kisaa")
+        self._add("snack")
+        MealEntry.objects.filter(meal_type="snack").update(meal_type="Lounas")  # imported name, Lunch section
+        other = get_user_model().objects.create_user(username="freemealsdel", password="x")
+        log = DailyLog.objects.get(date="2026-10-12")
+        MealEntry.objects.create(daily_log=log, user=other, food_name="X", meal_type="lunch", portion_grams=1)
+
+        resp = self.client.post(reverse("delete_meal"), {"date": "2026-10-12", "meal": "lunch"})
+        self.assertEqual(resp.json(), {"deleted": 2})
+        mine = MealEntry.objects.filter(user=self.user)
+        self.assertEqual(
+            sorted((str(e.daily_log.date), e.meal_type) for e in mine),
+            [("2026-10-12", "Ennen kisaa"), ("2026-10-13", "lunch")],
+        )
+        self.assertTrue(MealEntry.objects.filter(user=other).exists())
+        log.refresh_from_db()
+        self.assertEqual(log.calories_in, 90)  # the remaining "Ennen kisaa" banana
+
+    def test_delete_meal_needs_post(self):
+        self._add("lunch")
+        self.assertEqual(self.client.get(reverse("delete_meal"), {"date": "2026-10-12", "meal": "lunch"}).status_code, 400)
+        self.assertEqual(MealEntry.objects.count(), 1)
+
+    def test_meal_sections_have_delete_buttons(self):
+        self._add("Ennen kisaa")
+        resp = self._diary()
+        self.assertContains(resp, 'data-meal-key="Ennen kisaa"')
+        self.assertContains(resp, 'onclick="deleteMeal(this)"', count=2)  # the section and the new-meal template
+
+    def test_finnish_meal_suggestions(self):
+        from django.utils import translation
+        with translation.override("fi"):
+            from .meals import meal_options
+            self.assertEqual(meal_options(), ["Aamiainen", "Lounas", "Välipala", "Päivällinen", "Illallinen"])
+
+
 class ServerSideEntryValuesTests(TestCase):
     """Diary entries take per-100 g values from the database, not from the
     browser's (possibly stale) copy; unknown Fineli ids are rejected."""

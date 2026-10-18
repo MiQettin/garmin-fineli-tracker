@@ -96,6 +96,10 @@ Live search: debounce input (~250 ms), abort the previous request (`AbortControl
 
 The Add Food dialog's unit list depends on the food: grams plus Fineli portion sizes, "pakkaus" for products with a package size, ml/dl/l for per-100 ml products, "annos" for recipes with servings. The units and their grams come from the server; nothing is guessed in the browser.
 
+### Meal name field
+
+`nutrition/includes/meal_picker.html` + `static/nutrition/meal_picker.{js,css}`: a free-text input (`role="combobox"`) with the 5 standard meals as suggestions in the app language. Tapping the field or ▾ opens the short list; typing filters it (starts-with first, then contains); ↑/↓ + Enter picks, Esc closes. Any other text is a meal name of its own. The browser sends the text as typed - the server (`nutrition/meals.py`) maps standard names in either language to their keys. Used on the diary page (adds a meal section) and on the entry edit page.
+
 ### Analytics filters
 
 Running analytics: workout filters (All, VK, PK, Pitkä) and lap inclusion filters (Intervals, Warm-up, Cool-down) as `.filter-tab` links, active ones `.filter-tab.active`. Filter links keep unrelated query state; Warm-up and Cool-down are independent opt-ins; Intervals are on by default; Clear filter appears when anything differs from the default.
@@ -106,6 +110,7 @@ Running analytics: workout filters (All, VK, PK, Pitkä) and lap inclusion filte
 - Inputs use `font-size: 16px` (smaller makes iOS zoom in) and `inputmode="decimal"` for numbers.
 - Number inputs that can hold imported values use `step="any"` - `step="0.01"` makes the browser refuse values with more decimals (e.g. salt 0.004).
 - Forms collapse to one column under 576 px; long names wrap (`overflow-wrap: anywhere`), never overflow; no horizontal scrolling.
+- Header toolbars stay on one row on phones: secondary buttons drop their text and keep the icon (`.btn-text` hidden), with the text in `title` and `aria-label`.
 - Long lists scroll inside their own box (`max-height`, `overscroll-behavior: contain`).
 - Respect `prefers-reduced-motion` for animations.
 

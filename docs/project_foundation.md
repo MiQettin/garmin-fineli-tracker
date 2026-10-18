@@ -170,7 +170,7 @@ Running analytics:
 
 `MealEntry` (+ `MealEntryNutrient`), `FavoriteFood`
 
-- Diary entries linked to `DailyLog` and the user; sources `fineli`, `custom`, `manual`, `bulk_import`; meal types breakfast, lunch, dinner, snack, evening snack, or a diary CSV's own meal name.
+- Diary entries linked to `DailyLog` and the user; sources `fineli`, `custom`, `manual`, `bulk_import`; meal types breakfast, lunch, dinner, snack, evening snack, or a free meal name (the user's own or a diary CSV's).
 - Favorites per user.
 
 Details and rules: [database_guide.md](database_guide.md).

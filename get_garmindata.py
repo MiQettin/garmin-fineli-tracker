@@ -59,6 +59,9 @@ import argparse
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "backend"))
+from activities.garmin_laps import lap_rows as garmin_lap_rows  # noqa: E402  (pure Python, no Django)
 from garminconnect import Garmin
 
 def parse_date(value: str) -> date:
@@ -112,7 +115,7 @@ def resolve_date_range(args: argparse.Namespace) -> tuple[date, date]:
 
 def sync_health_data(client: Garmin, start_date: date, end_date: date) -> None:
     """Fetch Garmin Health data (sleep, HRV, stress, Body Battery,
-    respiration, SpO2) for each date in [start_date, end_date] using the
+    respiration, SpO2, weigh-ins) for each date in [start_date, end_date] using the
     given already-authenticated client, and persist it through the tested
     parser/persistence orchestration (health.garmin_sync).
 
@@ -128,7 +131,7 @@ def sync_health_data(client: Garmin, start_date: date, end_date: date) -> None:
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
     import django
     django.setup()
-    from health.garmin_sync import sync_health_responses
+    from health.garmin_sync import sync_health_responses, sync_weigh_ins_response
 
     for offset in range((end_date - start_date).days + 1):
         current_date = start_date + timedelta(days=offset)
@@ -142,6 +145,13 @@ def sync_health_data(client: Garmin, start_date: date, end_date: date) -> None:
             respiration_data=client.get_respiration_data(cdate),
             spo2_data=client.get_spo2_data(cdate),
         )
+
+    # Weigh-ins (Garmin scale or entered in Garmin Connect) - read only,
+    # nothing is ever written to Garmin. Today's weigh-in is included even
+    # when the rest of the sync stops at yesterday.
+    weigh_ins_end = max(end_date, date.today())
+    added = sync_weigh_ins_response(client.get_weigh_ins(start_date.isoformat(), weigh_ins_end.isoformat()))
+    print(f"[OK] Weigh-ins: {added} new")
 
 
 def main() -> int:
@@ -284,113 +294,12 @@ def main() -> int:
         })
 
         try:
-            workout_laps = []
-            try:
-                workout = client.get_activity_details(activity_id)
-                if workout and 'metadataDTO' in workout and 'workoutSteps' in workout['metadataDTO']:
-                    for step in workout['metadataDTO']['workoutSteps']:
-                        workout_laps.append({
-                            'stepType': step.get('stepType', {}).get('stepTypeKey'),
-                            'duration': step.get('targetDuration'),
-                            'intensity': step.get('intensity', {}).get('intensityKey')
-                        })
-            except Exception:
-                pass
-
-            all_laps = []
-            try:
-                splits = client.get_activity_splits(activity_id)
-                if splits and isinstance(splits, list):
-                    all_laps = splits
-                elif splits and 'lapDTOs' in splits:
-                    all_laps = splits['lapDTOs']
-            except Exception:
-                split_data = client.get_activity_split_summaries(activity_id)
-                if split_data and 'splitSummaries' in split_data:
-                    all_laps = split_data['splitSummaries']
-
-            if all_laps:
-                summaries = sorted(all_laps, key=lambda x: x.get('startTimeGMT', '') or x.get('beginTimestamp', ''))
-                cumulative_time = 0
-
-                for lap_num, lap in enumerate(summaries, 1):
-                    lap_distance_km = lap.get('distance', 0) / 1000
-                    lap_duration_seconds = int(lap.get('movingDuration', lap.get('duration', 0)) or 0)
-                    cumulative_time += lap_duration_seconds
-
-                    step_type_from_workout = None
-                    if workout_laps and lap_num <= len(workout_laps):
-                        workout_step = workout_laps[lap_num - 1]
-                        step_key = workout_step.get('stepType', '').lower() if workout_step.get('stepType') else ''
-                        intensity_key = workout_step.get('intensity', '').lower() if workout_step.get('intensity') else ''
-
-                        if 'warmup' in step_key:
-                            step_type_from_workout = 'warmup'
-                        elif 'cooldown' in step_key:
-                            step_type_from_workout = 'cooldown'
-                        elif 'recovery' in step_key or 'recovery' in intensity_key:
-                            step_type_from_workout = 'recovery'
-                        elif 'active' in intensity_key or 'repeat' in step_key:
-                            step_type_from_workout = 'run'
-                        elif 'rest' in step_key:
-                            step_type_from_workout = 'rest'
-
-                    lap_pace = None
-                    if lap_distance_km > 0:
-                        lap_pace = (lap_duration_seconds / 60) / lap_distance_km
-
-                    lap_speed = lap.get('averageSpeed')
-                    if lap_speed:
-                        lap_speed = lap_speed * 3.6
-
-                    if step_type_from_workout:
-                        step_type = step_type_from_workout
-                    else:
-                        split_type = str(
-                            lap.get('splitType', '') or
-                            lap.get('intervalType', '') or
-                            lap.get('lapType', '') or ''
-                        ).lower()
-
-                        intensity = str(
-                            lap.get('intensity', '') or
-                            lap.get('intervalIntensity', '') or ''
-                        ).lower()
-
-                        if 'warmup' in split_type or 'warmup' in intensity:
-                            step_type = 'warmup'
-                        elif 'cooldown' in split_type or 'cooldown' in intensity:
-                            step_type = 'cooldown'
-                        elif 'recovery' in split_type or 'recovery' in intensity or 'rest' in intensity:
-                            step_type = 'recovery'
-                        elif 'active' in split_type or 'run' in split_type or 'active' in intensity:
-                            step_type = 'run'
-                        elif 'rest' in split_type or 'stand' in split_type:
-                            step_type = 'rest'
-                        else:
-                            # No explicit step type/intensity from Garmin for
-                            # this lap (a plain, unstructured run) - default to
-                            # 'run' rather than guessing warmup/interval/
-                            # recovery from pace and lap position, which
-                            # mislabels ordinary auto-laps (e.g. a fast short
-                            # trailing partial-km lap as an "interval").
-                            step_type = 'run'
-
-                    lap_rows.append({
-                        'activity_id': activity_id,
-                        'lap_number': lap_num,
-                        'step_type': step_type,
-                        'lap_time_seconds': lap_duration_seconds,
-                        'cumulative_time_seconds': cumulative_time,
-                        'distance_km': round(lap_distance_km, 3),
-                        'avg_pace_min_per_km': round(lap_pace, 4) if lap_pace else None,
-                        'avg_speed_kmh': round(lap_speed, 3) if lap_speed else None,
-                        'avg_hr': lap.get('averageHR'),
-                        'max_hr': lap.get('maxHR'),
-                        'total_ascent_m': round(lap.get('elevationGain', 0), 1),
-                        'total_descent_m': round(lap.get('elevationLoss', 0), 1),
-                        'avg_cadence': lap.get('averageRunCadence') or lap.get('avgStepFrequency'),
-                    })
+            # Lap time, pace and step type (warm-up / interval / recovery /
+            # run / cool-down) as Garmin Connect shows them - see
+            # backend/activities/garmin_laps.py.
+            splits = client.get_activity_splits(activity_id)
+            laps = splits.get("lapDTOs", []) if isinstance(splits, dict) else (splits or [])
+            lap_rows.extend(garmin_lap_rows(activity_id, laps))
         except Exception as e:
             print(f"⚠️  Warning: Could not fetch laps for activity {activity_id}: {e}")
 
@@ -435,7 +344,7 @@ def main() -> int:
             'activity_id', 'lap_number', 'step_type', 'lap_time_seconds',
             'cumulative_time_seconds', 'distance_km', 'avg_pace_min_per_km',
             'avg_speed_kmh', 'avg_hr', 'max_hr', 'total_ascent_m',
-            'total_descent_m', 'avg_cadence'
+            'total_descent_m', 'avg_cadence', 'workout_step'
         ]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()

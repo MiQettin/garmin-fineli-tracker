@@ -336,7 +336,7 @@
 <div class="analytics-container">
   <div class="page-header">
     <h1>📊 {% translate "Running performance analytics" %}</h1>
-    <p>{% translate "Track your running interval progress over time (excludes warm-ups, cool-downs and walks)" %}</p>
+    <p>{% translate "Averages count the workout steps chosen on each activity's page - by default the runs. Warm-up and cool-down can be added for all workouts with the buttons below." %}</p>
   </div>
   
   <!-- Filter Section -->
@@ -348,19 +348,17 @@
       <a href="{% url 'running_analytics' %}{{ workout_filter_urls.pitka }}" class="filter-tab {% if workout_type == 'pitka' %}active{% endif %}">🏃 Pitkä ({% translate 'Long' %})</a>
     </div>
     <div class="lap-filter-tabs" aria-label="{% translate 'Lap filters' %}">
-      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.intervals }}" class="filter-tab {% if include_intervals %}active{% endif %}">{% translate "Intervals" %}</a>
-      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.warmup }}" class="filter-tab {% if include_warmup %}active{% endif %}">{{ "warmup"|step_type_label }}</a>
-      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.cooldown }}" class="filter-tab {% if include_cooldown %}active{% endif %}">{{ "cooldown"|step_type_label }}</a>
+      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.warmup }}" class="filter-tab {% if include_warmup %}active{% endif %}" aria-pressed="{% if include_warmup %}true{% else %}false{% endif %}">{{ "warmup"|step_type_label }}</a>
+      <a href="{% url 'running_analytics' %}{{ lap_filter_urls.cooldown }}" class="filter-tab {% if include_cooldown %}active{% endif %}" aria-pressed="{% if include_cooldown %}true{% else %}false{% endif %}">{{ "cooldown"|step_type_label }}</a>
     </div>
     <form class="search-form" method="get" action="{% url 'running_analytics' %}">
+      {% if include_warmup %}<input type="hidden" name="warmup" value="1">{% endif %}
+      {% if include_cooldown %}<input type="hidden" name="cooldown" value="1">{% endif %}
       <input type="text" name="q" value="{{ search_query }}" placeholder="{% translate 'Search workout names...' %}">
-      <input type="hidden" name="intervals" value="{% if include_intervals %}1{% else %}0{% endif %}">
-      <input type="hidden" name="warmup" value="{% if include_warmup %}1{% else %}0{% endif %}">
-      <input type="hidden" name="cooldown" value="{% if include_cooldown %}1{% else %}0{% endif %}">
       <input type="hidden" name="type" value="{{ workout_type }}">
       <button type="submit">🔍 {% translate "Search" %}</button>
     </form>
-    {% if workout_type or search_query or include_warmup or include_cooldown or not include_intervals %}
+    {% if workout_type or search_query or include_warmup or include_cooldown %}
     <a href="{% url 'running_analytics' %}" class="clear-filter">✕ {% translate "Clear filter" %}</a>
     {% endif %}
   </div>
@@ -377,7 +375,7 @@
     <div class="stat-card">
       <div class="stat-icon">⚡</div>
       <div class="stat-value">{{ overall_stats.total_intervals }}</div>
-      <div class="stat-label">{% translate "Total work laps" %}</div>
+      <div class="stat-label">{% translate "Laps counted" %}</div>
     </div>
     
     <div class="stat-card highlight">
@@ -401,7 +399,7 @@
     <div class="stat-card">
       <div class="stat-icon">📏</div>
       <div class="stat-value">{{ overall_stats.total_distance|floatformat:2 }}</div>
-      <div class="stat-label">{% translate "Total km (intervals)" %}</div>
+      <div class="stat-label">{% translate "Km counted" %}</div>
     </div>
   </div>
   
@@ -413,7 +411,7 @@
       <button class="chart-tab active" data-type="pace" onclick="showChart('pace', this)">{% translate "Pace" %}</button>
       <button class="chart-tab" data-type="hr" onclick="showChart('hr', this)">{% translate "Heart rate" %}</button>
       <button class="chart-tab" data-type="distance" onclick="showChart('distance', this)">{% translate "Distance" %}</button>
-      <button class="chart-tab" data-type="intervals" onclick="showChart('intervals', this)">{% translate "Work laps" %}</button>
+      <button class="chart-tab" data-type="intervals" onclick="showChart('intervals', this)">{% translate "Laps counted" %}</button>
     </div>
     
     <div class="chart-container">
@@ -431,7 +429,7 @@
         <tr>
           <th>{% translate "Date" %}</th>
           <th>{% translate "Workout" %}</th>
-          <th>{% translate "Work laps" %}</th>
+          <th>{% translate "Laps counted" %}</th>
           <th>{% translate "Avg pace" %}</th>
           <th>{% translate "Best pace" %}</th>
           <th>{% translate "Avg HR" %}</th>
@@ -515,7 +513,7 @@
       reverse: false
     },
     distance: {
-      label: {% jstrans "Total interval distance (km)" %},
+      label: {% jstrans "Km counted" %},
       data: chartData.distance_data,
       borderColor: '#7c3aed',
       backgroundColor: 'rgba(124, 58, 237, 0.1)',
@@ -523,15 +521,21 @@
       reverse: false
     },
     intervals: {
-      label: {% jstrans "Work laps" %},
+      label: {% jstrans "Laps counted" %},
       data: chartData.interval_count_data,
       borderColor: '#0891b2',
       backgroundColor: 'rgba(8, 145, 178, 0.1)',
-      yAxisLabel: {% jstrans "Work laps" %},
+      yAxisLabel: {% jstrans "Laps counted" %},
       reverse: false
     }
   };
   
+  // Pace as M:SS like Garmin Connect.
+  function formatPace(minPerKm) {
+    const total = Math.round(minPerKm * 60);
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+  }
+
   function showChart(type, clickedElement) {
     // Update tabs
     document.querySelectorAll('.chart-tab').forEach(tab => tab.classList.remove('active'));
@@ -601,11 +605,7 @@
                 if (type === 'pace') {
                   const pace = context.parsed.y;
                   if (pace) {
-                    const totalCentis = Math.round(pace * 60 * 100);
-                    const mins = Math.floor(totalCentis / (60 * 100));
-                    const secs = Math.floor((totalCentis / 100) % 60);
-                    const centis = totalCentis % 100;
-                    label += `${mins}:${secs.toString().padStart(2, '0')}.${centis.toString().padStart(2, '0')}/km`;
+                    label += formatPace(pace) + '/km';
                   }
                 } else if (type === 'distance') {
                   label += context.parsed.y.toFixed(2) + ' km';
@@ -629,11 +629,7 @@
             ticks: {
               callback: function(value) {
                 if (type === 'pace') {
-                  const totalCentis = Math.round(value * 60 * 100);
-                  const mins = Math.floor(totalCentis / (60 * 100));
-                  const secs = Math.floor((totalCentis / 100) % 60);
-                  const centis = totalCentis % 100;
-                  return `${mins}:${secs.toString().padStart(2, '0')}.${centis.toString().padStart(2, '0')}`;
+                  return formatPace(value);
                 } else if (type === 'distance') {
                   return value.toFixed(2);
                 } else if (type === 'hr') {

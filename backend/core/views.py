@@ -433,6 +433,11 @@ def settings_view(request):
         form = UserSettingsForm(request.POST, instance=user_settings)
         if form.is_valid():
             form.save()
+            # A weight changed here is today's manual weight entry, so the
+            # weight history (and a later Garmin sync) keeps it.
+            if "weight_kg" in form.changed_data and form.instance.weight_kg is not None:
+                from health.weight import record_manual_weight
+                record_manual_weight(localdate(), form.instance.weight_kg)
             # The confirmation is shown in the language just chosen.
             translation.activate(form.instance.language)
             messages.success(request, gettext("Settings saved."))

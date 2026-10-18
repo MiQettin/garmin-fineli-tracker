@@ -1,10 +1,15 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.utils.translation import gettext
+from django.views.decorators.http import require_POST
 from django.db.models import Sum, Avg, Min, Max, Count, Q
 from django.db import models
 import json
 from urllib.parse import urlencode
 
+from .lap_steps import analysis_totals, workout_steps
 from .models import Activity, ActivityLap, _format_pace_min_per_km
 
 
@@ -180,9 +185,15 @@ def activity_detail_view(request, activity_id):
         else:
             hr_zones['current_zone'] = 5
     
+    steps = workout_steps(list(laps))
+    for step in steps:
+        step['pace_formatted'] = _format_pace_min_per_km(step['pace'])
+        step['time_formatted'] = f"{step['seconds'] // 60}:{step['seconds'] % 60:02d}"
+
     context = {
         'activity': activity,
         'laps': laps,
+        'steps': steps,
         'lap_groups': lap_groups,
         'lap_stats': lap_stats,
         'duration_formatted': duration_formatted,
@@ -192,34 +203,37 @@ def activity_detail_view(request, activity_id):
     
     return render(request, 'activities/activity_detail.html', context)
 
+@login_required
+@require_POST
+def activity_analysis_steps_view(request, activity_id):
+    """Save which workout steps running analytics counts. A step that
+    matches the default is stored as "default" (in_analysis empty), so only
+    real choices are kept."""
+    activity = get_object_or_404(Activity, pk=activity_id)
+    chosen = {int(pk) for pk in request.POST.getlist('lap') if pk.isdigit()}
+    for lap in activity.laps.all():
+        wanted = lap.pk in chosen
+        default = lap.step_type in ActivityLap.DEFAULT_ANALYSIS_STEP_TYPES
+        value = None if wanted == default else wanted
+        if lap.in_analysis != value:
+            lap.in_analysis = value
+            lap.save(update_fields=['in_analysis', 'updated_at'])
+    messages.success(request, gettext("Running analytics selection saved."))
+    return redirect(reverse('activity_detail', args=[activity.pk]) + '#steps')
+
+
 """View for displaying running performance analytics with charts. Supports filtering by workout type (VK, PK, Pitkä) and search by activity name."""
 @login_required
 def running_analytics_view(request):
     """Display running performance analytics with charts."""
     search_query = request.GET.get('q', '').strip()
     workout_type = request.GET.get('type', '')
-    include_intervals = request.GET.get('intervals', '1') != '0'
-    # New flags: allow including warmup and cooldown laps separately
+    # Toggles: also count warm-up / cool-down laps of every workout.
     include_warmup = request.GET.get('warmup', '0') != '0'
     include_cooldown = request.GET.get('cooldown', '0') != '0'
+    extra_types = tuple(t for t, on in (('warmup', include_warmup), ('cooldown', include_cooldown)) if on)
 
-    # "Work" definition for pace stats:
-    # - Always include actual running laps
-    # - Optionally include interval reps (some users prefer excluding them)
-    # - Optionally include warmup/cooldown based on toggles; recovery/rest/other remain excluded
-    work_step_types = ['run']
-    if include_intervals:
-        work_step_types.append('interval')
-    if include_warmup:
-        work_step_types.append('warmup')
-    if include_cooldown:
-        work_step_types.append('cooldown')
-    
-    running_activities = Activity.objects.filter(
-        activity_type='running',
-        laps__step_type__in=work_step_types
-    ).distinct()
-    
+    running_activities = Activity.objects.filter(activity_type='running')
     if workout_type == 'vk':
         running_activities = running_activities.filter(name__icontains='VK')
     elif workout_type == 'pk':
@@ -230,91 +244,51 @@ def running_analytics_view(request):
         )
     elif search_query:
         running_activities = running_activities.filter(name__icontains=search_query)
-    
-    running_activities = running_activities.order_by('date', 'start_time')
-    
-    workout_data = []
+    running_activities = running_activities.order_by('date', 'start_time').prefetch_related('laps')
 
+    # Only the workout steps chosen on each activity's page count (by
+    # default its runs; warm-up, recovery and cool-down don't).
+    workout_data = []
     for activity in running_activities:
-        run_laps = activity.laps.filter(
-            step_type__in=work_step_types,
-            distance_km__gt=0,
-            lap_time_seconds__gt=0,
-        ).order_by('lap_number')
-        
-        if not run_laps.exists():
+        totals = analysis_totals(sorted(activity.laps.all(), key=lambda lap: lap.lap_number), extra_types)
+        if not totals or not totals['km']:
             continue
-        
-        lap_stats = run_laps.aggregate(
-            min_pace=Min('avg_pace_min_per_km'),
-            max_pace=Max('avg_pace_min_per_km'),
-            avg_hr=Avg('avg_hr'),
-            total_distance=Sum('distance_km'),
-            total_time=Sum('lap_time_seconds'),
-            lap_count=Count('id')
-        )
-        
         date_str = activity.date.strftime('%Y-%m-%d')
-        
-        workout_entry = {
+        seconds = totals['seconds']
+        workout_data.append({
             'date': date_str,
             'activity_id': activity.id,
             'activity_name': activity.name or f"Run {date_str}",
-            # Garmin-style: average pace is total time / total distance (weighted),
-            # not a simple mean of lap paces.
-            'avg_pace': round(((lap_stats['total_time'] / 60) / lap_stats['total_distance']), 4)
-            if lap_stats['total_time'] and lap_stats['total_distance']
-            else None,
-            'best_pace': round(lap_stats['min_pace'], 2) if lap_stats['min_pace'] else None,
-            'avg_hr': round(lap_stats['avg_hr']) if lap_stats['avg_hr'] else None,
-            'total_distance_km': round(lap_stats['total_distance'], 2) if lap_stats['total_distance'] else 0,
-            'total_time_seconds': lap_stats['total_time'] or 0,
-            'interval_count': lap_stats['lap_count'],
-        }
-        
-        if workout_entry['avg_pace']:
-            workout_entry['avg_pace_formatted'] = _format_pace_min_per_km(workout_entry['avg_pace'])
-        else:
-            workout_entry['avg_pace_formatted'] = '-'
-            
-        if workout_entry['best_pace']:
-            workout_entry['best_pace_formatted'] = _format_pace_min_per_km(workout_entry['best_pace'])
-        else:
-            workout_entry['best_pace_formatted'] = '-'
-        
-        total_mins = workout_entry['total_time_seconds'] // 60
-        total_secs = workout_entry['total_time_seconds'] % 60
-        workout_entry['total_time_formatted'] = f"{total_mins}:{total_secs:02d}"
-        
-        workout_data.append(workout_entry)
+            'avg_pace': round(totals['pace'], 4) if totals['pace'] else None,
+            'best_pace': round(totals['best_pace'], 4) if totals['best_pace'] else None,
+            'avg_hr': totals['avg_hr'],
+            'total_distance_km': round(totals['km'], 2),
+            'total_time_seconds': seconds,
+            'interval_count': totals['lap_count'],
+            'avg_pace_formatted': _format_pace_min_per_km(totals['pace']) or '-',
+            'best_pace_formatted': _format_pace_min_per_km(totals['best_pace']) or '-',
+            'total_time_formatted': f"{seconds // 60}:{seconds % 60:02d}",
+        })
 
     if workout_data:
-        all_paces = [w['avg_pace'] for w in workout_data if w['avg_pace']]
-        all_hrs = [w['avg_hr'] for w in workout_data if w['avg_hr']]
         total_time_all = sum(w['total_time_seconds'] for w in workout_data)
         total_distance_all = sum(w['total_distance_km'] for w in workout_data)
-
+        hr_workouts = [w for w in workout_data if w['avg_hr']]
+        hr_seconds = sum(w['total_time_seconds'] for w in hr_workouts)
+        all_paces = [w['avg_pace'] for w in workout_data if w['avg_pace']]
+        overall_pace = (total_time_all / 60) / total_distance_all if total_distance_all else None
         overall_stats = {
             'total_workouts': len(workout_data),
             'total_intervals': sum(w['interval_count'] for w in workout_data),
-            # Weighted the same way as each workout's own avg_pace (total time /
-            # total distance), not a simple mean of per-workout averages - a plain
-            # mean would let a short recovery run and a long run count equally.
-            'avg_pace': round((total_time_all / 60) / total_distance_all, 2) if total_distance_all else None,
-            'best_avg_pace': round(min(all_paces), 2) if all_paces else None,
-            'avg_hr': round(sum(all_hrs) / len(all_hrs)) if all_hrs else None,
+            # Weighted like Garmin: total time / total distance, and heart
+            # rate weighted by time - a short run and a long run don't count equally.
+            'avg_pace': round(overall_pace, 4) if overall_pace else None,
+            'best_avg_pace': round(min(all_paces), 4) if all_paces else None,
+            'avg_hr': round(sum(w['avg_hr'] * w['total_time_seconds'] for w in hr_workouts) / hr_seconds) if hr_seconds else None,
             'total_distance': round(total_distance_all, 2),
+            'avg_pace_formatted': _format_pace_min_per_km(overall_pace) or '-',
+            'best_avg_pace_formatted': _format_pace_min_per_km(min(all_paces)) if all_paces else '-',
         }
-
-        if overall_stats['avg_pace']:
-            overall_stats['avg_pace_formatted'] = _format_pace_min_per_km(overall_stats['avg_pace'])
-        else:
-            overall_stats['avg_pace_formatted'] = '-'
-            
-        if overall_stats['best_avg_pace']:
-            overall_stats['best_avg_pace_formatted'] = _format_pace_min_per_km(overall_stats['best_avg_pace'])
-        else:
-            overall_stats['best_avg_pace_formatted'] = '-'
     else:
         overall_stats = {
             'total_workouts': 0,
@@ -326,7 +300,7 @@ def running_analytics_view(request):
             'avg_pace_formatted': '-',
             'best_avg_pace_formatted': '-',
         }
-    
+
     # Ensure all chart data is properly rounded to 2 decimals
     chart_data = {
         'labels': [w['date'] for w in workout_data],
@@ -338,25 +312,10 @@ def running_analytics_view(request):
     }
 
     def build_filter_url(**overrides):
-        params = {
-            'type': workout_type,
-            'q': search_query,
-            'intervals': '1' if include_intervals else '0',
-            'warmup': '1' if include_warmup else '0',
-            'cooldown': '1' if include_cooldown else '0',
-        }
+        params = {'type': workout_type, 'q': search_query,
+                  'warmup': '1' if include_warmup else '', 'cooldown': '1' if include_cooldown else ''}
         params.update(overrides)
-
-        # Keep URLs readable by omitting default/empty filters.
-        if params.get('intervals') == '1':
-            params.pop('intervals', None)
-        if params.get('warmup') == '0':
-            params.pop('warmup', None)
-        if params.get('cooldown') == '0':
-            params.pop('cooldown', None)
-
-        params = {key: value for key, value in params.items() if value}
-        query_string = urlencode(params)
+        query_string = urlencode({key: value for key, value in params.items() if value})
         return f"?{query_string}" if query_string else ""
 
     workout_filter_urls = {
@@ -365,24 +324,21 @@ def running_analytics_view(request):
         'pk': build_filter_url(type='pk', q=''),
         'pitka': build_filter_url(type='pitka', q=''),
     }
-
     lap_filter_urls = {
-        'intervals': build_filter_url(intervals='0' if include_intervals else '1'),
-        'warmup': build_filter_url(warmup='0' if include_warmup else '1'),
-        'cooldown': build_filter_url(cooldown='0' if include_cooldown else '1'),
+        'warmup': build_filter_url(warmup='' if include_warmup else '1'),
+        'cooldown': build_filter_url(cooldown='' if include_cooldown else '1'),
     }
-    
+
     context = {
         'workout_data': workout_data,
         'overall_stats': overall_stats,
         'chart_data_json': json.dumps(chart_data),
         'search_query': search_query,
         'workout_type': workout_type,
-        'include_intervals': include_intervals,
-        'include_warmup': include_warmup,
-        'include_cooldown': include_cooldown,
         'workout_filter_urls': workout_filter_urls,
         'lap_filter_urls': lap_filter_urls,
+        'include_warmup': include_warmup,
+        'include_cooldown': include_cooldown,
     }
     
     return render(request, 'activities/running_analytics.html', context)

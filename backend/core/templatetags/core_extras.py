@@ -13,19 +13,9 @@ from django.utils.translation import gettext
 register = template.Library()
 
 def _format_pace_min_per_km(pace_min_per_km: float) -> str:
-    """
-    Format pace (min/km) as MM:SS.xx (centiseconds, 0.01s).
-
-    Rounding at 10ms granularity avoids visible drift from repeated rounding
-    in the pipeline (CSV → DB → UI).
-    """
-    if not pace_min_per_km or pace_min_per_km <= 0:
-        return "-"
-    total_centis = int(round(pace_min_per_km * 60 * 100))
-    minutes = total_centis // (60 * 100)
-    seconds = (total_centis // 100) % 60
-    centis = total_centis % 100
-    return f"{minutes:02d}:{seconds:02d}.{centis:02d}"
+    """Format pace (min/km) as M:SS like Garmin Connect; "-" when unknown."""
+    from activities.models import _format_pace_min_per_km as format_pace
+    return format_pace(pace_min_per_km) or "-"
 
 
 @register.filter

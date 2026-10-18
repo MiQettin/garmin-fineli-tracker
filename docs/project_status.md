@@ -1,14 +1,14 @@
 # Project Status - HealthManager
 
-Last updated: 2026-10-13
+Last updated: 2026-10-18
 
 ## Current Phase
 
 - Phase: 4 - Nutrition depth (products and recipes, provenance-aware diary import) and Garmin health metrics.
 - Status: in daily use. The food diary runs on the owner's Raspberry Pi server (since 2026-10-11); a development machine has a copy of the database.
 - Current focus:
-  - Ship the 2026-10-12/13 work to the server (migrations `core/0006`-`0008`, `nutrition/0018`-`0020`) - see [deployment.md](deployment.md).
-  - Next feature: training vs nutrition - completed workouts compared with protein and carbohydrate intake (g/kg).
+  - Ship the 2026-10-12/13 work to the server (migrations `core/0006`-`0008`, `nutrition/0018`-`0020`, `health/0002`) - see [deployment.md](deployment.md).
+  - Next feature: training vs nutrition - its own page comparing workouts with carbohydrate and protein intake in g/kg of body weight, with sports-nutrition reference ranges plus the user's own limits; later a summary on the dashboard. The training load model is still open: it will be based on workout duration and level and on upcoming competitions (carb loading), not on heart-rate zones, and its targets will also be shown in the food diary.
   - Publish tested changes to the public `garmin-fineli-tracker` repository.
   - Running analytics improvements.
 
@@ -25,23 +25,41 @@ Last updated: 2026-10-13
 - **Food diary** ([food_diary_guide.md](food_diary_guide.md)):
   - Fineli search (local; ä/ö/å-safe, all words in any order, ranked), favorites, recent, frequent, manual entry, diary CSV import.
   - Portion units: Fineli portion sizes, "pakkaus" (product package), ml/dl/l (per-100 ml products), "annos" (recipe servings), grams.
+  - Free meals: a meal is added on the page from a text field with the 5 standard meals as suggestions (Breakfast, Lunch, Snack, Dinner, Supper / Aamiainen, Lounas, Välipala, Päivällinen, Illallinen), or any own name; the diary shows only the meals logged that day, in logging order; a whole meal can be deleted (🗑️, two clicks). The `evening_snack` key is shown as Supper / Illallinen (it was Evening snack / Iltapala) - the Fineli diary's "illallinen" was already imported as `evening_snack`. No schema change - `meal_type` was already free text; the model's `choices` stay as they are and only the forms use the free list (`nutrition/meals.py`).
   - Values are taken from the database when logging and frozen on the entry. Entries can be edited (✏️ - values follow grams or portion count) and deleted (two clicks).
   - "Today" follows Finnish time (`TIME_ZONE = 'Europe/Helsinki'`).
 - **Products** (Nutrition → Foods): values per 100 g or 100 ml, optional package size. Editing a product recalculates the recipes that use it.
 - **Recipes** (Nutrition → Recipes): cards with expandable details, Create, Duplicate, Delete (two clicks; refused while used in another recipe). Two-step ingredient pickers with live Fineli suggestions, Fineli favorites and My Foods search. Optional servings and finished-dish weight. Recalculated automatically when ingredients - or the foods they use - change.
 - **Favorites** (Nutrition → Favorites): list, remove, search Fineli and own foods to star.
 - **Diary CSV import:** food-level rows with qualifiers and provenance; adds missing rows and updates matching imported rows, never deletes; all files validated first; each day locked during import; meal-slot names kept verbatim.
-- **Garmin import:** `get_garmindata.py` (unofficial `garminconnect`, token reuse, date-range backfills) writes daily/activity CSVs for `import_garmin_csv` and writes health metrics straight to the database. Activity duration prefers Garmin's elapsed `duration`; lap `step_type` comes only from explicit Garmin signals.
-- **Running analytics:** `/analytics/running/` with Chart.js trends, workout and lap filters, weighted pace (`MM:SS.xx`).
+- **Weight** (Health → Weight): manage the weight history - Garmin weigh-ins stored by the sync and manual entries (add/correct/remove); changing the weight in Settings also records today's entry. Used to scale nutrition targets (g/kg) and for a monthly average (`health.weight.monthly_averages()`) to watch that weight doesn't drop during training - HealthManager is an athlete's app for eating enough for the training, not a weight-loss app. The latest weight updates the weight in Settings; changing the weight in Settings records today's entry.
+- **Garmin import:** `get_garmindata.py` (unofficial `garminconnect`, token reuse, date-range backfills) writes daily/activity CSVs for `import_garmin_csv` and writes health metrics and weigh-ins straight to the database (weigh-ins are only read, nothing is written to Garmin). Activity duration prefers Garmin's elapsed `duration`; lap `step_type` comes only from explicit Garmin signals.
+- **Running analytics:** `/analytics/running/` with Chart.js trends, name filters and search. Averages count only the workout steps chosen on each activity's page (Intervals tab → Workout steps; default: the runs, without warm-up, recovery and cool-down). Warm-up and Cool-down buttons add those laps of all workouts on top of that choice. Lap step types and lap times come straight from Garmin; pace is total time / distance and heart rate time-weighted, shown as M:SS like Garmin Connect.
 - **Access control:** every page requires login (Django admin login, `LOGIN_URL = '/admin/login/'`); logging out returns to `/admin/login/?next=/` so signing in opens the Dashboard. JSON endpoints answer 401 when logged out and 404 for other users' foods.
 - **Database operations:** `DATABASE_PATH` for the file location, `backup_db` for consistent snapshots, tests on an in-memory database, read-only health checks ([database_guide.md](database_guide.md#health-checks)).
 - **Serving:** gunicorn + whitenoise on the Pi, home network only ([deployment.md](deployment.md)).
 
 ## Recent Changes
 
+### 2026-10-18 - Free meals in the food diary
+
+No database changes (`makemigrations --check` reports nothing; no stored values are rewritten).
+
+- **Meals are the user's own.** The diary no longer shows 5 fixed, always-empty sections. A **Meal** field above the meals suggests the standard meals (Breakfast, Lunch, Snack, Dinner, Supper / Aamiainen, Lounas, Välipala, Päivällinen, Illallinen; typing filters them) and accepts any own name (max 50 characters). Picking a suggestion, Enter, or leaving the field adds the meal as an empty section on the page; its **+ Add Food** opens the Add Food window (which no longer has a meal field). A meal is saved with its first food.
+- Sections show the meals logged that day, ordered by their first entry (standard meals in day order on a tie, e.g. a CSV-imported day). A stored name that matches a standard meal's label (e.g. an imported `Lounas`) is shown in that meal's section but kept as stored.
+- A typed standard name in either language is stored as its key (`Aamiainen`/`Breakfast` -> `breakfast`). The server validates the meal (`nutrition/meals.py`); an empty or too long name is rejected.
+- **Delete a whole meal**: 🗑️ on a meal, two clicks like deleting a food (`POST /food-diary/delete-meal/`, only the user's own entries of that day and meal; totals recalculated). An unsaved page-only meal is just removed.
+- **Entry editing** uses the same meal field (free text with the standard suggestions); saving without changing the meal keeps the stored value.
+- `evening_snack` is now shown as **Supper / Illallinen** (was Evening snack / Iltapala), matching the Fineli diary (its "illallinen" was already imported as `evening_snack`). Entries stored verbatim as `Iltapala` show as their own meal.
+- Date navigation: ◀ ▶ arrows without text; on phones the row stays on one line and the CSV import button is the 📥 icon only (with `title`/`aria-label`).
+
 ### 2026-10-13
 
-Database change (approved by the owner):
+Database changes (approved by the owner):
+
+- `activities/0003` - `ActivityLap.workout_step` and `in_analysis` (per-step choice for running analytics). All 120 runs' laps were re-fetched from Garmin (backup first): lap time is Garmin's lap time and the step type Garmin's own, replacing moving-time laps and guessed step types.
+
+- `health/0002` - `WeightEntry`: weight history (Garmin weigh-ins and manual entries); see [database_guide.md](database_guide.md#health).
 
 - `core/0008` - `UserSettings.language` (`en`/`fi`, default `en`) and `UserSettings.food_language` (`fi`/`en`, default `fi`; used only when the app language is English).
 

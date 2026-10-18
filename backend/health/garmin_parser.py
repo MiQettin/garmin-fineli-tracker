@@ -208,3 +208,34 @@ def parse_daily_health(target_date, stress_response, body_battery_response, resp
         "body_battery_min": _as_int(bb_min),
         "body_battery_max": _as_int(bb_max),
     }
+
+
+def parse_weigh_ins(weigh_ins_response):
+    """Normalize a garminconnect get_weigh_ins(start, end) response into a
+    list of dicts matching WeightEntry fields.
+
+    The response groups measurements by day: dailyWeightSummaries[] each
+    with allWeightMetrics[] (falling back to latestWeight). A measurement
+    has samplePk, calendarDate, weight in grams and timestampGMT/date in
+    epoch milliseconds. Entries without a sample id, date or weight are
+    skipped; the same samplePk is returned only once. None or an empty
+    response means no weigh-ins.
+    """
+    if not weigh_ins_response:
+        return []
+    entries = {}
+    for day in weigh_ins_response.get("dailyWeightSummaries") or []:
+        metrics = day.get("allWeightMetrics") or ([day["latestWeight"]] if day.get("latestWeight") else [])
+        for metric in metrics:
+            sample_id = metric.get("samplePk")
+            grams = _as_float(metric.get("weight"))
+            day_iso = metric.get("calendarDate") or day.get("summaryDate")
+            if sample_id is None or not grams or not day_iso:
+                continue
+            entries[int(sample_id)] = {
+                "garmin_sample_id": int(sample_id),
+                "date": _iso_to_date(day_iso),
+                "weight_kg": round(grams / 1000, 2),
+                "measured_at": _epoch_ms_to_utc_datetime(metric.get("timestampGMT") or metric.get("date")),
+            }
+    return list(entries.values())

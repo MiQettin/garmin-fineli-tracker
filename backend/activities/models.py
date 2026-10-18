@@ -1,14 +1,11 @@
 from django.db import models
 
 def _format_pace_min_per_km(pace_min_per_km: float) -> str | None:
-    """Format pace (min/km) as MM:SS.xx (centiseconds, 0.01s)."""
+    """Format pace (min/km) as M:SS, rounded to whole seconds like Garmin Connect."""
     if not pace_min_per_km or pace_min_per_km <= 0:
         return None
-    total_centis = int(round(pace_min_per_km * 60 * 100))
-    minutes = total_centis // (60 * 100)
-    seconds = (total_centis // 100) % 60
-    centis = total_centis % 100
-    return f"{minutes:02d}:{seconds:02d}.{centis:02d}"
+    total_seconds = int(round(pace_min_per_km * 60))
+    return f"{total_seconds // 60}:{total_seconds % 60:02d}"
 
 
 class Activity(models.Model):
@@ -89,6 +86,8 @@ class ActivityLap(models.Model):
     Stores detailed metrics for each interval or lap of a workout.
     """
     
+    DEFAULT_ANALYSIS_STEP_TYPES = ("run", "interval")
+
     STEP_TYPES = [
         ('warmup', 'Warm Up'),
         ('run', 'Run'),
@@ -168,6 +167,18 @@ class ActivityLap(models.Model):
         blank=True, 
         help_text="Average cadence for this lap (steps/min)"
     )
+
+    # Workout structure and the user's own analysis choice
+    workout_step = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Garmin workout step (wktStepIndex); auto-laps of one step share it",
+    )
+    in_analysis = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Counted in running analytics; empty = default (run and interval laps). Set per workout step by the user",
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -185,6 +196,14 @@ class ActivityLap(models.Model):
     def __str__(self):
         return f"{self.activity.name} - Lap {self.lap_number} ({self.get_step_type_display()})"
     
+    @property
+    def counts_in_analysis(self):
+        """The user's choice, or by default Garmin's run and interval laps
+        (no warm-up, recovery, rest or cool-down)."""
+        if self.in_analysis is None:
+            return self.step_type in self.DEFAULT_ANALYSIS_STEP_TYPES
+        return self.in_analysis
+
     def lap_time_formatted(self):
         """Format lap time as MM:SS or HH:MM:SS string."""
         hours = self.lap_time_seconds // 3600

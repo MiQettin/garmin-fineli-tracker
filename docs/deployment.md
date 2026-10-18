@@ -128,7 +128,7 @@ sudo systemctl restart healthmanager
 
 If a migration goes wrong, stop the app and copy the snapshot back over `DATABASE_PATH`.
 
-Migrations that need to reach the server, newest last: `core/0006` (Garmin calorie adjustment), `core/0007` (custom fitness goal), `core/0008` (app language and Fineli name language), `nutrition/0018` (Fineli portion sizes), `nutrition/0019` (package size, per-100 ml basis), `nutrition/0020` (product/recipe kind, servings, finished weight). `migrate` applies whichever are missing; `python manage.py showmigrations core nutrition` lists them.
+Migrations that need to reach the server, newest last: `core/0006` (Garmin calorie adjustment), `core/0007` (custom fitness goal), `core/0008` (app language and Fineli name language), `nutrition/0018` (Fineli portion sizes), `nutrition/0019` (package size, per-100 ml basis), `nutrition/0020` (product/recipe kind, servings, finished weight), `health/0002` (weight history), `activities/0003` (lap workout step, analysis choice). `migrate` applies whichever are missing; `python manage.py showmigrations core nutrition health activities` lists them. Laps stored before 2026-10-13 have moving-time lap times and guessed step types; the development copy was re-fetched from Garmin, so copying it to the server brings the corrected laps.
 
 Translations need no extra step: the compiled catalog `backend/locale/fi/LC_MESSAGES/django.mo` is in Git, and GNU gettext is not needed on the server. The restart after `git pull` loads the new catalog.
 

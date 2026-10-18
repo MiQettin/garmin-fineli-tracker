@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     food_diary_view, add_custom_food, create_recipe, manage_custom_foods, edit_custom_food, delete_custom_food,
-    add_meal_entry, edit_meal_entry, delete_meal_entry,
+    add_meal_entry, edit_meal_entry, delete_meal_entry, delete_meal,
     search_fineli_api, add_fineli_entry, bulk_import_diary_csv,
     list_custom_foods_api,
     add_favorite_food, remove_favorite_food, list_favorite_foods, list_recent_foods, list_frequent_foods, manage_favorites,
@@ -16,6 +16,7 @@ urlpatterns = [
     path("add-entry/", add_meal_entry, name="add_meal_entry"),
     path("edit-entry/<int:entry_id>/", edit_meal_entry, name="edit_meal_entry"),
     path("delete-entry/<int:entry_id>/", delete_meal_entry, name="delete_meal_entry"),
+    path("delete-meal/", delete_meal, name="delete_meal"),
     
     # Fineli API integration
     path("api/search/", search_fineli_api, name="search_fineli_api"),

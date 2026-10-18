@@ -122,6 +122,17 @@
   }
   
   /* Intervals Table */
+  .steps-form { margin-bottom: 8px; }
+  .steps-help { color: var(--gray-500); font-size: 0.9em; }
+  .steps-list { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 6px; }
+  .step-row { border: 1px solid var(--border-light); border-radius: 10px; background: var(--bg-hover); opacity: 0.6; }
+  .step-row.on { opacity: 1; border-color: var(--primary); }
+  .step-row label { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; padding: 10px 14px; cursor: pointer; min-height: 48px; margin: 0; }
+  .step-row input[type=checkbox] { width: 1.3em; height: 1.3em; margin: 0; flex-shrink: 0; }
+  .step-name { font-weight: 600; color: var(--gray-900); min-width: 6em; }
+  .step-meta { color: var(--gray-600); font-size: 0.9em; }
+  .step-laps { color: var(--gray-500); }
+
   .intervals-table {
     width: 100%;
     border-collapse: collapse;
@@ -556,7 +567,32 @@ function showTab(tabName) {
     
     <!-- Intervals Tab -->
     <div id="intervals-tab" class="tab-content">
-      <h2 style="margin-top: 0;">{% translate "Laps and intervals" %}</h2>
+      {% if steps %}
+      <form method="post" action="{% url 'activity_analysis_steps' activity.pk %}" id="steps" class="steps-form">
+        {% csrf_token %}
+        <h2 style="margin-top: 0;">{% translate "Workout steps" %}</h2>
+        <p class="steps-help">{% translate "Choose the steps that count in running analytics (averages and charts). By default runs count, and warm-up, recovery and cool-down don't." %}</p>
+        <ul class="steps-list">
+          {% for step in steps %}
+          <li class="step-row{% if step.counts %} on{% endif %}">
+            <label>
+              <input type="checkbox" class="form-check-input" {% if step.counts %}checked{% endif %}
+                     onchange="this.closest('.step-row').classList.toggle('on', this.checked); document.getElementById('stepsSave').hidden = false">
+              {% for id in step.lap_ids %}<input type="hidden" name="lap" disabled data-lap value="{{ id }}">{% endfor %}
+              <span class="step-name">{{ step.step_type|step_type_label }}</span>
+              <span class="step-meta">
+                {{ step.km|floatformat:2 }} km · {{ step.time_formatted }}{% if step.pace_formatted %} · {{ step.pace_formatted }}/km{% endif %}{% if step.avg_hr %} · {{ step.avg_hr }} bpm{% endif %}
+                {% if step.laps|length > 1 %}<span class="step-laps">· {% blocktranslate count n=step.laps|length %}{{ n }} lap{% plural %}{{ n }} laps{% endblocktranslate %}</span>{% endif %}
+              </span>
+            </label>
+          </li>
+          {% endfor %}
+        </ul>
+        <button type="submit" class="btn btn-primary" id="stepsSave" hidden>{% translate "Save selection" %}</button>
+      </form>
+      {% endif %}
+
+      <h2 style="margin-top: 24px;">{% translate "Laps and intervals" %}</h2>
       {% if laps %}
         <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 20px;">
           <p style="color: var(--gray-500); margin: 0;">
@@ -733,6 +769,17 @@ function showTab(tabName) {
 </div>
 
 <script>
+// Workout steps: each checked step sends its lap ids.
+document.getElementById('steps')?.addEventListener('submit', (e) => {
+  e.currentTarget.querySelectorAll('.step-row').forEach((row) => {
+    const on = row.querySelector('input[type=checkbox]').checked;
+    row.querySelectorAll('[data-lap]').forEach((input) => { input.disabled = !on; });
+  });
+});
+document.addEventListener('DOMContentLoaded', () => {
+  if (location.hash === '#steps') showTab('intervals');
+});
+
 function showTab(tabName) {
   const tabContents = document.querySelectorAll('.tab-content');
   tabContents.forEach(content => {

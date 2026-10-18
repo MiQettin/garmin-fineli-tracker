@@ -9,8 +9,9 @@ variables, or know about the dashboard/CLI - callers own acquiring the raw
 responses and pass them in as plain decoded Python values.
 """
 
-from .garmin_parser import parse_daily_health, parse_hrv_summary, parse_sleep_summary
-from .garmin_persistence import upsert_daily_health, upsert_hrv_summary, upsert_sleep_summary
+from .garmin_parser import parse_daily_health, parse_hrv_summary, parse_sleep_summary, parse_weigh_ins
+from .garmin_persistence import insert_weigh_ins, upsert_daily_health, upsert_hrv_summary, upsert_sleep_summary
+from .weight import sync_settings_weight
 
 
 def sync_health_responses(
@@ -63,3 +64,12 @@ def sync_health_responses(
         "sleep_summary": sleep_summary,
         "hrv_summary": hrv_summary,
     }
+
+
+def sync_weigh_ins_response(weigh_ins_response):
+    """Parse and store an already-fetched get_weigh_ins() response, then
+    bring the weight in Settings up to date. Returns the number of new
+    weigh-ins."""
+    added = insert_weigh_ins(parse_weigh_ins(weigh_ins_response))
+    sync_settings_weight()
+    return added

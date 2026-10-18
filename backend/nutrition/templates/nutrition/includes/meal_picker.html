@@ -1,0 +1,11 @@
+{% load i18n %}{# Meal name field: free text, with the standard meals as suggestions (see nutrition/meal_picker.js). #}
+<div class="meal-combo" data-meal-combo>
+    <input type="text" id="{{ input_id }}"{% if input_name %} name="{{ input_name }}"{% endif %} value="{{ value|default:'' }}"
+           class="form-control meal-combo-input" maxlength="50" autocomplete="off" spellcheck="false"
+           role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="{{ input_id }}List"
+           placeholder="{% translate 'Choose or type a meal' %}">
+    <button type="button" class="meal-combo-toggle" tabindex="-1" aria-label="{% translate 'Show meals' %}">▾</button>
+    <ul class="meal-combo-list" id="{{ input_id }}List" role="listbox" hidden>
+        {% for label in meal_options %}<li role="option" id="{{ input_id }}Opt{{ forloop.counter }}" data-value="{{ label }}">{{ label }}</li>{% endfor %}
+    </ul>
+</div>

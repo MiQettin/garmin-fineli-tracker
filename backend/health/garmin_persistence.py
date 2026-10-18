@@ -9,7 +9,7 @@ Does not parse raw Garmin JSON and does not touch Garmin/network/auth in
 any way - callers are responsible for fetching and normalizing data first.
 """
 
-from .models import DailyHealth, HrvSummary, SleepSummary
+from .models import DailyHealth, HrvSummary, SleepSummary, WeightEntry
 
 _DAILY_HEALTH_FIELDS = {
     "stress_avg", "stress_max",
@@ -76,3 +76,27 @@ def upsert_hrv_summary(data):
         defaults=_defaults(data, _HRV_SUMMARY_FIELDS),
     )
     return instance
+
+
+def insert_weigh_ins(entries):
+    """Store parse_weigh_ins() dicts as Garmin WeightEntry rows, keyed by
+    garmin_sample_id.
+
+    Only new measurements are inserted. An existing row is never changed:
+    the user may have corrected it in the app (it then becomes a manual
+    entry) or removed it (ignored=True), and a later sync must not undo
+    that. Returns the number of new rows.
+    """
+    known = set(
+        WeightEntry.objects.filter(garmin_sample_id__in=[e["garmin_sample_id"] for e in entries])
+        .values_list("garmin_sample_id", flat=True)
+    )
+    new = [
+        WeightEntry(
+            garmin_sample_id=e["garmin_sample_id"], date=e["date"], weight_kg=e["weight_kg"],
+            measured_at=e["measured_at"], source=WeightEntry.SOURCE_GARMIN,
+        )
+        for e in entries if e["garmin_sample_id"] not in known
+    ]
+    WeightEntry.objects.bulk_create(new)
+    return len(new)

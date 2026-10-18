@@ -38,7 +38,8 @@
                 {% translate "Health & Recovery" as health_label %}❤️ {{ health_label|force_escape }}
               </a>
               <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-lg-end">
-                <li><a class="dropdown-item{% if '/health/' in request.path %} active{% endif %}" href="/health/">❤️ {% translate "Overview" %}</a></li>
+                <li><a class="dropdown-item{% if request.path == '/health/' %} active{% endif %}" href="/health/">❤️ {% translate "Overview" %}</a></li>
+                <li><a class="dropdown-item{% if '/health/weight/' in request.path %} active{% endif %}" href="{% url 'weight_page' %}">⚖️ {% translate "Weight" %}</a></li>
               </ul>
             </li>
             <li class="nav-item dropdown">

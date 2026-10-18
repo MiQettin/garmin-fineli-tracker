@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import translation
 from django.utils.translation import gettext
 from django.utils.timezone import localdate, now
-from django.http import JsonResponse
+from django.http import HttpResponseBadRequest, JsonResponse
 from django.db import transaction
 from django.db.models import Q
 import json
@@ -18,6 +18,10 @@ from .food_language import UNIT_LABELS, fineli_name, food_language, name_field, 
 from .models import (
     FineliFood, CustomFood, CustomFoodIngredient, CustomFoodNutrient, FavoriteFood, MealEntry, MealEntryNutrient,
     fineli_unit_sort_key,
+)
+from .meals import (
+    MEAL_NAME_MAX_LENGTH, STANDARD_MEAL_KEYS, meal_emoji, meal_group_key, meal_label, meal_options,
+    normalize_meal_name,
 )
 from .forms import (
     NUTRIENT_ENTRY_FIELDS, CustomFoodForm, FinalNutrientValuesForm, MealEntryEditForm, MealEntryForm,
@@ -66,38 +70,34 @@ def food_diary_view(request):
     
     daily_log, created = DailyLog.objects.get_or_create(date=current_date)
     meal_entries = list(
-        daily_log.meal_entries.filter(user=request.user).select_related('fineli_food').order_by('meal_type', '-created_at')
+        daily_log.meal_entries.filter(user=request.user).select_related('fineli_food').order_by('-created_at')
     )
     _attach_shown_names(meal_entries)
     custom_foods = CustomFood.objects.filter(user=request.user)[:20]
 
-    # The 5 standard sections are always shown (so there's always somewhere
-    # to manually add food from a fresh day). A bulk CSV import can also
-    # bring in a diary meal-slot name outside this set (e.g. "Herkku") -
-    # those get their own section, appended after the standard ones, named
-    # verbatim after the CSV's own text rather than forced into one of the 5.
-    base_meal_types = [
-        ('breakfast', '🌅 ' + gettext('Breakfast')),
-        ('lunch', '🌞 ' + gettext('Lunch')),
-        ('dinner', '🌙 ' + gettext('Dinner')),
-        ('snack', '🍎 ' + gettext('Snack')),
-        ('evening_snack', '🌜 ' + gettext('Evening snack')),
-    ]
-    base_meal_keys = {key for key, _ in base_meal_types}
-    extra_meal_names = sorted({
-        entry.meal_type for entry in meal_entries if entry.meal_type not in base_meal_keys
-    })
-    meal_types = base_meal_types + [(name, f'🍽️ {name}') for name in extra_meal_names]
-
-    meal_totals = {
-        key: {'calories': 0, 'protein': 0, 'carbs': 0, 'sugar': 0, 'fat': 0, 'sat_fat': 0, 'fiber': 0, 'salt': 0}
-        for key, _ in meal_types
-    }
-
-    # Unknown (None) values are skipped, like DailyLog.recalculate_from_meals'
-    # Sum() - some Fineli foods lack e.g. sugar or fiber.
+    # One section per meal that has entries this day - the user picks the
+    # meal when adding food. Sections follow the day: the meal whose first
+    # entry was logged earliest comes first (standard meals in their usual
+    # order on a tie, e.g. a day imported from a diary CSV).
+    meal_groups = {}
     for entry in meal_entries:
-        totals = meal_totals[entry.meal_type]
+        key = meal_group_key(entry.meal_type)
+        group = meal_groups.get(key)
+        if group is None:
+            group = meal_groups[key] = {
+                'key': key,
+                'name': meal_label(key),
+                'label': f'{meal_emoji(key)} {meal_label(key)}',
+                'entries': [],
+                'first_logged': entry.created_at,
+                'totals': {'calories': 0, 'protein': 0, 'carbs': 0, 'sugar': 0,
+                           'fat': 0, 'sat_fat': 0, 'fiber': 0, 'salt': 0},
+            }
+        group['entries'].append(entry)
+        group['first_logged'] = min(group['first_logged'], entry.created_at)
+        # Unknown (None) values are skipped, like DailyLog.recalculate_from_meals'
+        # Sum() - some Fineli foods lack e.g. sugar or fiber.
+        totals = group['totals']
         totals['calories'] += entry.calories or 0
         totals['protein'] += entry.protein_g or 0
         totals['carbs'] += entry.carbs_g or 0
@@ -107,10 +107,17 @@ def food_diary_view(request):
         totals['fiber'] += entry.fiber_g or 0
         totals['salt'] += entry.salt_g or 0
 
+    def section_order(group):
+        key = group['key']
+        standard_index = STANDARD_MEAL_KEYS.index(key) if key in STANDARD_MEAL_KEYS else len(STANDARD_MEAL_KEYS)
+        return (group['first_logged'], standard_index, key.casefold())
+
+    meal_sections = sorted(meal_groups.values(), key=section_order)
+
     # Day summary from this user's own entries - daily_log's stored totals
     # are shared between users and would include everyone's food.
     day_totals = {
-        f'{key}_in' if key == 'calories' else f'{key}_g': sum(t[key] for t in meal_totals.values())
+        f'{key}_in' if key == 'calories' else f'{key}_g': sum(group['totals'][key] for group in meal_sections)
         for key in ('calories', 'protein', 'carbs', 'sugar', 'fat', 'sat_fat', 'fiber', 'salt')
     }
 
@@ -122,9 +129,9 @@ def food_diary_view(request):
         'daily_log': daily_log,
         'meal_entries': meal_entries,
         'custom_foods': custom_foods,
-        'meal_totals': meal_totals,
+        'meal_sections': meal_sections,
+        'meal_options': meal_options(),
         'day_totals': day_totals,
-        'meal_types': meal_types,
         'prev_date': prev_date,
         'next_date': next_date,
         'is_today': current_date == localdate(),
@@ -782,6 +789,16 @@ def _optional_float_from_post(post_data, key):
     return float(raw)
 
 
+def _meal_type_from_request(raw):
+    """(meal_type to store, error message) for a meal name sent by the diary page."""
+    meal_type = normalize_meal_name(raw)
+    if meal_type is None:
+        return None, gettext('Choose a meal or type a name for it.')
+    if len(meal_type) > MEAL_NAME_MAX_LENGTH:
+        return None, gettext('Meal name is too long (at most %(n)s characters).') % {'n': MEAL_NAME_MAX_LENGTH}
+    return meal_type, None
+
+
 @login_required
 def add_meal_entry(request):
     """Add a meal entry to a specific date."""
@@ -790,9 +807,10 @@ def add_meal_entry(request):
 
         from datetime import datetime
         date_obj = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else localdate()
+        meal_type, meal_error = _meal_type_from_request(request.POST.get('meal_type'))
+        if meal_error:
+            return HttpResponseBadRequest(meal_error)
         daily_log, _ = DailyLog.objects.get_or_create(date=date_obj)
-
-        meal_type = request.POST.get('meal_type', 'snack')
 
         entry = MealEntry.objects.create(
             daily_log=daily_log,
@@ -869,7 +887,7 @@ def edit_meal_entry(request, entry_id):
         form = MealEntryEditForm(instance=entry)
 
     return render(request, "nutrition/edit_meal_entry.html", {
-        "form": form, "entry": entry, "diary_url": diary_url, "unit_label": unit_label,
+        "form": form, "entry": entry, "meal_options": meal_options(), "diary_url": diary_url, "unit_label": unit_label,
         "source_label": source_label(entry.source_type),
         "grams_per_unit": original_grams / original_amount if unit_label and original_amount else None,
     })
@@ -886,6 +904,31 @@ def delete_meal_entry(request, entry_id):
         entry.delete()
     # No separate confirmation page - the diary confirms with a second click.
     return redirect(f'/food-diary/?date={date.strftime("%Y-%m-%d")}')
+
+
+@login_required
+def delete_meal(request):
+    """Delete a whole meal of a day: the user's own entries in that meal's
+    diary section (POST date, meal = the section's key)."""
+    if request.method != "POST":
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+    from datetime import datetime
+    try:
+        date_obj = datetime.strptime(request.POST.get('date', ''), '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'error': gettext('Invalid date')}, status=400)
+    meal = request.POST.get('meal', '')
+    daily_log = DailyLog.objects.filter(date=date_obj).first()
+    if daily_log is None or not meal:
+        return JsonResponse({'deleted': 0})
+    with transaction.atomic():
+        entries = daily_log.meal_entries.filter(user=request.user)
+        ids = [entry.id for entry in entries.only('id', 'meal_type') if meal_group_key(entry.meal_type) == meal]
+        deleted = len(ids)
+        if ids:
+            MealEntry.objects.filter(id__in=ids).delete()
+            daily_log.recalculate_from_meals()
+    return JsonResponse({'deleted': deleted})
 
 
 def _optional_float(value):
@@ -1005,7 +1048,11 @@ def add_fineli_entry(request):
 
     if request.method == "POST":
         data = json.loads(request.body)
-        
+
+        meal_type, meal_error = _meal_type_from_request(data.get('meal_type'))
+        if meal_error:
+            return JsonResponse({'error': meal_error}, status=400)
+
         date_str = data.get('date')
         from datetime import datetime
         date_obj = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else localdate()
@@ -1140,7 +1187,7 @@ def add_fineli_entry(request):
                 custom_food=custom_food,
                 source_type=source_type,
                 food_name=food_name,
-                meal_type=data.get('meal_type', 'snack'),
+                meal_type=meal_type,
                 portion_grams=portion_grams,
                 source_amount=source_amount,
                 source_unit=source_unit,

@@ -1,0 +1,107 @@
+{% extends "core/base.html" %}
+{% load i18n l10n core_extras %}
+
+{% block title %}{% translate "Weight" %} - HealthManager{% endblock %}
+
+{% block extra_css %}
+<style>
+  .weight-card { max-width: 900px; margin: 0 auto 16px; }
+  .weight-card h1 { font-size: 1.35em; color: var(--gray-900); margin-bottom: 4px; }
+  .weight-card h2 { font-size: 1.05em; color: var(--gray-800); margin: 0 0 10px; }
+  .weight-intro { color: var(--gray-500); font-size: 0.9em; margin-bottom: 0; }
+  .weight-summary { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+  .weight-stat { flex: 1 1 160px; background: var(--bg-hover); border: 1px solid var(--border-light); border-radius: 10px; padding: 12px 14px; }
+  .weight-stat-label { color: var(--gray-500); font-size: 0.8em; }
+  .weight-stat-value { font-size: 1.6em; font-weight: 700; color: var(--gray-900); line-height: 1.2; }
+  .weight-stat-value small { font-size: 0.55em; font-weight: 500; color: var(--gray-500); }
+  .weight-stat-sub { color: var(--gray-500); font-size: 0.78em; }
+  .weight-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .weight-form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85em; color: var(--gray-600); flex: 1 1 150px; }
+  .weight-form input { font-size: 16px; min-height: 44px; }
+  .weight-form .btn { min-height: 44px; }
+  .weight-list { display: flex; flex-direction: column; gap: 6px; }
+  .weight-row { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 8px 6px 14px;
+    background: var(--bg-hover); border: 1px solid var(--border-light); border-radius: 10px; }
+  .weight-row-date { flex: 1; min-width: 0; color: var(--gray-800); }
+  .weight-row-kg { font-weight: 700; color: var(--gray-900); white-space: nowrap; }
+  .weight-badge { flex-shrink: 0; font-size: 0.7em; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    background: var(--bg-card); color: var(--gray-500); border: 1px solid var(--border-light); }
+  .weight-badge.garmin { color: #60a5fa; border-color: rgba(96,165,250,0.4); }
+  .weight-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .weight-actions .btn { min-width: 44px; min-height: 40px; }
+  .weight-actions form { margin: 0; }
+  .weight-more { color: var(--gray-500); font-size: 0.8em; margin-top: 8px; }
+  @media (max-width: 576px) {
+    .weight-badge { display: none; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card weight-card">
+  <h1>⚖️ {% translate "Weight" %}</h1>
+  <p class="weight-intro">{% translate "Your weight is only used to scale nutrition targets to your body size (g/kg). It comes from Garmin weigh-ins or the values you add here." %}</p>
+
+  <div class="weight-summary">
+    <div class="weight-stat">
+      <div class="weight-stat-label">{% translate "Weight used in calculations" %}</div>
+      {% if current %}
+        <div class="weight-stat-value">{{ current.weight_kg|floatformat:1 }} <small>kg</small></div>
+        <div class="weight-stat-sub">{{ current.date|date:"j.n.Y" }}</div>
+      {% else %}
+        <div class="weight-stat-value">–</div>
+        <div class="weight-stat-sub">{% translate "No weight entries yet" %}</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card weight-card">
+  <h2>{% translate "Add weight" %}</h2>
+  <form method="post" class="weight-form" novalidate>
+    {% csrf_token %}
+    <label>{{ form.date.label }}{{ form.date }}</label>
+    <label>{{ form.weight_kg.label }}{{ form.weight_kg }}</label>
+    <button type="submit" class="btn btn-success">{% translate "Save" %}</button>
+  </form>
+  {% if form.errors %}
+    <ul class="errorlist mt-2">
+      {% for field in form %}{% for error in field.errors %}<li>{{ field.label }}: {{ error }}</li>{% endfor %}{% endfor %}
+    </ul>
+  {% endif %}
+</div>
+
+<div class="card weight-card">
+  <h2>{% translate "History" %}</h2>
+  {% if entries %}
+    <div class="weight-list">
+      {% for entry in entries %}
+        <div class="weight-row">
+          <span class="weight-row-date">{{ entry.date|date:"D j.n.Y" }}</span>
+          <span class="weight-row-kg">{{ entry.weight_kg|floatformat:1 }} kg</span>
+          {% if entry.source == "garmin" %}
+            <span class="weight-badge garmin">Garmin</span>
+          {% elif entry.garmin_sample_id %}
+            <span class="weight-badge">{% translate "Corrected" %}</span>
+          {% else %}
+            <span class="weight-badge">{% translate "Manual" %}</span>
+          {% endif %}
+          <span class="weight-actions">
+            <a class="btn btn-outline-secondary btn-sm" href="{% url 'weight_edit' entry.pk %}" aria-label="{% translate 'Edit' %}">✏️</a>
+            <form method="post" action="{% url 'weight_delete' entry.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-danger btn-sm" data-confirm="{% translate 'Remove?' %}" aria-label="{% translate 'Remove' %}">🗑️</button>
+            </form>
+          </span>
+        </div>
+      {% endfor %}
+    </div>
+    {% if entry_count > history_rows %}
+      <p class="weight-more">{% blocktranslate with n=history_rows total=entry_count %}Showing the latest {{ n }} of {{ total }} entries.{% endblocktranslate %}</p>
+    {% endif %}
+  {% else %}
+    <p class="empty-state">{% translate "No weight entries yet. Add one above, or sync Garmin if you weigh yourself with a Garmin scale or in Garmin Connect." %}</p>
+  {% endif %}
+</div>
+{% endblock %}
+

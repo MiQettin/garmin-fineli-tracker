@@ -1,0 +1,59 @@
+/* Meal name field with suggestions (nutrition/includes/meal_picker.html). */
+.meal-combo {
+    position: relative;
+    flex: 1 1 200px;
+    min-width: 0;
+}
+
+.meal-combo .meal-combo-input {
+    width: 100%;
+    padding-right: 40px;
+    font-size: 16px; /* no zoom on focus on phones */
+}
+
+.meal-combo-toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 40px;
+    border: none;
+    background: transparent;
+    color: var(--gray-500);
+    cursor: pointer;
+}
+
+.meal-combo-list {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 4px 0;
+    list-style: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    box-shadow: var(--shadow-sm);
+}
+
+.meal-combo-list[hidden] {
+    display: none;
+}
+
+.meal-combo-list li {
+    padding: 10px 12px;
+    cursor: pointer;
+    color: var(--gray-800);
+}
+
+.meal-combo-list li[hidden] {
+    display: none;
+}
+
+.meal-combo-list li.active,
+.meal-combo-list li:hover {
+    background: var(--primary);
+    color: white;
+}

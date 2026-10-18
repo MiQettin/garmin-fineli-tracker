@@ -2,6 +2,9 @@
 
 A local-first health and fitness tracking application that combines Garmin activity data with nutritional tracking to provide comprehensive insights into your energy balance, macros, and recovery status.
 
+> [!WARNING]
+> **🚧 The Garmin analytics are still a work in progress.** Running analytics, the health and recovery views and the Garmin-based weight data are under active development: features are incomplete, change from release to release and are not ready for general use yet. Versions meant for everyone's use will be published later.
+
 > [!IMPORTANT]
 > **The Garmin features are built for the author's own personal use.** They are tailored to one account and one set of devices and workouts (for example, the running analytics' workout categories), and they use the **unofficial** [`garminconnect`](https://github.com/cyberjunky/python-garminconnect) library rather than an official Garmin API. They are shared as-is, may not work for your account, and may break whenever Garmin changes its service. They will be generalized for public use later on.
 >
@@ -26,6 +29,7 @@ HealthManager is a privacy-focused Django web application that helps you:
 - **Portions**: Fineli's own portion sizes (pieni/iso kpl, annos, dl, rkl …), product packages ("1 × pakkaus"), ml/dl/l for liquids, recipe servings ("1 × annos"), or grams.
 - **Own products**: values per 100 g or per 100 ml from the label, optional package size.
 - **Recipes**: build dishes from Fineli foods and your own foods; values per 100 g are calculated (optionally from the finished dish's weight) and kept up to date when ingredients change; optional servings; duplicate and delete.
+- **Meals**: name your own meals (e.g. "Ennen kisaa") or pick a standard one (Breakfast, Lunch, Snack, Dinner, Supper) from the suggestions; the diary shows only the meals you logged that day, and a whole meal can be deleted.
 - **Favorites, Recent, Frequent**, manual entries, editing entries, and **bulk import** of Fineli diary CSV exports.
 - Unknown nutrient values stay unknown - never counted as zero.
 
@@ -38,7 +42,7 @@ HealthManager is a privacy-focused Django web application that helps you:
 - Manual Garmin calorie adjustment if your device over- or underestimates.
 - Recovery: 7-day weighted resting-HR baseline and consecutive elevated days; training summary.
 
-### Garmin (personal use, see the notice above)
+### Garmin (🚧 work in progress, personal use - see the notices above)
 - `get_garmindata.py` fetches activities, laps, daily stats and health metrics (sleep, HRV, stress, Body Battery, respiration, SpO2) with the unofficial `garminconnect` library and token reuse; one click with **Sync Garmin**.
 - Running analytics with workout and lap filters, weighted pace.
 
@@ -178,7 +182,7 @@ python manage.py import_garmin_csv
 Import your food diary from Fineli diary CSV exports (food by food, not just daily totals):
 
 1. Go to Food Diary page: http://127.0.0.1:8000/food-diary/
-2. Click "📥 Import CSV" button in the header
+2. Click the "📥 Import Diary CSV" button next to the date (on a phone just 📥)
 3. Select one or multiple CSV files from Fineli diary export
 4. Click "Import" - all days are processed automatically
 5. Page refreshes after successful import
@@ -188,7 +192,7 @@ Import your food diary from Fineli diary CSV exports (food by food, not just dai
 - Adds missing food rows and updates matching CSV-imported rows without deleting existing entries (manual/Fineli/custom entries are untouched)
 - Imports individual food rows (not just daily totals): calories, protein, carbs, fat, saturated fat, sugar, fiber, salt, plus auxiliary micronutrients and original Fineli source provenance where present
 - Preserves below-detection-limit values (e.g. Fineli's `<0.1`) as a qualifier instead of collapsing them to a plain number
-- Uses the diary's own meal-slot name - the 5 standard Finnish names map onto the app's Breakfast/Lunch/Dinner/Snack/Evening Snack sections; any other name (a custom-renamed slot, "Herkku", etc.) gets its own section named after the CSV's own text
+- Uses the diary's own meal-slot name - the 5 standard Finnish names map onto the app's Breakfast/Lunch/Snack/Dinner/Supper sections; any other name (a custom-renamed slot, "Herkku", etc.) gets its own section named after the CSV's own text
 
 ### Daily Workflow
 
@@ -357,6 +361,7 @@ See [docs/project_status.md](docs/project_status.md) for the up-to-date phase, r
 ✅ Per-user diary totals on the diary and dashboard
 ✅ Dashboard: energy balance against preset or custom goals with threshold coloring, macros, Garmin calorie adjustment
 ✅ Garmin data import via the unofficial `garminconnect` library (personal-use feature) - activities, daily stats, and health metrics
+🚧 Garmin analytics (running analytics, health and recovery, weight) - work in progress, not ready for general use
 ✅ Running analytics, heart rate baseline and recovery tracking
 
 ### Known Gaps

@@ -16,6 +16,7 @@ The Nutrition menu has four pages:
 | Foods | `/food-diary/custom-foods/` | Your own products (values from the label) |
 | Recipes | `/food-diary/recipes/` | Your recipes (values calculated from ingredients) |
 | Favorites | `/food-diary/favorites/` | Starred foods for quick logging |
+| Import Diary CSV | `/food-diary/#import-csv` | Fineli diary CSV import (menu: Nutrition → 📥 Import Diary CSV) |
 
 ## First-time setup
 
@@ -41,9 +42,9 @@ The Nutrition menu has four pages:
 
 ## Logging food
 
-1. Open **Nutrition → Diary**. Today is selected; change the day with the date picker or the ◀ ▶ arrows. On a phone the date row stays on one line and the diary CSV import is the 📥 button.
+1. Open **Nutrition → Diary**. Today is selected; change the day with the date picker or the ◀ ▶ arrows. On a phone the date row stays on one line.
 2. To start a meal, pick a meal in the **Meal** field above the meals, or type a name and press Enter. Tapping the field lists the standard meals - Breakfast, Lunch, Snack, Dinner, Supper (*Aamiainen, Lounas, Välipala, Päivällinen, Illallinen*) - and typing filters them (*Aam* → Aamiainen). Any other name can be typed as is (e.g. *Ennen kisaa*, at most 50 characters). A typed standard name, in English or Finnish, goes to that standard meal. The new meal appears as an empty section until its first food is saved.
-3. Click **+ Add Food** on the meal, choose a tab, pick a food, set the portion, and confirm.
+3. Click **+ Add Food** on the meal, search for a food (or choose another way of adding - see below), set the portion, and confirm.
 
 The diary shows the meals logged on that day, in the order they were first logged. 🗑️ on a meal deletes the whole meal with its foods (click twice within 3 seconds, like deleting a food). The meal and day totals update at once. They only count your own entries.
 
@@ -58,17 +59,34 @@ On a wide screen the diary stays about 900 px wide, so the buttons are near the 
 
 **Micronutrients ▾** under the day totals opens the day's minerals (iron, calcium, magnesium, potassium, zinc, selenium, iodine, phosphorus, sodium), vitamins (D, B12, folate, C, A, E, K, B1, B2, niacin, B6) and fats (omega-3, EPA, DHA, omega-6, trans fat, cholesterol). Only your own entries count. A food with no value for a nutrient (often a manual entry or an own product) is unknown, not zero, so a total that leaves some foods out shows how many of the day's foods it covers, e.g. *Iron 12 mg 8/11*. A nutrient that no food of the day reports is not listed, and the panel is hidden when none is known. A "less than" value (e.g. *<0.1*) counts with its threshold.
 
+**Percent of the daily recommendation:** with your sex set in **Settings**, each vitamin and mineral also shows its share of the adult daily recommended intake, e.g. *Iron 12 mg 80 %*. The values come from the Finnish nutrition recommendations 2024 (based on the Nordic Nutrition Recommendations 2023) for your sex and age group (18–24, 25–50, 51–70, over 70; 25–50 if no age is set) - see `nutrition/reference_intakes.py`.
+- Thiamine and niacin are recommended per MJ of energy, so they are compared with the energy logged that day.
+- Sodium shows its share of the **maximum** (under 5 g of salt a day): *50 % of max*.
+- Omega-3, EPA, DHA, omega-6, trans fat and cholesterol have no daily recommendation and show only the amount.
+- A total that leaves foods out (*8/11*) gives a percentage that is too low.
+- These are recommendations for healthy adults in general; heavy training can raise the need (e.g. iron).
+
 ### Add Food tabs
+
+The Add Food window opens on the search. The other ways of adding are folded away: the bar under the title names the one in use (🔍 Search Fineli ▾) - tap it to show the tabs.
 
 | Tab | What it does |
 | --- | --- |
-| 🔍 Search Fineli | Type 2+ characters. Searches Finnish, Swedish and English names. Case and ä/ö/å don't matter, and every word must match in any order - "maito lak" finds *MAITO, …, LAKTOOSITON*. Shows the top 20: your most-used foods first, then the best matches (*BANAANI, KUORITTU* before *BANAANILASTU*). An empty search lists your most-used Fineli foods. |
+| 🔍 Search Fineli | Type 2+ characters. See [Food search](#food-search). An empty search lists your most-used Fineli foods. |
 | ⭐ My Foods | Your own products and recipes. |
+| ✏️ Manual Entry | A one-off food with its values typed in. |
 | ★ Favorites | Foods you have starred (☆ on a search result). |
 | 🕒 Recent | Foods you logged most recently. |
 | 🔁 Frequent | Foods you log most often. |
-| 📥 Diary CSV | Bulk import of Fineli diary exports - see [Diary CSV import](#diary-csv-import). |
-| ✏️ Manual Entry | A one-off food with its values typed in. |
+
+### Food search
+
+- Searches Fineli's Finnish, Swedish and English names, and your own foods: matching own foods (up to 5) are listed first under ⭐ My Foods, then the Fineli foods.
+- Case and ä/ö/å don't matter, and every word must match in any order - "maito lak" finds *MAITO, …, LAKTOOSITON*.
+- **Order:** your most-used foods first, then the best matches. Finnish compound words are read from the end, where the food itself is: *hillo* lists *HILLO*, then *MARJAHILLO*, *MANSIKKAHILLO*, … before *HILLOPIIRAKKA*, and foods only flavoured with it (*JOGURTTI, MAUSTETTU HILLOLLA*) come last. The English name counts too, so *jam* finds *MARJAHILLO* (*MIXED BERRY JAM*).
+- **Synonyms:** *kana* also finds *BROILERI*, *hillo* also *MARMELADI* (and *chicken*/*broiler*, *jam*/*marmalade*). The list is `SYNONYM_GROUPS` in `nutrition/food_search.py`.
+- **Typos:** a word that matches nothing is replaced with the closest word in Fineli's names, and the list says so: *jugurtti* → "Showing results for jogurtti".
+- The top 20 are shown; **Show all N results** below them lists the rest (up to 200).
 
 ### Portion units
 
@@ -91,7 +109,7 @@ For a food that is not in Fineli and not worth saving as a product. Food name, p
 
 ### Editing an entry
 
-Click ✏️ on an entry. You can change the meal (the same field as when adding: a standard meal or a name of your own), the name and the amount:
+Click ✏️ on an entry. You can change the name and the amount (the entry stays in its meal - to move a food, delete it and add it to the other meal):
 
 - **Grams** - the calories, macros and micronutrients follow the new amount. An entry logged as "2 × iso (kpl)" becomes a plain gram amount.
 - **Portion count** (entries logged in portion units) - "2 × iso (kpl)" → 3 recalculates the grams and keeps the unit.
@@ -105,12 +123,23 @@ Click 🗑️, then click it again within 3 seconds. There are no browser pop-up
 
 ## Products (Nutrition → Foods)
 
-Products are foods you enter yourself from the label, e.g. a protein quark or a maple syrup.
+Products are foods you enter yourself from the label, e.g. a protein quark or a maple syrup. Tap **➕ Add product** to open the form (it is folded so the saved products come first); ⓘ next to the title explains the page.
 
 - **Nutrition values per**: *100 g* or *100 ml*, as printed on the package. Enter the values with up to two decimals; leave a value empty if the label doesn't give it (it stays unknown, never zero).
 - **Package size (optional)**: e.g. 200 g, or 1 l for a liquid. When set, the diary also offers "1 × pakkaus" (or 0.5). Leave it empty for foods you measure, such as syrup. The package unit must match the nutrition basis - grams for per 100 g, ml/dl/l for per 100 ml - because grams and millilitres can't be converted without the food's density; the form only offers matching units.
 - **Edit** a product to fix its values. Every recipe that uses it is recalculated automatically, and a message names them. Entries already in the diary keep their values.
 - **Delete** removes the product. Diary entries keep their values. A product that is an ingredient of a recipe can't be deleted until it is removed from that recipe.
+- **Saved products** can be searched, sorted and shown as cards or a list - see [Browsing your products and recipes](#browsing-your-products-and-recipes). A list row opens the product's edit page.
+
+### Browsing your products and recipes
+
+Both lists have the same controls above them:
+
+- **Search** - every word must match, in any order. On the Recipes page the ingredients count too (*kaura* finds every recipe with oats).
+- **Sort** - Name A–Ö (Finnish order: Å, Ä, Ö last), Most used or Recently edited.
+- **Cards / List** - the list is compact: one row per food with energy and macros per 100 g; tap a row to open it. With more than 12 foods the page opens as a list.
+- **Letters** - when sorted by name, a letter bar jumps to that letter (the list also has a heading per letter).
+- *Shown: 4 / 20* tells how many match the search. Sort and view are remembered per page in this browser.
 
 ## Recipes (Nutrition → Recipes)
 
@@ -118,7 +147,7 @@ A recipe is a dish built from ingredients - Fineli foods and your own products o
 
 ### The Recipes page
 
-Each recipe is a card with energy and macros per 100 g, the ingredient count and total mass, and - when set - servings and the size and energy of one serving. **Show details** expands the ingredient list and all values. Each card has **Open recipe**, **Duplicate** and **Delete**. Search appears when you have more than six recipes. **+ Create Recipe** asks for a name and opens the new recipe.
+Each recipe is a card with energy and macros per 100 g, the ingredient count and total mass, and - when set - servings and the size and energy of one serving. **Show details** expands the ingredient list and all values. Each card has **Open recipe**, **Duplicate** and **Delete**. Search, sort and the compact list view work as for products - see [Browsing your products and recipes](#browsing-your-products-and-recipes). **+ Create Recipe** asks for a name and opens the new recipe.
 
 ### The recipe page
 
@@ -159,7 +188,7 @@ Lists your starred Fineli foods and own foods; tap ★ to remove one. **Add favo
 
 Imports food-level rows from Fineli diary CSV exports (from the Fineli website's diary).
 
-1. Diary → **📥 Import CSV** (or the Diary CSV tab).
+1. Menu **Nutrition → 📥 Import Diary CSV** (opens the diary with the import window).
 2. Select one or more CSV files and click **Import**.
 3. The page refreshes when done.
 

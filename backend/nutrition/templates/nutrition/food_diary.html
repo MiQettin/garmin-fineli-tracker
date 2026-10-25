@@ -21,7 +21,6 @@
                 <a href="?" class="date-btn today-btn">{% translate "Today" %}</a>
             {% endif %}
             <a href="?date={{ next_date|date:'Y-m-d' }}" class="date-btn" title="{% translate 'Next' %}" aria-label="{% translate 'Next' %}">▶</a>
-            <button onclick="openBulkImportModal()" class="date-btn bulk-import-btn" title="{% translate 'Import Diary CSV' %}" aria-label="{% translate 'Import Diary CSV' %}">📥<span class="btn-text"> {% translate "Import Diary CSV" %}</span></button>
         </div>
     </div>
 
@@ -72,7 +71,7 @@
                     {% for row in group.rows %}
                     <div class="micro-row">
                         <dt>{{ row.label }}</dt>
-                        <dd>{{ row.amount }} {{ row.unit }}{% if row.partial %} <span class="micro-coverage" title="{% translate 'Foods with a known value / all foods of the day' %}">{{ row.known }}/{{ entry_count }}</span>{% endif %}</dd>
+                        <dd>{{ row.amount }} {{ row.unit }}{% if row.reference %}{% with pct=row.reference.0 %} <span class="micro-pct{% if row.reference.1 %} micro-pct-max{% endif %}">{% if row.reference.1 %}{% blocktranslate %}{{ pct }} % of max{% endblocktranslate %}{% else %}{{ pct }} %{% endif %}</span>{% endwith %}{% endif %}{% if row.partial %} <span class="micro-coverage" title="{% translate 'Foods with a known value / all foods of the day' %}">{{ row.known }}/{{ entry_count }}</span>{% endif %}</dd>
                     </div>
                     {% endfor %}
                 </dl>
@@ -80,6 +79,11 @@
             {% endfor %}
         </div>
         <p class="micro-note">{% translate "x/y: the total includes only the foods with a known value." %}</p>
+        {% if micro_sex_set %}
+        <p class="micro-note">{% translate "Percentages: share of the daily recommended intake for adults (Finnish nutrition recommendations 2024, based on NNR2023), by the sex and age in Settings. Thiamine and niacin are compared with the energy logged today. Sodium: share of the maximum (5 g salt)." %}</p>
+        {% else %}
+        <p class="micro-note">{% url 'settings' as settings_url %}{% blocktranslate %}Set your sex in <a href="{{ settings_url }}">Settings</a> to see each value as a % of the daily recommendation.{% endblocktranslate %}</p>
+        {% endif %}
     </details>
     {% endif %}
 
@@ -169,19 +173,24 @@
             <button class="close-btn" onclick="closeModal()">&times;</button>
         </div>
 
-        <div class="modal-tabs">
+        <!-- The ways of adding are folded behind this toggle: searching is
+             what's used most. The toggle names the one in use. -->
+        <button type="button" id="tabsToggle" class="tabs-toggle" aria-expanded="false" aria-controls="modalTabs"
+                title="{% translate 'Choose how to add' %}" onclick="toggleTabs()">
+            <span id="tabsToggleLabel">🔍 {% translate "Search Fineli" %}</span> <span class="tabs-toggle-arrow">▾</span>
+        </button>
+        <div class="modal-tabs" id="modalTabs" hidden>
             <button class="tab-btn active" data-tab="fineli" onclick="switchTab('fineli')">🔍 {% translate "Search Fineli" %}</button>
             <button class="tab-btn" data-tab="myfoods" onclick="switchTab('myfoods')">⭐ {% translate "My Foods" %}</button>
+            <button class="tab-btn" data-tab="manual" onclick="switchTab('manual')">✏️ {% translate "Manual Entry" %}</button>
             <button class="tab-btn" data-tab="favorites" onclick="switchTab('favorites')">★ {% translate "Favorites" %}</button>
             <button class="tab-btn" data-tab="recent" onclick="switchTab('recent')">🕒 {% translate "Recent" %}</button>
             <button class="tab-btn" data-tab="frequent" onclick="switchTab('frequent')">🔁 {% translate "Frequent" %}</button>
-            <button class="tab-btn" data-tab="csv" onclick="switchTab('csv')">📥 {% translate "Diary CSV" %}</button>
-            <button class="tab-btn" data-tab="manual" onclick="switchTab('manual')">✏️ {% translate "Manual Entry" %}</button>
         </div>
 
         <!-- Fineli Search Tab -->
         <div id="fineliTab" class="tab-content active">
-            <input type="text" id="fineliSearch" placeholder="{% translate 'Search Fineli foods...' %}" 
+            <input type="text" id="fineliSearch" placeholder="{% translate 'Search Fineli and my foods' %}"
                    oninput="searchFineli(this.value)" 
                    onfocus="if(this.value.length < 2) searchFineli('')"
                    class="search-input">
@@ -226,12 +235,6 @@
             <div id="frequentResults" class="search-results">
                 <p class="search-hint">{% translate "Loading frequent foods..." %}</p>
             </div>
-        </div>
-
-        <!-- CSV Import Tab -->
-        <div id="csvTab" class="tab-content">
-            <p>{% translate "Import foods from a Fineli diary CSV export. Each entry uses the file's own date and meal, the same as the import button at the top of the page." %}</p>
-            <button type="button" class="submit-btn" onclick="closeModal(); openBulkImportModal();">📥 {% translate "Open Diary CSV Import" %}</button>
         </div>
 
         <!-- Manual Entry Tab -->
@@ -395,16 +398,6 @@
     background: var(--accent-green);
 }
 
-.bulk-import-btn {
-    background: var(--warning);
-    border: none;
-    cursor: pointer;
-}
-
-.bulk-import-btn:hover {
-    background: #d69e2e;
-}
-
 .date-input {
     padding: 6px 10px;
     border: 2px solid var(--border-light);
@@ -557,6 +550,7 @@
 }
 .micro-row dt { font-weight: normal; color: var(--gray-700); }
 .micro-row dd { margin: 0; color: var(--gray-800); font-weight: 600; white-space: nowrap; }
+.micro-pct { font-weight: normal; color: var(--gray-500); margin-left: 6px; }
 .micro-coverage { font-weight: normal; font-size: 0.85em; color: var(--gray-500); margin-left: 4px; }
 .micro-note { padding: 0 15px 12px; margin: 0; font-size: 0.8em; color: var(--gray-500); }
 
@@ -720,10 +714,62 @@
     color: var(--gray-600);
 }
 
+.tabs-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--border-light);
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--primary);
+    text-align: left;
+}
+
+.tabs-toggle:hover {
+    background: var(--gray-50);
+}
+
+.tabs-toggle-arrow {
+    color: var(--gray-500);
+    transition: transform 0.2s;
+}
+
+.tabs-toggle[aria-expanded="true"] .tabs-toggle-arrow {
+    transform: rotate(180deg);
+}
+
 .modal-tabs {
     display: flex;
     flex-wrap: wrap;
     border-bottom: 1px solid var(--border-light);
+}
+
+.modal-tabs[hidden] {
+    display: none !important;
+}
+
+.search-section-header {
+    padding: 6px 2px;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--gray-500);
+}
+
+.show-all-btn {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px;
+    background: var(--gray-50);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--primary);
 }
 
 .tab-btn {
@@ -929,12 +975,10 @@
     /* Header + date nav were a single non-wrapping row - the primary
        source of page-level horizontal overflow on phones. */
     .diary-header { flex-wrap: wrap; }
-    /* The date nav stays on one row: arrows, the date (which shrinks)
-       and the CSV import as an icon only. */
+    /* The date nav stays on one row: arrows and the date (which shrinks). */
     .date-nav { width: 100%; gap: 6px; }
     .date-nav .date-btn { flex: none; padding: 8px 12px; }
     .date-nav .date-input { flex: 1 1 0; min-width: 0; width: 100%; }
-    .bulk-import-btn .btn-text { display: none; }
 
     /* Meals first, the meal picker below them once there are meals. */
     .diary-meals { display: flex; flex-direction: column; }
@@ -1051,6 +1095,9 @@ const T = {
     startSearching: {% jstrans "Start searching for foods..." %},
     searching: {% jstrans "Searching..." %},
     noResults: {% jstrans "No results found" %},
+    showingResultsFor: {% jstrans "Showing results for {q}" %},
+    showAll: {% jstrans "Show all {n} results" %},
+    myFoods: {% jstrans "My Foods" %},
     networkError: {% jstrans "Network error:" %},
     loadingFoods: {% jstrans "Loading your foods..." %},
     failedFoods: {% jstrans "Failed to load foods:" %},
@@ -1151,6 +1198,14 @@ function closeModal() {
     document.getElementById('addFoodModal').style.display = 'none';
 }
 
+// Shows or hides the tab bar; without `open`, flips it.
+function toggleTabs(open) {
+    const tabs = document.getElementById('modalTabs');
+    const show = open === undefined ? tabs.hidden : open;
+    tabs.hidden = !show;
+    document.getElementById('tabsToggle').setAttribute('aria-expanded', String(show));
+}
+
 function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -1164,7 +1219,10 @@ function switchTab(tabName) {
     });
     
     document.getElementById(tabName + 'Tab').classList.add('active');
-    
+    document.getElementById('tabsToggleLabel').textContent =
+        document.querySelector(`.tab-btn[data-tab="${tabName}"]`).textContent;
+    toggleTabs(false);
+
     // Load data for the selected tab
     if (tabName === 'myfoods') {
         loadMyFoods();
@@ -1185,14 +1243,22 @@ function fmtNutrient(value, decimals) {
     return value === null || value === undefined ? '?' : value.toFixed(decimals);
 }
 
-function searchFineli(query) {
+// Only the latest search may draw its results: each new one cancels the
+// one before, so a slow answer for "hil" can't replace the one for "hillo".
+let searchController = null;
+const OWN_FOODS_IN_SEARCH = 5;
+
+function searchFineli(query, limit) {
     clearTimeout(searchTimeout);
-    
+    if (searchController) searchController.abort();
+    searchController = new AbortController();
+    const signal = searchController.signal;
+
     const resultsDiv = document.getElementById('fineliResults');
-    
+
     if (query.length < 2) {
         // Show favorites when no query
-        fetch('/food-diary/api/search/')
+        fetch('/food-diary/api/search/', {signal})
             .then(response => response.json())
             .then(data => {
                 if (data.results.length > 0) {
@@ -1201,27 +1267,55 @@ function searchFineli(query) {
                 } else {
                     resultsDiv.innerHTML = `<p class="search-hint">${T.startSearching}</p>`;
                 }
+            })
+            .catch(error => {
+                if (error.name !== 'AbortError') console.error('Favorites error:', error);
             });
         return;
     }
-    
+
     searchTimeout = setTimeout(() => {
-        resultsDiv.innerHTML = `<p class="search-hint">${T.searching}</p>`;
-        
-        fetch(`/food-diary/api/search/?q=${encodeURIComponent(query)}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.results.length === 0) {
+        if (!limit) resultsDiv.innerHTML = `<p class="search-hint">${T.searching}</p>`;
+        const q = encodeURIComponent(query);
+        const fineliUrl = `/food-diary/api/search/?q=${q}` + (limit ? `&limit=${limit}` : '');
+
+        Promise.all([
+            fetch(fineliUrl, {signal}).then(response => response.json()),
+            // Own foods that match come first; a failure here just leaves them out.
+            fetch(`/food-diary/api/custom-foods/?q=${q}`, {signal})
+                .then(response => response.json())
+                .then(data => data.results.slice(0, OWN_FOODS_IN_SEARCH))
+                .catch(error => { if (error.name === 'AbortError') throw error; return []; }),
+        ])
+            .then(([data, ownFoods]) => {
+                const fineli = data.results || [];
+                if (fineli.length === 0 && ownFoods.length === 0) {
                     resultsDiv.innerHTML = `<p class="search-error">${escapeHtml(data.error || T.noResults)}</p>`;
                     return;
                 }
-                resultsDiv.innerHTML = data.results.map(food => formatFoodResult(food)).join('');
+                let html = '';
+                if (data.corrected_query) {
+                    html += `<p class="search-hint">${escapeHtml(T.showingResultsFor.replace('{q}', data.corrected_query))}</p>`;
+                }
+                if (ownFoods.length > 0) {
+                    html += `<div class="search-section-header">⭐ ${T.myFoods}</div>` +
+                        ownFoods.map(food => formatCustomFoodResult(food)).join('');
+                    if (fineli.length > 0) html += `<div class="search-section-header">🔍 Fineli</div>`;
+                }
+                html += fineli.map(food => formatFoodResult(food)).join('');
+                if (data.total > fineli.length) {
+                    html += `<button type="button" class="show-all-btn"
+                        onclick="searchFineli(document.getElementById('fineliSearch').value, ${Number(data.total)})">
+                        ${escapeHtml(T.showAll.replace('{n}', data.total))}</button>`;
+                }
+                resultsDiv.innerHTML = html;
             })
             .catch(error => {
+                if (error.name === 'AbortError') return;
                 console.error('Search error:', error);
                 resultsDiv.innerHTML = `<p class="search-error">${T.networkError} ${escapeHtml(error.message)}</p>`;
             });
-    }, 300);
+    }, limit ? 0 : 300);
 }
 
 // Custom Foods (My Foods tab)
@@ -1775,7 +1869,15 @@ function openBulkImportModal() {
 
 function closeBulkImportModal() {
     document.getElementById('bulkImportModal').style.display = 'none';
+    if (location.hash === '#import-csv') history.replaceState(null, '', location.pathname + location.search);
 }
+
+// The menu's "Import Diary CSV" links here as /food-diary/#import-csv.
+function openImportFromHash() {
+    if (location.hash === '#import-csv') openBulkImportModal();
+}
+window.addEventListener('hashchange', openImportFromHash);
+openImportFromHash();
 
 // Bulk Import Form Submit
 document.getElementById('bulkImportForm').addEventListener('submit', function(e) {

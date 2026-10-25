@@ -4341,6 +4341,115 @@ class NonAsciiNameSearchTests(TestCase):
         self.assertEqual([r["id"] for r in results], [3, 4])
 
 
+class SmarterFoodSearchTests(TestCase):
+    """Diary food search: Finnish compounds ("marjahillo" is jam), English
+    names, synonyms, typos, all matches reachable, and own foods included."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="smartsearch", password="x")
+        self.client.force_login(self.user)
+
+    def _ids(self, query, **params):
+        return [r["id"] for r in self._search(query, **params)["results"]]
+
+    def _search(self, query, **params):
+        return self.client.get(reverse("search_fineli_api"), {"q": query, **params}).json()
+
+    def test_compound_ending_in_word_ranks_above_one_starting_with_it(self):
+        for i in range(25):
+            FineliFood.objects.create(fineli_id=100 + i, name_fi=f"HILLOPIIRAKKA, PULLAPOHJA {i}", energy_kcal=300)
+        FineliFood.objects.create(fineli_id=1, name_fi="MARJAHILLO, KESKIARVO", energy_kcal=200)
+        FineliFood.objects.create(fineli_id=2, name_fi="HILLO, FRUKTOOSILLA MAKEUTETTU", energy_kcal=150)
+        FineliFood.objects.create(fineli_id=3, name_fi="JOGURTTI, MAUSTETTU HILLOLLA", energy_kcal=80)
+        ids = self._ids("hillo")
+        self.assertEqual(ids[:2], [2, 1])
+        self.assertNotIn(3, ids)  # only flavoured with jam: behind the 25 pies
+
+    def test_compound_head_also_after_a_hyphen(self):
+        FineliFood.objects.create(fineli_id=1, name_fi="RIISI PUUROUTUVA", energy_kcal=350)
+        FineliFood.objects.create(fineli_id=2, name_fi="KAURA-RUISPUURO, VESI, SUOLAA", energy_kcal=60)
+        FineliFood.objects.create(fineli_id=3, name_fi="KAURAPUURO, VESI, SUOLAA", energy_kcal=60)
+        self.assertEqual(self._ids("puuro"), [3, 2, 1])
+
+    def test_english_name_counts_for_ranking(self):
+        FineliFood.objects.create(fineli_id=1, name_fi="HILLOPIIRAKKA, MUROPOHJA", name_en="JAM PIE, SHORTBREAD CRUST", energy_kcal=300)
+        FineliFood.objects.create(fineli_id=2, name_fi="MARJAHILLO, KESKIARVO", name_en="MIXED BERRY JAM", energy_kcal=200)
+        self.assertEqual(self._ids("jam"), [2, 1])
+
+    def test_synonym_matches_after_the_typed_word(self):
+        FineliFood.objects.create(fineli_id=1, name_fi="BROILERI, RINTALEIKE, RAAKA", energy_kcal=110)
+        FineliFood.objects.create(fineli_id=2, name_fi="KANA, KEITETTY", energy_kcal=150)
+        FineliFood.objects.create(fineli_id=3, name_fi="KANANMUNA, KEITETTY", energy_kcal=140)
+        self.assertEqual(self._ids("kana"), [2, 1, 3])
+
+    def test_custom_foods_match_synonyms(self):
+        CustomFood.objects.create(user=self.user, name="Broilerin fileesuikale", energy_kcal_per_100g=110)
+        results = self.client.get(reverse("list_custom_foods_api"), {"q": "kana"}).json()["results"]
+        self.assertEqual([r["name"] for r in results], ["Broilerin fileesuikale"])
+
+    def test_total_and_limit(self):
+        for i in range(25):
+            FineliFood.objects.create(fineli_id=100 + i, name_fi=f"MAITO, {i}", energy_kcal=40)
+        data = self._search("maito")
+        self.assertEqual((data["count"], data["total"]), (20, 25))
+        self.assertEqual(self._search("maito", limit=25)["count"], 25)
+        self.assertEqual(self._search("maito", limit=5000)["count"], 25)  # capped at 200
+        self.assertEqual(self._search("maito", limit="x")["count"], 20)
+        self.assertEqual(self._search("maito", limit=0)["count"], 1)
+
+    def test_typo_is_corrected(self):
+        FineliFood.objects.create(fineli_id=1, name_fi="JOGURTTI, MAUSTAMATON", energy_kcal=60)
+        for query in ("jugurtti", "jugurt", "Jogurtii"):
+            with self.subTest(query=query):
+                data = self._search(query)
+                self.assertEqual([r["id"] for r in data["results"]], [1])
+                self.assertTrue(data["corrected_query"])
+
+    def test_typo_corrected_only_in_the_unmatched_word(self):
+        FineliFood.objects.create(fineli_id=1, name_fi="JOGURTTI, MAUSTAMATON", energy_kcal=60)
+        data = self._search("jugurtti maustamaton")
+        self.assertEqual(data["corrected_query"], "jogurtti maustamaton")
+
+    def test_no_correction_when_found_or_nothing_close(self):
+        FineliFood.objects.create(fineli_id=1, name_fi="JOGURTTI, MAUSTAMATON", energy_kcal=60)
+        self.assertIsNone(self._search("jogurtti")["corrected_query"])
+        data = self._search("xqzw")
+        self.assertEqual((data["results"], data["corrected_query"]), ([], None))
+
+    def test_typo_vocabulary_follows_new_foods(self):
+        FineliFood.objects.create(fineli_id=1, name_fi="JOGURTTI", energy_kcal=60)
+        self._search("jugurtti")
+        FineliFood.objects.create(fineli_id=2, name_fi="PORKKANA, RAAKA", energy_kcal=30)
+        self.assertEqual([r["id"] for r in self._search("porkana")["results"]], [2])
+
+
+class FoodDiaryAddFoodLayoutTests(TestCase):
+    """Add Food: the ways of adding are folded away (search is the default),
+    and the diary CSV import lives in the menu only."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="addlayout", password="x")
+        self.client.force_login(self.user)
+        self.resp = self.client.get(reverse("food_diary"))
+
+    def test_tabs_folded_by_default(self):
+        self.assertContains(self.resp, 'id="tabsToggle"')
+        self.assertContains(self.resp, 'aria-expanded="false"')
+        self.assertContains(self.resp, '<div class="modal-tabs" id="modalTabs" hidden>', html=False)
+
+    def test_no_csv_import_in_add_food_or_header(self):
+        self.assertNotContains(self.resp, 'data-tab="csv"')
+        self.assertNotContains(self.resp, 'bulk-import-btn')
+        # The import dialog itself is still on the page, opened from the menu.
+        self.assertContains(self.resp, 'id="bulkImportModal"')
+
+    def test_menu_links_to_csv_import(self):
+        self.assertContains(self.resp, reverse("food_diary") + "#import-csv")
+
+    def test_search_includes_own_foods(self):
+        self.assertContains(self.resp, "/food-diary/api/custom-foods/?q=")
+
+
 class RecipePickerTests(TestCase):
     """Recipe page pickers: choose a food from a list (Fineli suggestions,
     Fineli favorites, My Foods), then set the amount in a panel whose fields
@@ -4532,6 +4641,69 @@ class RecipeListPageTests(TestCase):
         resp = self.client.get(reverse("delete_custom_food", args=[self.product.id]))
         self.assertRedirects(resp, reverse("manage_custom_foods"))
         self.assertTrue(CustomFood.objects.filter(pk=self.product.pk).exists())
+
+
+class OwnFoodBrowserTests(TestCase):
+    """Recipes and My products: search (recipes also by ingredient), sort,
+    and a compact A-Ö list next to the cards (nutrition/item_browser.js)."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="browser", password="x")
+        self.client.force_login(self.user)
+        oats = FineliFood.objects.create(fineli_id=153, name_fi="KAURAHIUTALE", energy_kcal=380)
+        self.recipe = CustomFood.objects.create(user=self.user, name="Puuro", energy_kcal_per_100g=120.5, protein_per_100g=4.25)
+        CustomFoodIngredient.objects.create(custom_food=self.recipe, fineli_food=oats, amount_grams=60)
+        self.product = CustomFood.objects.create(user=self.user, name="Rahka", brand="Valio", energy_kcal_per_100g=60, protein_per_100g=10.5)
+
+    def test_recipes_page_has_browser_and_list(self):
+        resp = self.client.get(reverse("recipe_list"))
+        self.assertContains(resp, 'data-browser="recipes"')
+        self.assertContains(resp, 'data-browser-sort')
+        self.assertContains(resp, 'data-browser-rows')
+        self.assertContains(resp, "nutrition/item_browser.js")
+        # One card and one list row per recipe, both opening the recipe.
+        self.assertContains(resp, f'data-item="{self.recipe.id}"', count=2)
+        self.assertContains(resp, f'href="{reverse("recipe_detail", args=[self.recipe.id])}"', count=2)
+
+    def test_recipe_search_covers_ingredients(self):
+        resp = self.client.get(reverse("recipe_list"))
+        self.assertContains(resp, 'data-search="puuro  kaurahiutale"')
+
+    def test_sort_options(self):
+        resp = self.client.get(reverse("recipe_list"))
+        for value in ("name", "uses", "updated"):
+            self.assertContains(resp, f'<option value="{value}">', html=False)
+        self.assertContains(resp, 'data-uses="0"')
+        self.assertNotContains(resp, 'value="kcal"')
+
+    def test_products_page_has_browser_and_list(self):
+        resp = self.client.get(reverse("manage_custom_foods"))
+        self.assertContains(resp, 'data-browser="products"')
+        self.assertContains(resp, f'data-item="{self.product.id}"', count=2)
+        self.assertContains(resp, 'data-search="rahka valio"')
+        self.assertContains(resp, f'href="{reverse("edit_custom_food", args=[self.product.id])}"', count=2)
+        self.assertNotContains(resp, f'data-item="{self.recipe.id}"')
+
+    def test_products_info_behind_info_button(self):
+        resp = self.client.get(reverse("manage_custom_foods"))
+        self.assertContains(resp, 'id="productsInfoToggle" aria-expanded="false"')
+        self.assertContains(resp, '<p class="info-text" id="productsInfo" hidden>', html=False)
+        # The jump-to-form and Recipes buttons are gone (both are in the menu / on the page).
+        self.assertNotContains(resp, 'href="#add-product-form"')
+        self.assertNotContains(resp, 'class="btn btn-outline-light">🧪')
+
+    def test_add_product_form_folded_until_needed(self):
+        resp = self.client.get(reverse("manage_custom_foods"))
+        self.assertContains(resp, '<details class="add-form" id="add-product-form">', html=False)
+        # A failed save opens it again, with the errors.
+        resp = self.client.post(reverse("manage_custom_foods"), {"name": ""})
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, '<details class="add-form" id="add-product-form" open>', html=False)
+
+    def test_no_browser_without_items(self):
+        CustomFood.objects.filter(user=self.user).delete()
+        self.assertNotContains(self.client.get(reverse("recipe_list")), "data-browser=")
+        self.assertNotContains(self.client.get(reverse("manage_custom_foods")), "data-browser=")
 
 
 class RecipeKindAndYieldTests(TestCase):
@@ -4765,6 +4937,17 @@ class EditMealEntryTests(TestCase):
         self.entry.refresh_from_db()
         return resp
 
+    def test_edit_page_has_no_meal_picker(self):
+        resp = self.client.get(self.url)
+        self.assertNotContains(resp, "meal-combo")
+        self.assertContains(resp, '<input type="hidden" name="meal_type" value="Snack">', html=True)
+
+    def test_saving_with_the_shown_meal_keeps_the_stored_one(self):
+        MealEntry.objects.filter(pk=self.entry.pk).update(meal_type="Herkku")
+        hidden = self.client.get(self.url).context["form"]["meal_type"].value()
+        self._post(meal_type=hidden, food_name="Banaani")
+        self.assertEqual((self.entry.meal_type, self.entry.food_name), ("Herkku", "Banaani"))
+
     def test_edit_page_renders(self):
         resp = self.client.get(self.url)
         self.assertEqual(resp.status_code, 200)
@@ -4838,13 +5021,6 @@ class EditMealEntryTests(TestCase):
         resp = self._post(meal_type=" ")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(self.entry.meal_type, "snack")
-
-    def test_meal_field_shows_name_and_standard_suggestions_only(self):
-        MealEntry.objects.filter(pk=self.entry.pk).update(meal_type="Herkku")
-        resp = self.client.get(self.url)
-        self.assertContains(resp, 'value="Herkku"')
-        self.assertEqual(resp.context["meal_options"], ["Breakfast", "Lunch", "Snack", "Dinner", "Supper"])
-        self.assertContains(resp, 'role="option"', count=5)
 
     def test_unchanged_meal_keeps_stored_value(self):
         # An imported "Lounas" is shown in the Lunch section; saving the entry
@@ -5328,3 +5504,85 @@ class FoodDiaryDayMicronutrientTests(TestCase):
         resp, rows = self._panel()
         self.assertEqual(rows, {})
         self.assertNotContains(resp, "<details class=\"micro-panel\">")
+
+
+class MicronutrientReferenceTests(TestCase):
+    """Day micronutrients as a % of the adult reference intake (Finnish
+    recommendations 2024 / NNR2023), by the sex and age in Settings."""
+
+    def setUp(self):
+        from core.models import UserSettings
+        self.user = get_user_model().objects.create_user(username="microref", password="x")
+        self.client.force_login(self.user)
+        self.log = DailyLog.objects.create(date="2026-10-12")
+        self.settings = UserSettings.get_settings()
+
+    def _set(self, sex, age=None):
+        self.settings.sex, self.settings.age = sex, age
+        self.settings.save()
+
+    def _entry(self, calories=100, **nutrients):
+        entry = MealEntry.objects.create(
+            daily_log=self.log, user=self.user, source_type="manual", food_name="Food",
+            meal_type="lunch", portion_grams=100, calories=calories,
+        )
+        for key, value in nutrients.items():
+            MealEntryNutrient.objects.create(meal_entry=entry, nutrient_key=key, value=value, unit=NUTRIENT_UNITS[key])
+
+    def _panel(self):
+        resp = self.client.get(reverse("food_diary"), {"date": "2026-10-12"})
+        return resp, {row["label"]: row["reference"] for group in resp.context["day_micronutrients"] for row in group["rows"]}
+
+    def test_no_percentages_without_sex(self):
+        self._set(None)
+        self._entry(iron=4.5)
+        resp, refs = self._panel()
+        self.assertIsNone(refs["Iron"])
+        self.assertContains(resp, "Set your sex in")
+
+    def test_men_and_women_have_own_values(self):
+        self._entry(iron=4.5, vitamin_c=55)
+        self._set("M", 35)
+        _, refs = self._panel()
+        self.assertEqual((refs["Iron"], refs["Vitamin C"]), ((50, False), (50, False)))  # 9 mg, 110 mg
+        self._set("F", 35)
+        _, refs = self._panel()
+        self.assertEqual(refs["Iron"], (30, False))  # 15 mg
+
+    def test_age_groups(self):
+        self._entry(iron=4, calcium=500, vitamin_d=10)
+        self._set("F", 60)
+        _, refs = self._panel()
+        self.assertEqual(refs["Iron"], (50, False))  # 8 mg at 51-70
+        self.assertEqual(refs["Vitamin D"], (100, False))  # 10 µg
+        self._set("F", 20)
+        _, refs = self._panel()
+        self.assertEqual(refs["Calcium"], (50, False))  # 1000 mg at 18-24
+        self._set("F", 80)
+        _, refs = self._panel()
+        self.assertEqual(refs["Vitamin D"], (50, False))  # 20 µg from 75
+
+    def test_per_mj_nutrients_follow_the_days_energy(self):
+        self._set("M", 35)
+        self._entry(calories=2390.06, thiamine=0.5)  # 10 MJ -> 1.0 mg
+        _, refs = self._panel()
+        self.assertEqual(refs["Thiamine"], (50, False))
+
+    def test_sodium_against_its_maximum(self):
+        self._set("F", 35)
+        self._entry(sodium=984.25)  # half of 5 g salt
+        resp, refs = self._panel()
+        self.assertEqual(refs["Sodium"], (50, True))
+        self.assertContains(resp, "50 % of max")
+
+    def test_no_reference_for_fats(self):
+        self._set("M", 35)
+        self._entry(omega3=1.5, cholesterol=200)
+        _, refs = self._panel()
+        self.assertEqual(set(refs.values()), {None})
+
+    def test_reference_without_age_uses_25_to_50(self):
+        from .reference_intakes import reference_intake
+        self.assertEqual(reference_intake("calcium", "F"), (950, False))
+        self.assertEqual(reference_intake("zinc", "M", 80), (12.1, False))
+        self.assertIsNone(reference_intake("iron", None, 30))

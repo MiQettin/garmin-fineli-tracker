@@ -13,8 +13,10 @@ from django.db.models import Q
 import json
 from urllib.parse import urlencode
 
-from core.models import DailyLog
+from core.models import DailyLog, UserSettings
 from .food_language import UNIT_LABELS, fineli_name, food_language, name_field, unit_label
+from .food_search import fineli_search, name_search, ranked_fineli_search
+from .reference_intakes import percent_of_reference
 from .models import (
     FineliFood, CustomFood, CustomFoodIngredient, CustomFoodNutrient, FavoriteFood, MealEntry, MealEntryNutrient,
     fineli_unit_sort_key, NUTRIENT_UNITS,
@@ -78,15 +80,20 @@ def _format_day_amount(value):
     return f"{value:.2f}".rstrip("0").rstrip(".") or "0"
 
 
-def _day_micronutrients(meal_entries):
+def _day_micronutrients(meal_entries, sex=None, age=None):
     """The day's micronutrient totals, grouped for the diary page.
 
     A food with no value for a nutrient is unknown, not zero, so each total
     tells how many of the day's foods it covers ("12 mg, 8/11 foods").
     A 'less than' value counts with its threshold. Nutrients no food of the
-    day reports are left out."""
+    day reports are left out.
+
+    With the sex set in Settings, each total also gets its percentage of the
+    day's reference intake (reference_intakes.py); thiamine and niacin are
+    recommended per MJ, so they are compared with the day's logged energy."""
     if not meal_entries:
         return []
+    energy_kcal = sum(entry.calories or 0 for entry in meal_entries)
     keys = [key for _, group_keys in DAY_MICRONUTRIENT_GROUPS for key in group_keys]
     totals, known = {}, {}
     for row in MealEntryNutrient.objects.filter(
@@ -107,12 +114,18 @@ def _day_micronutrients(meal_entries):
                 'unit': _UNIT_DISPLAY.get(NUTRIENT_UNITS[key], NUTRIENT_UNITS[key]),
                 'known': known[key],
                 'partial': known[key] < len(meal_entries),
+                'reference': percent_of_reference(totals[key], key, sex, age, energy_kcal),
             }
             for key in group_keys if key in totals
         ]
         if rows:
             groups.append({'name': str(group_name), 'rows': rows})
     return groups
+
+
+def _sex_and_age():
+    settings = UserSettings.get_settings()
+    return settings.sex, settings.age
 
 
 @login_required
@@ -131,6 +144,7 @@ def food_diary_view(request):
     )
     _attach_shown_names(meal_entries)
     custom_foods = CustomFood.objects.filter(user=request.user)[:20]
+    sex, age = _sex_and_age()
 
     # One section per meal that has entries this day - the user picks the
     # meal when adding food. Sections follow the day: the meal whose first
@@ -188,7 +202,9 @@ def food_diary_view(request):
         'meal_sections': meal_sections,
         'meal_options': meal_options(),
         'day_totals': day_totals,
-        'day_micronutrients': _day_micronutrients(meal_entries),
+        # Percentages of the reference intakes follow the sex and age in Settings.
+        'day_micronutrients': _day_micronutrients(meal_entries, sex, age),
+        'micro_sex_set': sex in ('F', 'M'),
         'entry_count': len(meal_entries),
         'prev_date': prev_date,
         'next_date': next_date,
@@ -321,76 +337,6 @@ def delete_custom_food(request, food_id):
             food.delete()
             messages.success(request, gettext("Deleted %(name)s.") % {"name": food.name})
     return redirect('manage_custom_foods')
-
-
-def search_words(query):
-    """The words of a search query ("maito, lak" -> ["maito", "lak"])."""
-    return query.replace(",", " ").split()
-
-
-def name_search(fields, query):
-    """Case-insensitive name search that also works for ä/ö/å.
-
-    Every word of the query must appear (in any order and any of `fields`),
-    so "maito lak" finds "MAITO, KEVYTMAITO, LAKTOOSITON".
-
-    SQLite's LIKE folds case for ASCII letters only, so "vehnäjauho" never
-    matched Fineli's upper-case "VEHNÄJAUHO". Matching each word as typed,
-    upper-, lower- and capitalised covers Fineli's all-caps names and normal
-    mixed-case custom food names."""
-    condition = Q()
-    for word in search_words(query):
-        variants = {word, word.upper(), word.lower(), word.capitalize()}
-        word_matches = Q()
-        for field in fields:
-            for variant in variants:
-                word_matches |= Q(**{f"{field}__icontains": variant})
-        condition &= word_matches
-    return condition
-
-
-def _match_rank(name, query):
-    """Relevance of a Fineli name for `query`, lower is better. Fineli names
-    are comma-separated, most general part first ("BANAANI, KUORITTU",
-    "JAUHO, VEHNÄJAUHO, ..."), so where the query appears matters:
-    0 first part is the query, 1 first part starts with it, 2 second part is
-    the query, 3 a later part is, 4 a part starts with it, 5 anywhere else."""
-    query = query.casefold()
-    parts = [part.strip() for part in (name or "").casefold().split(",")]
-    if parts[0] == query:
-        return 0
-    if parts[0].startswith(query):
-        return 1
-    if len(parts) > 1 and parts[1] == query:
-        return 2
-    if query in parts:
-        return 3
-    if any(part.startswith(query) for part in parts):
-        return 4
-    return 5
-
-
-def ranked_fineli_search(query, fields=('name_fi', 'name_sv', 'name_en'), limit=20, by_usage=False):
-    """FineliFood matches for `query`, best matches first (see
-    _match_rank), optionally most-used first. Ranks on the lightweight
-    values, then loads only the top `limit` rows with their units."""
-    rank_field = name_field()
-    rows = FineliFood.objects.filter(name_search(fields, query)).values_list(
-        'fineli_id', rank_field, 'usage_count',
-    )
-    words = search_words(query)
-    # The first word decides most (it's usually the food itself: "maito"
-    # in "maito lak"), the rest break ties; then shorter = more generic.
-    ordered = sorted(rows, key=lambda r: (
-        -(r[2] or 0) if by_usage else 0,
-        _match_rank(r[1], words[0]),
-        sum(_match_rank(r[1], word) for word in words[1:]),
-        len(r[1] or ""),
-        r[1] or "",
-    ))
-    top_ids = [r[0] for r in ordered[:limit]]
-    foods = FineliFood.objects.filter(fineli_id__in=top_ids).prefetch_related('units').in_bulk(field_name='fineli_id')
-    return [foods[i] for i in top_ids]
 
 
 def _parse_grams(raw):
@@ -947,7 +893,7 @@ def edit_meal_entry(request, entry_id):
         form = MealEntryEditForm(instance=entry)
 
     return render(request, "nutrition/edit_meal_entry.html", {
-        "form": form, "entry": entry, "meal_options": meal_options(), "diary_url": diary_url, "unit_label": unit_label,
+        "form": form, "entry": entry, "diary_url": diary_url, "unit_label": unit_label,
         "source_label": source_label(entry.source_type),
         "grams_per_unit": original_grams / original_amount if unit_label and original_amount else None,
     })
@@ -1069,8 +1015,13 @@ def list_custom_foods_api(request):
     })
 
 
+SEARCH_LIMIT = 20
+SEARCH_MAX_LIMIT = 200
+
+
 def search_fineli_api(request):
-    """Search Fineli database (local only)."""
+    """Search Fineli database (local only). `limit` (default 20, at most
+    200) caps the results; `total` is the number of all matches."""
     query = request.GET.get('q', '').strip()
     if len(query) < 2:
         favorites = FineliFood.objects.filter(usage_count__gt=0).prefetch_related('units').order_by('-usage_count', '-last_used')[:10]
@@ -1082,16 +1033,25 @@ def search_fineli_api(request):
         })
     
     try:
-        foods = ranked_fineli_search(query, by_usage=True)
-        
-        results = [format_food_for_frontend(food, is_favorite=(food.usage_count > 0)) for food in foods]
-        
+        limit = int(request.GET.get('limit', SEARCH_LIMIT))
+    except ValueError:
+        limit = SEARCH_LIMIT
+    limit = max(1, min(limit, SEARCH_MAX_LIMIT))
+
+    try:
+        found = fineli_search(query, limit=limit, by_usage=True)
+
+        results = [format_food_for_frontend(food, is_favorite=(food.usage_count > 0)) for food in found.foods]
+
         db_count = FineliFood.objects.count()
-        
+
         return JsonResponse({
             'results': results,
             'source': 'database',
             'count': len(results),
+            # All matches; the diary shows "Show all" when there are more.
+            'total': found.total,
+            'corrected_query': found.corrected_query,
             'total_foods_in_db': db_count
         })
     except Exception as e:

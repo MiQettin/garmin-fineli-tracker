@@ -1,0 +1,1 @@
+data-item="{{ item.id }}" data-name="{{ item.name }}" data-search="{{ item.name|lower }} {{ item.brand|lower }}{% for ing in item.ingredient_list %} {% if ing.fineli_food %}{{ ing.fineli_food.display_name|lower }}{% else %}{{ ing.source_custom_food.name|lower }}{% endif %}{% endfor %}" data-uses="{{ item.use_count }}" data-updated="{{ item.updated_at|date:'c' }}"

@@ -1,0 +1,35 @@
+/* Search / sort / view controls and the compact list (item_browser.js). */
+.browser-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.browser-search { flex: 1 1 220px; min-width: 0; font-size: 16px; min-height: 44px; }
+.browser-sort { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 0.85em; color: var(--gray-500); }
+.browser-sort select { min-height: 44px; font-size: 16px; width: auto; }
+.browser-views { display: flex; gap: 4px; }
+.browser-views .btn { min-height: 44px; }
+.browser-views .btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
+.browser-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 12px; font-size: 0.85em; color: var(--gray-500); }
+.browser-letters { display: flex; flex-wrap: wrap; gap: 4px; }
+.browser-letters[hidden] { display: none; }
+.browser-letter-btn { min-width: 32px; min-height: 32px; padding: 2px 6px; border: 1px solid var(--border-light); border-radius: 6px; background: var(--bg-card); color: var(--primary); font-weight: 700; cursor: pointer; }
+.browser-letter-btn:hover { background: var(--bg-hover); }
+[data-browser] [data-item], .browser-letter { scroll-margin-top: 80px; }
+[data-browser] [data-item][hidden], [data-browser-cards][hidden], [data-browser-rows][hidden] { display: none !important; }
+
+.browser-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border-light); border-radius: 12px; overflow: hidden; background: var(--bg-card); }
+.browser-letter { padding: 4px 14px; background: var(--bg-hover); color: var(--gray-500); font-size: 0.78em; font-weight: 700; letter-spacing: 0.05em; }
+.browser-row { border-top: 1px solid var(--border-light); }
+.browser-row:first-child { border-top: none; }
+.browser-row a { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; min-height: 52px; color: inherit; text-decoration: none; }
+.browser-row a:hover { background: var(--bg-hover); }
+.browser-row-name { min-width: 0; font-weight: 600; color: var(--gray-900); overflow-wrap: anywhere; }
+.browser-row-name small { display: block; font-weight: 400; color: var(--gray-500); font-size: 0.8em; }
+.browser-row-values { flex-shrink: 0; text-align: right; font-size: 0.82em; color: var(--gray-500); white-space: nowrap; }
+.browser-row-values strong { display: block; font-size: 1.1em; color: var(--gray-800); }
+.browser-row-values strong small { font-size: 0.75em; font-weight: 400; color: var(--gray-500); }
+
+/* Phones: search on its own row, sort and view together below it. */
+@media (max-width: 576px) {
+  .browser-search { flex-basis: 100%; }
+  .browser-sort { flex: 1 1 0; min-width: 0; }
+  .browser-sort span { display: none; }
+  .browser-sort select { width: 100%; min-width: 0; }
+}

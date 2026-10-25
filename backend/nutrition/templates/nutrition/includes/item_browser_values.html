@@ -1,0 +1,6 @@
+{% load i18n %}<span class="browser-row-values">
+  <strong>{% if item.energy_kcal_per_100g is not None %}{{ item.energy_kcal_per_100g|floatformat:0 }}{% else %}–{% endif %} kcal <small>/ 100 g</small></strong>
+  {% translate "P" context "protein" %} {% if item.protein_per_100g is not None %}{{ item.protein_per_100g|floatformat:1 }}{% else %}–{% endif %} &middot;
+  {% translate "C" context "carbs" %} {% if item.carbs_per_100g is not None %}{{ item.carbs_per_100g|floatformat:1 }}{% else %}–{% endif %} &middot;
+  {% translate "F" context "fat" %} {% if item.fat_per_100g is not None %}{{ item.fat_per_100g|floatformat:1 }}{% else %}–{% endif %} g
+</span>

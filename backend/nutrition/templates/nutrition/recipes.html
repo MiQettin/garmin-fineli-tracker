@@ -1,9 +1,10 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% translate "Recipes" %} - HealthManager{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'nutrition/item_browser.css' %}">
 <style>
   .recipes-page { max-width: 1100px; margin: 24px auto; }
   .recipes-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
@@ -13,11 +14,8 @@
   .create-panel label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82em; color: var(--gray-500); }
   .create-panel input { font-size: 16px; min-height: 44px; }
   .create-panel .btn { min-height: 44px; }
-  .recipe-search { margin-bottom: 12px; }
-  .recipe-search input { font-size: 16px; min-height: 44px; max-width: 420px; }
   .recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
   .recipe-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-  .recipe-card[hidden] { display: none; }
   .recipe-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
   .recipe-title { font-weight: 800; color: var(--gray-900); font-size: 1.05em; overflow-wrap: anywhere; }
   .recipe-title small { display: block; font-weight: 500; color: var(--gray-500); font-size: 0.78em; }
@@ -71,14 +69,12 @@
   </div>
 
   {% if recipes %}
-  {% if recipes|length > 6 %}
-  <div class="recipe-search">
-    <input class="form-control" type="search" id="recipeSearch" placeholder="{% translate 'Search recipes' %}" autocomplete="off" aria-label="{% translate 'Search recipes' %}">
-  </div>
-  {% endif %}
-  <div class="recipe-grid">
+  <div data-browser="recipes" data-text-count="{% translate 'Shown: {n}' %}" data-text-shown-of="{% translate 'Shown: {n} / {total}' %}">
+  {% translate "Search recipes or ingredients" as placeholder %}
+  {% include "nutrition/includes/item_browser_toolbar.html" with placeholder=placeholder %}
+  <div class="recipe-grid" data-browser-cards>
     {% for recipe in recipes %}
-    <article class="recipe-card" data-search="{{ recipe.name|lower }} {{ recipe.brand|lower }}">
+    <article class="recipe-card" {% include "nutrition/includes/item_browser_data.html" with item=recipe %}>
       <div class="recipe-card-head">
         <div class="recipe-title">{{ recipe.name }}{% if recipe.brand %}<small>{{ recipe.brand }}</small>{% endif %}</div>
         <div class="recipe-kcal">
@@ -137,7 +133,18 @@
     </article>
     {% endfor %}
   </div>
-  <p class="empty-state" id="recipeSearchEmpty" hidden>{% translate "No recipes matched." %}</p>
+  <ul class="browser-rows" data-browser-rows hidden>
+    {% for recipe in recipes %}
+    <li class="browser-row" {% include "nutrition/includes/item_browser_data.html" with item=recipe %}>
+      <a href="{% url 'recipe_detail' recipe.id %}">
+        <span class="browser-row-name">{{ recipe.name }}<small>{% if recipe.brand %}{{ recipe.brand }} &middot; {% endif %}{% if recipe.ingredient_list %}{% blocktranslate count n=recipe.ingredient_list|length %}{{ n }} ingredient{% plural %}{{ n }} ingredients{% endblocktranslate %}{% else %}{% translate "No ingredients yet" %}{% endif %}{% if recipe.use_count %} &middot; {% blocktranslate with n=recipe.use_count %}logged {{ n }}×{% endblocktranslate %}{% endif %}</small></span>
+        {% include "nutrition/includes/item_browser_values.html" with item=recipe %}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="empty-state" data-browser-empty hidden>{% translate "No recipes matched." %}</p>
+  </div>
   {% else %}
   <p class="empty-state">{% blocktranslate %}No recipes yet - press <strong>+ Create recipe</strong> to make your first one.{% endblocktranslate %}</p>
   {% endif %}
@@ -146,6 +153,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'nutrition/item_browser.js' %}"></script>
 <script>
 (function () {
   const toggle = document.getElementById('toggleCreate');
@@ -154,21 +162,6 @@
     panel.hidden = !panel.hidden;
     toggle.setAttribute('aria-expanded', String(!panel.hidden));
     if (!panel.hidden) panel.querySelector('input[name=name]').focus();
-  });
-
-  const search = document.getElementById('recipeSearch');
-  if (!search) return;
-  const cards = Array.from(document.querySelectorAll('.recipe-card'));
-  const empty = document.getElementById('recipeSearchEmpty');
-  search.addEventListener('input', () => {
-    const words = search.value.toLocaleLowerCase('fi').split(/\s+/).filter(Boolean);
-    let shown = 0;
-    for (const card of cards) {
-      const match = words.every((w) => card.dataset.search.includes(w));
-      card.hidden = !match;
-      if (match) shown++;
-    }
-    empty.hidden = shown > 0;
   });
 })();
 </script>

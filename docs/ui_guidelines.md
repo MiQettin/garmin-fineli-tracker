@@ -98,7 +98,15 @@ The Add Food dialog's unit list depends on the food: grams plus Fineli portion s
 
 ### Meal name field
 
-`nutrition/includes/meal_picker.html` + `static/nutrition/meal_picker.{js,css}`: a free-text input (`role="combobox"`) with the 5 standard meals as suggestions in the app language. Tapping the field or ▾ opens the short list; typing filters it (starts-with first, then contains); ↑/↓ + Enter picks, Esc closes. Any other text is a meal name of its own. The browser sends the text as typed - the server (`nutrition/meals.py`) maps standard names in either language to their keys. Used on the diary page (adds a meal section) and on the entry edit page.
+`nutrition/includes/meal_picker.html` + `static/nutrition/meal_picker.{js,css}`: a free-text input (`role="combobox"`) with the 5 standard meals as suggestions in the app language. Tapping the field or ▾ opens the short list; typing filters it (starts-with first, then contains); ↑/↓ + Enter picks, Esc closes. Any other text is a meal name of its own. The browser sends the text as typed - the server (`nutrition/meals.py`) maps standard names in either language to their keys. Used on the diary page (adds a meal section). The entry edit page has no meal field: it sends the stored meal in a hidden input, so an entry keeps its meal.
+
+### Folded sections
+
+Things that are rarely needed start folded and open on request: the Add Food window's ways of adding (a ▾ bar naming the tab in use), the **➕ Add product** form (`<details>`, opens itself when a save failed) and page intros (an ⓘ button with `aria-expanded`). A feature that is in the menu gets no extra button on a page.
+
+### Own-food browser
+
+Products and recipes share one list browser: `static/nutrition/item_browser.{js,css}` and `templates/nutrition/includes/item_browser_*.html`. The page renders each item as a card and as a compact row, both with the same `data-*` values; the script searches (every word, any order), sorts (A–Ö with `localeCompare(…, 'fi')`, most used, recently edited), switches Cards / List (list by default over 12 items) and adds A–Ö headings and a letter bar. Sort and view are kept per page in `localStorage`.
 
 ### Analytics filters
 
@@ -120,7 +128,7 @@ The UI is in English and Finnish (Settings → Language). Write every user-visib
 
 - Templates: `{% load i18n %}`, then `{% translate "Text" %}`, or `{% blocktranslate with n=value %}… {{ n }} …{% endblocktranslate %}` for texts with values. Keep whole sentences in one msgid - never glue translated fragments together.
 - `{% translate %}` output is **not** HTML-escaped. For texts with `&`, `<` or `>` use `{% translate "Health & Recovery" as t %}{{ t|force_escape }}`.
-- A literal `%` in a translated text is written `%%` (also in the Finnish msgstr).
+- A literal `%` in a `{% blocktranslate %}` text is stored as `%%` in the .po (also in the Finnish msgstr). Avoid a literal `%` in a plain `{% translate %}` text - `update_translations` escapes it to `%%` and the entry may not match; reword instead.
 - Template tag arguments: `label=_("Text")`.
 - JavaScript: `{% load core_extras %}` and `{% jstrans "Text" %}`, which outputs a JSON string literal that is safe inside `<script>`. Static `.js` files get their texts from a small object defined in the template (e.g. `window.HEALTH_I18N`) and keep English defaults.
 - Python: `gettext("… %(name)s") % {"name": value}` for messages and JSON errors. Model `choices` are translated at display time (form `__init__`, `activities.labels`, template filters) - changing a model's choices would need a migration.

@@ -85,6 +85,9 @@ msgstr "Suosikit"
 msgid "Recipes"
 msgstr "Reseptit"
 
+msgid "Import Diary CSV"
+msgstr "Tuo päiväkirja (CSV)"
+
 msgid "Settings"
 msgstr "Asetukset"
 
@@ -514,9 +517,6 @@ msgstr "Muokkaa"
 msgid "Food name"
 msgstr "Ruoan nimi"
 
-msgid "Meal"
-msgstr "Ateria"
-
 msgid "Amount (× %(unit_label)s)"
 msgstr "Määrä (× %(unit_label)s)"
 
@@ -634,9 +634,6 @@ msgstr "Tänään"
 msgid "Next"
 msgstr "Seuraava"
 
-msgid "Import Diary CSV"
-msgstr "Tuo päiväkirja (CSV)"
-
 msgid "Calories In"
 msgstr "Energiansaanti"
 
@@ -655,11 +652,23 @@ msgstr "Suola"
 msgid "Micronutrients"
 msgstr "Mikroravinteet"
 
+msgid "%(pct)s %% of max"
+msgstr "%(pct)s %% maksimista"
+
 msgid "Foods with a known value / all foods of the day"
 msgstr "Ruoat, joille arvo tiedetään / päivän kaikki ruoat"
 
 msgid "x/y: the total includes only the foods with a known value."
 msgstr "x/y: summassa ovat mukana vain ruoat, joille arvo tiedetään."
+
+msgid "Percentages: share of the daily recommended intake for adults (Finnish nutrition recommendations 2024, based on NNR2023), by the sex and age in Settings. Thiamine and niacin are compared with the energy logged today. Sodium: share of the maximum (5 g salt)."
+msgstr "Prosentit: osuus aikuisten päivittäisestä saantisuosituksesta (kansalliset ravitsemussuositukset 2024, pohjana NNR2023) asetusten sukupuolen ja iän mukaan. Tiamiinia ja niasiinia verrataan tänään kirjattuun energiaan. Natrium: osuus enimmäismäärästä (5 g suolaa)."
+
+msgid "Set your sex in <a href=\"%(settings_url)s\">Settings</a> to see each value as a %% of the daily recommendation."
+msgstr "Valitse sukupuoli <a href=\"%(settings_url)s\">asetuksissa</a>, niin näet arvot prosentteina päivän saantisuosituksesta."
+
+msgid "Meal"
+msgstr "Ateria"
 
 msgid "Add Food"
 msgstr "Lisää ruoka"
@@ -697,26 +706,23 @@ msgstr "Poista: %(name)s"
 msgid "Nothing logged for this day yet."
 msgstr "Tälle päivälle ei ole vielä merkintöjä."
 
+msgid "Choose how to add"
+msgstr "Valitse lisäystapa"
+
 msgid "Search Fineli"
 msgstr "Hae Finelistä"
 
 msgid "My Foods"
 msgstr "Omat ruoat"
 
+msgid "Manual Entry"
+msgstr "Käsin"
+
 msgid "Recent"
 msgstr "Viimeisimmät"
 
 msgid "Frequent"
 msgstr "Useimmin"
-
-msgid "Diary CSV"
-msgstr "Päiväkirja-CSV"
-
-msgid "Manual Entry"
-msgstr "Käsin"
-
-msgid "Search Fineli foods..."
-msgstr "Hae Finelin ruokia..."
 
 msgid "Loading favorites..."
 msgstr "Ladataan suosikkeja..."
@@ -741,12 +747,6 @@ msgstr "Useimmin kirjaamasi ruoat."
 
 msgid "Loading frequent foods..."
 msgstr "Ladataan useimmin kirjattuja..."
-
-msgid "Import foods from a Fineli diary CSV export. Each entry uses the file's own date and meal, the same as the import button at the top of the page."
-msgstr "Tuo ruoat Finelin päiväkirjan CSV-viennistä. Jokainen merkintä saa tiedoston oman päivän ja aterian, kuten sivun yläreunan tuontinapissa."
-
-msgid "Open Diary CSV Import"
-msgstr "Avaa päiväkirjan CSV-tuonti"
 
 msgid "Food name:"
 msgstr "Ruoan nimi:"
@@ -822,6 +822,12 @@ msgstr "Aloita ruokien haku..."
 
 msgid "No results found"
 msgstr "Ei tuloksia"
+
+msgid "Showing results for {q}"
+msgstr "Näytetään tulokset haulle {q}"
+
+msgid "Show all {n} results"
+msgstr "Näytä kaikki {n} tulosta"
 
 msgid "Failed to load foods:"
 msgstr "Ruokien lataus epäonnistui:"
@@ -934,6 +940,30 @@ msgstr "Tuonti epäonnistui. Yritä uudelleen."
 msgid "Network error. Please try again."
 msgstr "Verkkovirhe. Yritä uudelleen."
 
+msgid "Sort"
+msgstr "Järjestys"
+
+msgid "Name A–Ö"
+msgstr "Nimi A–Ö"
+
+msgid "Most used"
+msgstr "Eniten käytetyt"
+
+msgid "Recently edited"
+msgstr "Viimeksi muokatut"
+
+msgid "View"
+msgstr "Näkymä"
+
+msgid "Cards"
+msgstr "Kortit"
+
+msgid "List"
+msgstr "Lista"
+
+msgid "Jump to letter"
+msgstr "Siirry kirjaimeen"
+
 msgid "Choose or type a meal"
 msgstr "Valitse tai kirjoita ateria"
 
@@ -942,6 +972,9 @@ msgstr "Näytä ateriat"
 
 msgid "My products"
 msgstr "Omat tuotteet"
+
+msgid "About this page"
+msgstr "Tietoa sivusta"
 
 msgid "Add products that are not in the Fineli database, with the nutrition values from the label per 100 g or per 100 ml."
 msgstr "Lisää tuotteita, joita ei ole Finelissä, pakkauksen ravintoarvoilla / 100 g tai / 100 ml."
@@ -961,6 +994,15 @@ msgstr "Tallenna tuote"
 msgid "Saved products"
 msgstr "Tallennetut tuotteet"
 
+msgid "Shown: {n}"
+msgstr "Näkyvissä: {n}"
+
+msgid "Shown: {n} / {total}"
+msgstr "Näkyvissä: {n} / {total}"
+
+msgid "Search products"
+msgstr "Hae tuotteita"
+
 msgid "protein"
 msgstr "proteiini"
 
@@ -975,6 +1017,9 @@ msgstr "Pakkaus:"
 
 msgid "Click again to delete"
 msgstr "Vahvista poisto napauttamalla uudelleen"
+
+msgid "No products matched."
+msgstr "Ei osuvia tuotteita."
 
 msgid "No products yet."
 msgstr "Ei vielä tuotteita."
@@ -1144,8 +1189,8 @@ msgstr "Merkki / huomio (valinnainen)"
 msgid "Create and add ingredients"
 msgstr "Luo ja lisää ainesosat"
 
-msgid "Search recipes"
-msgstr "Hae reseptejä"
+msgid "Search recipes or ingredients"
+msgstr "Hae reseptejä tai raaka-aineita"
 
 msgid "%(n)s ingredient"
 msgid_plural "%(n)s ingredients"

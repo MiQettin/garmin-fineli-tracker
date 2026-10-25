@@ -25,12 +25,14 @@ HealthManager is a privacy-focused Django web application that helps you:
 ## ✨ Features
 
 ### Food diary
-- **Fineli search**: the whole Fineli database imported locally (about 4,200 foods) - works offline. Case and ä/ö/å don't matter, every word matches in any order ("maito lak"), best matches first.
+- **Fineli search**: the whole Fineli database imported locally (about 4,200 foods) - works offline. Case and ä/ö/å don't matter, every word matches in any order ("maito lak"), best matches first - Finnish compounds are understood ("hillo" finds *marjahillo* before *hillopiirakka*), with synonyms ("kana" finds *broileri*) and typo correction ("jugurtti"). Your own foods appear in the same search.
 - **Portions**: Fineli's own portion sizes (pieni/iso kpl, annos, dl, rkl …), product packages ("1 × pakkaus"), ml/dl/l for liquids, recipe servings ("1 × annos"), or grams.
 - **Own products**: values per 100 g or per 100 ml from the label, optional package size.
 - **Recipes**: build dishes from Fineli foods and your own foods; values per 100 g are calculated (optionally from the finished dish's weight) and kept up to date when ingredients change; optional servings; duplicate and delete.
+- **Browsing your foods**: products and recipes can be searched (recipes also by ingredient), sorted (A–Ö, most used, recently edited) and shown as cards or a compact A–Ö list.
+- **Micronutrients**: the day's vitamins and minerals, each as a % of the adult daily recommendation (Finnish nutrition recommendations 2024 / NNR2023) for the sex and age in Settings.
 - **Meals**: name your own meals (e.g. "Ennen kisaa") or pick a standard one (Breakfast, Lunch, Snack, Dinner, Supper) from the suggestions; the diary shows only the meals you logged that day, and a whole meal can be deleted.
-- **Favorites, Recent, Frequent**, manual entries, editing entries, and **bulk import** of Fineli diary CSV exports.
+- **Favorites, Recent, Frequent**, manual entries, editing entries, and **bulk import** of Fineli diary CSV exports (from the menu).
 - Unknown nutrient values stay unknown - never counted as zero.
 
 ### Language
@@ -181,11 +183,10 @@ python manage.py import_garmin_csv
 
 Import your food diary from Fineli diary CSV exports (food by food, not just daily totals):
 
-1. Go to Food Diary page: http://127.0.0.1:8000/food-diary/
-2. Click the "📥 Import Diary CSV" button next to the date (on a phone just 📥)
-3. Select one or multiple CSV files from Fineli diary export
-4. Click "Import" - all days are processed automatically
-5. Page refreshes after successful import
+1. Open the menu **Nutrition → 📥 Import Diary CSV**
+2. Select one or multiple CSV files from Fineli diary export
+3. Click "Import" - all days are processed automatically
+4. Page refreshes after successful import
 
 **Features:**
 - Multi-file upload support

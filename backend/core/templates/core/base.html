@@ -58,6 +58,7 @@
                 <li><a class="dropdown-item{% if '/custom-foods/' in request.path and '/recipe' not in request.path %} active{% endif %}" href="/food-diary/custom-foods/">📝 {% translate "Foods" %}</a></li>
                 <li><a class="dropdown-item{% if '/food-diary/favorites/' in request.path %} active{% endif %}" href="{% url 'manage_favorites' %}">⭐ {% translate "Favorites" %}</a></li>
                 <li><a class="dropdown-item{% if '/recipe' in request.path %} active{% endif %}" href="{% url 'recipe_list' %}">🧪 {% translate "Recipes" %}</a></li>
+                <li><a class="dropdown-item" href="{% url 'food_diary' %}#import-csv">📥 {% translate "Import Diary CSV" %}</a></li>
               </ul>
             </li>
             <li class="nav-item">

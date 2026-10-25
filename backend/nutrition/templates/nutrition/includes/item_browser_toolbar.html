@@ -1,0 +1,25 @@
+{% load i18n %}
+{% comment %}
+Search, sort and view controls for a [data-browser] list (item_browser.js).
+Include inside the [data-browser] element with `placeholder`.
+{% endcomment %}
+<div class="browser-toolbar">
+  <input class="form-control browser-search" type="search" data-browser-search
+         placeholder="{{ placeholder }}" aria-label="{{ placeholder }}" autocomplete="off">
+  <label class="browser-sort">
+    <span>{% translate "Sort" %}</span>
+    <select class="form-select" data-browser-sort aria-label="{% translate "Sort" %}">
+      <option value="name">{% translate "Name A–Ö" %}</option>
+      <option value="uses">{% translate "Most used" %}</option>
+      <option value="updated">{% translate "Recently edited" %}</option>
+    </select>
+  </label>
+  <div class="browser-views" role="group" aria-label="{% translate 'View' %}">
+    <button type="button" class="btn btn-outline-light" data-browser-view="cards" aria-pressed="true">▦ {% translate "Cards" %}</button>
+    <button type="button" class="btn btn-outline-light" data-browser-view="list" aria-pressed="false">☰ {% translate "List" %}</button>
+  </div>
+</div>
+<div class="browser-status">
+  <span data-browser-count></span>
+  <nav class="browser-letters" data-browser-letters aria-label="{% translate 'Jump to letter' %}" hidden></nav>
+</div>

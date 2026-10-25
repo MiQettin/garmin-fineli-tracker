@@ -1,13 +1,13 @@
 # Project Status - HealthManager
 
-Last updated: 2026-10-18
+Last updated: 2026-10-25
 
 ## Current Phase
 
 - Phase: 4 - Nutrition depth (products and recipes, provenance-aware diary import) and Garmin health metrics.
 - Status: in daily use. The food diary runs on the owner's Raspberry Pi server (since 2026-10-11); a development machine has a copy of the database.
 - Current focus:
-  - Ship the 2026-10-12/13 work to the server (migrations `core/0006`-`0008`, `nutrition/0018`-`0020`, `health/0002`) - see [deployment.md](deployment.md).
+  - Ship the latest work to the server - see [deployment.md](deployment.md). The 2026-10-24 release (food search, browsing, micronutrient %) has no migrations; older ones (`core/0006`-`0008`, `nutrition/0018`-`0020`, `health/0002`, `activities/0003`) are applied by `migrate` if still missing.
   - Next feature: training vs nutrition - its own page comparing workouts with carbohydrate and protein intake in g/kg of body weight, with sports-nutrition reference ranges plus the user's own limits; later a summary on the dashboard. The training load model is still open: it will be based on workout duration and level and on upcoming competitions (carb loading), not on heart-rate zones, and its targets will also be shown in the food diary.
   - Publish tested changes to the public `garmin-fineli-tracker` repository.
   - Running analytics improvements.
@@ -23,7 +23,8 @@ Last updated: 2026-10-18
   - Intake, macros and nutrition coverage count **only the logged-in user's** diary entries.
   - Macro goals, recovery (resting-HR baseline), recent activities, Sync Garmin button in the shared nav.
 - **Food diary** ([food_diary_guide.md](food_diary_guide.md)):
-  - Fineli search (local; ä/ö/å-safe, all words in any order, ranked), favorites, recent, frequent, manual entry, diary CSV import.
+  - Products and recipes lists: search, sort, cards or a compact A–Ö list.
+  - Food search (local Fineli + own foods; ä/ö/å-safe, all words in any order; Finnish compounds ranked by their last part, English names, synonyms, typo correction, "Show all"), favorites, recent, frequent, manual entry; diary CSV import from the menu.
   - Portion units: Fineli portion sizes, "pakkaus" (product package), ml/dl/l (per-100 ml products), "annos" (recipe servings), grams.
   - Free meals: a meal is added on the page from a text field with the 5 standard meals as suggestions (Breakfast, Lunch, Snack, Dinner, Supper / Aamiainen, Lounas, Välipala, Päivällinen, Illallinen), or any own name; the diary shows only the meals logged that day, in logging order; a whole meal can be deleted (🗑️, two clicks). The `evening_snack` key is shown as Supper / Illallinen (it was Evening snack / Iltapala) - the Fineli diary's "illallinen" was already imported as `evening_snack`. No schema change - `meal_type` was already free text; the model's `choices` stay as they are and only the forms use the free list (`nutrition/meals.py`).
   - Values are taken from the database when logging and frozen on the entry. Entries can be edited (✏️ - values follow grams or portion count) and deleted (two clicks).
@@ -40,6 +41,22 @@ Last updated: 2026-10-18
 - **Serving:** gunicorn + whitenoise on the Pi, home network only ([deployment.md](deployment.md)).
 
 ## Recent Changes
+
+### 2026-10-24 - Smarter food search
+
+No database changes (`makemigrations --check` reports nothing).
+
+- **Ranking reads Finnish compounds from the end** (`nutrition/food_search.py`, moved out of `views.py`): a name whose first part is a compound ending in the word (*MARJAHILLO*, *KAURAPUURO*) ranks right after an exact match and before one that only starts with it (*HILLOPIIRAKKA*); inflected forms (*MAUSTETTU HILLOLLA*) come last. "hillo" used to show 12 *HILLOPIIRAKKA*s and push the jams past the top 20. The diary ranks each food by its best name among Finnish, Swedish and English, so "jam" finds *MIXED BERRY JAM*.
+- **Synonyms** (`SYNONYM_GROUPS`: kana/broileri, hillo/marmeladi, chicken/broiler, jam/marmalade) in every food search; a synonym's match ranks just behind the typed word's.
+- **Typo correction:** when the search finds nothing, each word that matches nothing is replaced with the closest Fineli word (`difflib`, whole words then word beginnings; vocabulary cached per process, rebuilt when the foods change). The API returns `corrected_query` and the diary shows "Showing results for …".
+- **All matches reachable:** `/food-diary/api/search/` takes `limit` (default 20, max 200) and returns `total`; the diary shows **Show all N results**.
+- **Stale results fixed:** the diary search cancels the previous request (`AbortController`), so a slow answer for "hil" can no longer replace the one for "hillo".
+- **Own foods in the search:** the diary's search lists up to 5 matching own foods first.
+- **Browsing products and recipes:** Nutrition → Foods (Saved products) and Nutrition → Recipes share one browser (`nutrition/static/nutrition/item_browser.js` + `.css`, `includes/item_browser_*.html`): search (recipes also by ingredient name), sort (Name A–Ö in Finnish order, Most used, Recently edited), Cards / compact List (list by default over 12 items), A–Ö letter headings and jump bar. Sort and view are kept per page in `localStorage`. The recipe search used to appear only with more than six recipes.
+- **Entry edit page:** no meal field any more (it rendered with a large empty gap, and moving a food is rare); the entry keeps its meal. The server still accepts `meal_type` as before.
+- **My products page:** the intro text is behind an ⓘ button; the jump-to-form and Recipes buttons are gone (Recipes is in the menu); **➕ Add product** is a folded `<details>` (opens again when a save fails), so the saved products show first.
+- **Micronutrients as % of the daily recommendation:** the diary's day panel shows each vitamin and mineral as a share of the adult recommended (or adequate) intake from the Finnish recommendations 2024 / NNR2023 (`nutrition/reference_intakes.py`, appendices 10 a–d), by the sex and age in Settings; thiamine and niacin per MJ of the day's logged energy; sodium as a share of the 5 g salt maximum. No sex set → no percentages, with a hint to Settings. The table's iron value for women over 70 (7 mg) is as printed in the source.
+- **Add Food window:** the tab bar is folded behind a toggle that names the tab in use (search is the default). The Diary CSV tab and the 📥 button next to the date are gone; the import is in the menu (**Nutrition → Import Diary CSV**, `/food-diary/#import-csv` opens the import window).
 
 ### 2026-10-18 - Free meals in the food diary
 
@@ -206,12 +223,13 @@ Accepted date formats:
 
 ## Current Focus
 
-1. Ship the 2026-10-12 work to the Pi ([deployment.md](deployment.md#replacing-the-server-database-with-a-fresh-copy) - the owner is replacing the server database with the cleaned-up copy).
+1. Ship the latest work to the Pi ([deployment.md](deployment.md#3-shipping-code-changes-later)): `backup_db`, `git pull`, `migrate`, `collectstatic`, restart.
 2. Running analytics: workout comparison/reference tables, HR zone distribution charts (`hr_zone*_seconds`), date range filtering.
 3. Keep `/docs` aligned when views, scripts or data contracts change.
 
 ## Future Work
 
+- Athlete reference values for the micronutrient % (iron about 1.7× per the DGE sports nutrition position 2020; sodium without the general salt maximum), switched on in Settings. Needs a new `UserSettings` field and migration - the owner decided on 2026-10-25 not to change the database for now.
 - Recipe book (phase 3 of the recipe work, deferred 2026-10-12): preparation instructions and notes, preparation time, tags (breakfast, dessert, gluten-free, ...) for filtering, and later a photo.
 - Side-by-side workout comparison.
 - Personal records and improvement tracking.

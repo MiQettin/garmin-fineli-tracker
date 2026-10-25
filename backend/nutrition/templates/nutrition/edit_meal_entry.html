@@ -4,7 +4,6 @@
 {% block title %}{% translate "Edit" %} - {{ entry.food_name }} - HealthManager{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'nutrition/meal_picker.css' %}">
 <style>
   .entry-edit { max-width: 720px; margin: 24px auto; }
   .entry-edit h1 { font-size: 1.25em; color: var(--gray-900); margin-bottom: 2px; overflow-wrap: anywhere; }
@@ -12,8 +11,6 @@
   .edit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .edit-grid .wide { grid-column: 1 / -1; }
   .entry-edit label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85em; color: var(--gray-500); }
-  .entry-edit .meal-field { display: flex; flex-direction: column; gap: 4px; }
-  .entry-edit .meal-field .meal-combo-input { min-height: 44px; }
   .entry-edit .form-control, .entry-edit .form-select { font-size: 16px; min-height: 44px; }
   .entry-edit .hint { font-size: 0.8em; color: var(--gray-500); }
   .entry-edit .errorlist { color: var(--error); margin: 0; padding: 0; list-style: none; font-size: 0.85em; }
@@ -39,11 +36,8 @@
     {% if form.non_field_errors %}<div class="errorlist">{{ form.non_field_errors }}</div>{% endif %}
     <div class="edit-grid">
       <label class="wide">{% translate "Food name" %}{{ form.food_name }}{{ form.food_name.errors }}</label>
-      <div class="wide meal-field">
-        <label for="id_meal_type">{% translate "Meal" %}</label>
-        {% include "nutrition/includes/meal_picker.html" with input_id="id_meal_type" input_name="meal_type" value=form.meal_type.value %}
-        {{ form.meal_type.errors }}
-      </div>
+      {# The meal isn't changed here; sending it as is keeps the stored value. #}
+      <input type="hidden" name="meal_type" value="{{ form.meal_type.value|default_if_none:'' }}">
       {% if unit_label %}
       <label>{% blocktranslate %}Amount (× {{ unit_label }}){% endblocktranslate %}{{ form.portion_amount }}{{ form.portion_amount.errors }}</label>
       {% endif %}
@@ -77,7 +71,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'nutrition/meal_picker.js' %}"></script>
 {% if grams_per_unit %}
 <script>
 // Changing the portion count updates the grams shown (the server does the

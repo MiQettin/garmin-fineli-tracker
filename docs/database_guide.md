@@ -265,7 +265,7 @@ python ../get_garmindata.py                                                     
 python manage.py import_garmin_csv                                                           # Garmin CSVs -> DailyLog, activities
 ```
 
-Diary CSV exports are imported from the food diary page (📥 Import CSV). The import only adds missing rows and updates matching imported rows; it never deletes. See [food_diary_guide.md](food_diary_guide.md#diary-csv-import).
+Diary CSV exports are imported from the menu (Nutrition → 📥 Import Diary CSV, which opens the import window on the diary page). The import only adds missing rows and updates matching imported rows; it never deletes. See [food_diary_guide.md](food_diary_guide.md#diary-csv-import).
 
 ### Refresh stale daily totals
 

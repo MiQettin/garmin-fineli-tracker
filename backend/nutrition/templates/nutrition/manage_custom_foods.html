@@ -1,9 +1,10 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}My Foods - HealthManager{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'nutrition/item_browser.css' %}">
 <style>
   h1, h2 { color: var(--gray-800); margin-bottom: 12px; font-size: 1.2em; }
   
@@ -86,6 +87,43 @@
     margin-bottom: 30px;
   }
 
+  .add-form:not([open]) {
+    padding: 0;
+    margin-bottom: 20px;
+  }
+
+  .add-form-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 48px;
+    padding: 0 16px;
+    margin: -20px -20px 12px;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--gray-800);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .add-form:not([open]) .add-form-summary {
+    margin: 0;
+  }
+
+  .add-form-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .add-form-summary::after {
+    content: "▾";
+    color: var(--gray-500);
+    transition: transform 0.2s;
+  }
+
+  .add-form[open] .add-form-summary::after {
+    transform: rotate(180deg);
+  }
+
   .form-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -127,6 +165,26 @@
     margin-bottom: 15px;
   }
 
+  .info-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--gray-500);
+    font-size: 1.15em;
+    cursor: pointer;
+  }
+
+  .info-toggle:hover, .info-toggle[aria-expanded="true"] {
+    color: var(--primary);
+    background: var(--bg-hover);
+  }
+
   .portion-info {
     font-size: 0.85em;
     color: var(--gray-500);
@@ -137,23 +195,22 @@
 
 {% block content %}
 <div class="card">
-  <div class="header-row">
-    <h1>📝 {% translate "My products" %}</h1>
+  <div class="header-row" style="justify-content: flex-start; gap: 8px;">
+    <h1 style="margin-bottom: 0;">📝 {% translate "My products" %}</h1>
+    <button type="button" class="info-toggle" id="productsInfoToggle" aria-expanded="false" aria-controls="productsInfo"
+            title="{% translate 'About this page' %}" aria-label="{% translate 'About this page' %}">
+      <i class="bi bi-info-circle" aria-hidden="true"></i>
+    </button>
   </div>
-  
-  <p class="info-text">
+
+  <p class="info-text" id="productsInfo" hidden>
     {% translate "Add products that are not in the Fineli database, with the nutrition values from the label per 100 g or per 100 ml." %}
     {% url 'recipe_list' as recipes_url %}{% blocktranslate %}Homemade dishes built from ingredients are on the <a href="{{ recipes_url }}">Recipes</a> page.{% endblocktranslate %}
   </p>
 
-  <div class="header-row" style="gap: 10px; justify-content: flex-start;">
-    <a href="#add-product-form" class="btn btn-success">➕ {% translate "Add product" %}</a>
-    <a href="{% url 'recipe_list' %}" class="btn btn-outline-light">🧪 {% translate "Recipes" %}</a>
-  </div>
-
-  <!-- Add Product Form -->
-  <div class="add-form" id="add-product-form">
-    <h2>➕ {% translate "Add product" %}</h2>
+  <!-- Add Product Form: folded until needed; open again when a save failed. -->
+  <details class="add-form" id="add-product-form"{% if form.errors %} open{% endif %}>
+    <summary class="add-form-summary">➕ {% translate "Add product" %}</summary>
     <p class="info-text">{% translate "Enter the nutrition values from the label." %}</p>
     <form method="post">
       {% csrf_token %}
@@ -164,15 +221,18 @@
         </div>
       </div>
     </form>
-  </div>
+  </details>
   
   <!-- Custom Foods List -->
   <h2>🍽️ {% translate "Saved products" %}</h2>
   
   {% if custom_foods %}
-  <div class="food-grid">
+  <div data-browser="products" data-text-count="{% translate 'Shown: {n}' %}" data-text-shown-of="{% translate 'Shown: {n} / {total}' %}">
+  {% translate "Search products" as placeholder %}
+  {% include "nutrition/includes/item_browser_toolbar.html" with placeholder=placeholder %}
+  <div class="food-grid" data-browser-cards>
     {% for food in custom_foods %}
-    <div class="food-card">
+    <div class="food-card" {% include "nutrition/includes/item_browser_data.html" with item=food %}>
       <div class="food-name">{{ food.name }}</div>
       {% if food.brand %}
       <div class="food-brand">{{ food.brand }}</div>
@@ -209,6 +269,18 @@
     </div>
     {% endfor %}
   </div>
+  <ul class="browser-rows" data-browser-rows hidden>
+    {% for food in custom_foods %}
+    <li class="browser-row" {% include "nutrition/includes/item_browser_data.html" with item=food %}>
+      <a href="{% url 'edit_custom_food' food.id %}">
+        <span class="browser-row-name">{{ food.name }}{% if food.brand or food.package_amount %}<small>{% if food.brand %}{{ food.brand }}{% endif %}{% if food.brand and food.package_amount %} &middot; {% endif %}{% if food.package_amount %}{% translate "Package:" %} {{ food.package_amount|floatformat:"-2" }} {{ food.get_package_unit_display }}{% endif %}</small>{% endif %}</span>
+        {% include "nutrition/includes/item_browser_values.html" with item=food %}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="empty-state" data-browser-empty hidden>{% translate "No products matched." %}</p>
+  </div>
   {% else %}
   <div class="empty-state">
     <p>{% translate "No products yet." %}</p>
@@ -217,4 +289,18 @@
   {% endif %}
 </div>
 {% include "nutrition/_fineli_attribution.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'nutrition/item_browser.js' %}"></script>
+<script>
+(function () {
+  const toggle = document.getElementById('productsInfoToggle');
+  const info = document.getElementById('productsInfo');
+  toggle.addEventListener('click', () => {
+    info.hidden = !info.hidden;
+    toggle.setAttribute('aria-expanded', String(!info.hidden));
+  });
+})();
+</script>
 {% endblock %}
